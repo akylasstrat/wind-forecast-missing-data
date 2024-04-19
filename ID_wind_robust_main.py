@@ -145,8 +145,8 @@ def params():
     params['trainReg'] = False #Determine best value of regularization for given values. 
  
     params['store_folder'] = 'ID-case' # folder to save stuff (do not change)
-    params['max_lag'] = 3
-    params['min_lag'] = 1  #!!! do not change this for the moment
+    params['max_lag'] = 7
+    params['min_lag'] = 4  #!!! do not change this for the moment
 
     # Penalties for imbalance cost (only for fixed prices)
     params['pen_up'] = 4 
@@ -186,7 +186,7 @@ target_park = 'p_1257'
 
 # number of lags back to consider
 min_lag = config['min_lag']
-max_lag = 3
+max_lag = config['min_lag'] + 3
 Y, Predictors, pred_col = create_IDsupervised(target_park, power_df, min_lag, max_lag)
 
 target_scaler = MinMaxScaler()
@@ -248,7 +248,7 @@ else:
     lad_l1_pred = projection(lad_l1.predict(testPred).reshape(-1,1))
 
 persistence_pred = Target.values[:-config['min_lag']]
-persistence_pred = np.insert(persistence_pred, 0, trainY[-1]).reshape(-1,1)
+persistence_pred = np.insert(persistence_pred, 0, trainY[-config['min_lag']:].reshape(-1)).reshape(-1,1)
 persistence_mae = eval_point_pred(persistence_pred, Target.values, digits=4)[1]
 
 print('Climatology: ', eval_point_pred(trainY.mean(), Target.values, digits=4))

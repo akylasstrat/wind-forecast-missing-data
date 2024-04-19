@@ -392,7 +392,7 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-config['pattern'] = 'MNAR'
+config['pattern'] = 'MCAR'
 
 for perc in percentage:
     if (config['pattern'] == 'MNAR')and(run_counter>1):
