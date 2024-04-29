@@ -307,7 +307,7 @@ from FiniteRobustRetrain import *
 #fin_retrain_model = FiniteRetrain(Max_models = 10, red_threshold=.01)
 #fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col)
 
-fin_retrain_model = v2_FiniteRobustRetrain(Max_models = 10, D = 10, red_threshold=.1)
+fin_retrain_model = v2_FiniteRobustRetrain(Max_models = 40, D = 10, red_threshold=.05)
 fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
 #%%%%% FDDR-AAR: train one model per value of \Gamma
@@ -392,7 +392,7 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-config['pattern'] = 'MCAR'
+config['pattern'] = 'MNAR'
 
 for perc in percentage:
     if (config['pattern'] == 'MNAR')and(run_counter>1):
