@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -422,7 +422,7 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = True)
+                          target_col = target_col, fix_col = fix_col, projection = True, Gamma = 10)
 
 
 optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = learning_rate)
@@ -445,7 +445,7 @@ batch_size = 500
 num_epochs = 1000
 learning_rate = 1e-2
 patience = 50
-
+    
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 n_valid_obs = int(0.1*len(trainY))
 
@@ -465,22 +465,26 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 gd_FDR_models = []
-for K in range(5):
+for K in range(10):
+
+
     gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                              target_col = target_col, fix_col = fix_col, projection = True, Gamma = K)
+                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K)
     
     optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = learning_rate)
     gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                           patience = patience, verbose = 0)
 
-    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred)
+    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
     
     gd_FDR_models.append(gd_fdr_model)
     
     print('Adj FDR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
-#%%
-for K in range(5):
+
+for K in range(10):
     print('Adj FDR: ', eval_point_pred(gd_FDR_models[K].predict(tensor_testPred), Target.values, digits=4))
+    plt.plot(gd_FDR_models[K].predict(tensor_testPred)[:1000])
+plt.show()
 #%%
 for name, param in gd_fdr_model.named_parameters():
     if param.requires_grad:
@@ -688,13 +692,13 @@ for perc in percentage:
         #### FDRR-AAR (select the appropriate model for each case)
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
-# =============================================================================
-#             if i < 5:
-#                 fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
-#             else:
-# =============================================================================
-            fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
-            fdr_pred = projection(fdr_pred)
+            
+            if i < 5:
+                fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
+            else:
+                fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
+                fdr_pred = projection(fdr_pred)
+                
             # Robust
             if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
             fdr_aar_predictions.append(fdr_pred.reshape(-1))
@@ -755,11 +759,11 @@ for perc in percentage:
 if config['save']:
     mae_df.to_csv(f'{cd}\\{case_folder}\\results\\{target_park}_ID_results.csv')
     
-# Plotting 
+#%% Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['PERS', 'LS', 'LS-l1', 'LAD', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP']
+models_to_plot = ['PERS', 'LS', 'LS-l1', 'LAD', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP', 'resMLP']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
            '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{RETRAIN}$', '$\mathtt{FIN-RETRAIN}$', 

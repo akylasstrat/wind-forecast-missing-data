@@ -511,30 +511,32 @@ class gd_FDRR(nn.Module):
         """ Construct adversarial missing data examples on X, returns a vector of x*(1-a)
             if a_j == 1: x_j is missing"""
         
-        init_alpha = torch.zeros_like(X)
         # estimate nominal loss (no missing data)
         y_hat = self.forward(X)
         
         current_loss = self.estimate_loss(y_hat, y).mean()
-        # initialize wc loss and best_alpha
+        # initialize wc loss and adversarial example
         wc_loss = current_loss
         best_alpha =  torch.zeros_like(X)
         current_target_col = self.target_col
 
         for g in range(1, gamma+1):
             
-            # column to split on
+            # placeholders for splitting a column
             best_col = None
             apply_split = False  
             alpha_init = best_alpha     
             # loop over target columns (for current node), find worst-case loss:
             for col in current_target_col:
+                # create adversarial example
                 alpha_temp = torch.clone(alpha_init)
                 alpha_temp[:,col] = 1
                 
                 # predict using adversarial example
                 y_hat = self.forward(X*(1-alpha_temp))
                 temp_loss = self.estimate_loss(y_hat, y).mean()
+                
+                # check if performance degrades enough, apply split
                 if temp_loss > wc_loss:
                     # update
                     wc_loss = temp_loss
@@ -585,13 +587,12 @@ class gd_FDRR(nn.Module):
         total_loss = 0.
         
         for X,y in loader:
-            # find attack
+            
+            # find adversarial example
             alpha = self.missing_data_attack(X, y, gamma = self.gamma)
             
             # forward pass plus correction
-          
-            y_hat = self.forward(X*(1-alpha))
-            
+            y_hat = self.forward(X*(1-alpha))            
             y_nom = self.forward(X)
             #delta = self.pgd_linf(X, y)
             #y_hat = self.forward(X + delta)
@@ -608,11 +609,11 @@ class gd_FDRR(nn.Module):
             
         return total_loss / len(loader.dataset)
     
-    def predict(self, X):
-        # used for inference only
+    def predict(self, X, project = True):
+        # used for inference only, returns a numpy
         with torch.no_grad():     
 
-            if self.projection:
+            if self.projection or project:
                 return (torch.maximum(torch.minimum(self.model(X), self.UB), self.LB)).detach().numpy()
             else:
                 return self.model(X).detach().numpy()
@@ -632,7 +633,7 @@ class gd_FDRR(nn.Module):
         early_stopping_counter = 0
         best_weights = copy.deepcopy(self.state_dict())
         
-        print('Train model normally to warm-start the adversarial training')
+        print('Train model for nominal case, warm-start the adversarial training')
         for epoch in range(epochs):
             
             average_train_loss = self.epoch_train(train_loader, optimizer)
@@ -721,35 +722,48 @@ class adjustable_FDR(nn.Module):
         """ Construct adversarial missing data examples on X, returns a vector of x*(1-a)
             if a_j == 1: x_j is missing"""
         
-        init_alpha = torch.zeros_like(X)
         # estimate nominal loss (no missing data)
         y_hat = self.forward(X)
         
         current_loss = self.estimate_loss(y_hat, y).mean()
-        # initialize wc loss and best_alpha
+        # initialize wc loss and adversarial example
         wc_loss = current_loss
-        best_alpha = init_alpha
+        best_alpha =  torch.zeros_like(X)
+        current_target_col = self.target_col
         
-        indexes = torch.randint(low = 0, high = X.shape[0], size = (int(perc*X.shape[0]),1))
-        # loop over target columns, find worst-case loss:
-        for col in self.target_col:
-            alpha_temp = torch.zeros_like(X)
-            alpha_temp[indexes,col] = 1
+        # Randomly sample number of missing features for specific batch 
+        gamma_temp = torch.randint(low = 0, high = gamma, size = (1,1))
+        
+        for g in range(1, gamma_temp+1):
             
-            # predict using adversarial example
-            y_hat = self.forward(X*(1-alpha_temp))
-            temp_loss = self.estimate_loss(y_hat, y).mean()
-            
-            if temp_loss > wc_loss:
-                wc_loss = temp_loss
-                best_alpha = alpha_temp
-        
-        #random_alpha = torch.zeros_like(X)
-        #random_col = torch.randint(low = 0, high = X.shape[1], size = (2,1))
-        #random_alpha[:int(perc*X.shape[0]), random_col] = 1
-        
+            # placeholders for splitting a column
+            best_col = None
+            apply_split = False  
+            alpha_init = best_alpha     
+            # loop over target columns (for current node), find worst-case loss:
+            for col in current_target_col:
+                # create adversarial example
+                alpha_temp = torch.clone(alpha_init)
+                alpha_temp[:,col] = 1
+                
+                # predict using adversarial example
+                y_hat = self.forward(X*(1-alpha_temp))
+                temp_loss = self.estimate_loss(y_hat, y).mean()
+                
+                # check if performance degrades enough, apply split
+                if temp_loss > wc_loss:
+                    # update
+                    wc_loss = temp_loss
+                    best_alpha = alpha_temp
+                    best_col = col
+                    apply_split = True
+            # update list of eligible columns
+            if apply_split:
+                current_target_col = torch.cat([current_target_col[0:best_col], current_target_col[best_col+1:]])   
+            else:
+                break
         return best_alpha
-    
+        
     def forward(self, x):
         """
         Forward pass
@@ -799,7 +813,7 @@ class adjustable_FDR(nn.Module):
             #y_hat = self.forward(X + delta)
             
             #loss = nn.MSELoss()(yp,y)
-            loss_i = self.estimate_loss(y_hat_proj, y)    + self.estimate_loss(y_nom, y)                
+            loss_i = self.estimate_loss(y_hat_proj, y)                
             loss = torch.mean(loss_i)
             
             if opt:
@@ -842,32 +856,6 @@ class adjustable_FDR(nn.Module):
             average_train_loss = self.epoch_train(train_loader, optimizer)
             val_loss = self.epoch_train(val_loader)
 
-            if (verbose != -1) and (epoch%25 == 0):
-                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_weights = copy.deepcopy(self.state_dict())
-                early_stopping_counter = 0
-            else:
-                early_stopping_counter += 1
-                if early_stopping_counter >= patience:
-                    print("Early stopping triggered.")
-                    # recover best weights
-                    self.load_state_dict(best_weights)
-                    break
-                
-        # Re-initialize losses 
-        best_train_loss = float('inf')
-        best_val_loss = float('inf')
-        early_stopping_counter = 0
-        
-        print('Train model normally to warm-start the adversarial training')
-        for epoch in range(epochs):
-            
-            average_train_loss = self.epoch_train(train_loader, optimizer)
-            val_loss = self.epoch_train(val_loader)
-
             if (verbose != -1)and(epoch%25==0):
                 print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
 
@@ -884,11 +872,10 @@ class adjustable_FDR(nn.Module):
                     break
 
         print('Start adversarial training')
-        # Initialize everything
+        # re-initialize losses and epoch counter
         best_train_loss = float('inf')
         best_val_loss = float('inf')
         early_stopping_counter = 0
-        best_weights = copy.deepcopy(self.state_dict())
         
         for epoch in range(epochs):
 
