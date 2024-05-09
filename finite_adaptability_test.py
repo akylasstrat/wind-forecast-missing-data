@@ -342,15 +342,40 @@ plt.show()
 
 #%% 
 from FiniteRetrain import *
-from v2_FiniteRobustRetrain import *
 from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+import pickle
 
 #fin_retrain_model = FiniteRetrain(Max_models = 10, red_threshold=.01)
 #fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col)
 
-fin_retrain_model = v2_FiniteRobustRetrain(Max_models = 25, D = 20, red_threshold=.01)
+fin_retrain_model = v2_FiniteRobustRetrain(Max_models = 50, D = 20, red_threshold=.01)
 fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
+
+#%% Finite adaptability with MLPs
+
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+#optimizer = torch.optim.Adam(res_mlp_model.parameters())
+
+batch_size = 500
+num_epochs = 1000
+learning_rate = 1e-2
+patience = 25
+
+
+fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 50, D = 20, red_threshold=.01, 
+                                           input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True)
+    
+fin_retrain_model.fit(trainPred.values, trainY, val_split = 0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                      lr = learning_rate, batch_size = batch_size)
+
+
+#with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
+#    pickle.dump(fin_retrain_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 #%% Adversarial training MLP
 error = Target.values - persistence_pred
 error_mu = (Target.values - persistence_pred ).mean()

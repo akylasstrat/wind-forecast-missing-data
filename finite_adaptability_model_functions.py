@@ -12,6 +12,10 @@ from FDR_regressor_test import *
 from FDR_regressor import *
 from QR_regressor import *
 from torch_custom_layers import *
+import torch
+import torch
+from torch import nn
+from torch.utils.data import Dataset, DataLoader
 
 #from decision_solver import *
 
@@ -103,9 +107,9 @@ class v2_FiniteRobustRetrain(object):
     self.node_bias_ = [lr.bias_]
     self.node_model_ = [lr]
     
-    self.wc_node_coef_ = [lr.coef_.reshape(-1)]
-    self.wc_node_bias_ = [lr.bias_]
-    self.wc_node_model_ = [lr]
+    self.wc_node_coef_ = [fdr.coef_.reshape(-1)]
+    self.wc_node_bias_ = [fdr.bias_]
+    self.wc_node_model_ = [fdr]
     
     self.total_models = 1
     
@@ -141,26 +145,23 @@ class v2_FiniteRobustRetrain(object):
         
             # Check if nominal model **degrades** enough (loss increase)
             nominal_loss_worse_ind = ((current_node_loss-self.Loss[node])/self.Loss[node] > self.red_threshold)   
-            
-            if (current_node_loss > Best_loss)*(nominal_loss_worse_ind):    
+            wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+
+            if (current_node_loss > Best_loss) and (nominal_loss_worse_ind):    
                 # Further check if a new model **improves** over the WC model enough (decrease loss)
                 # !!!! Not sure we need this
+                
                 new_lr = QR_regressor(fit_intercept=True)
                 new_lr.fit(temp_miss_X, Y)
             
                 retrain_loss = eval_predictions(new_lr.predict(temp_miss_X), Y, self.error_metric) .reshape(-1,1)
                 
-                wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(temp_miss_X), Y, self.error_metric)
-                
                 if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
-                                
+                
                     solution_count = solution_count + 1
                     apply_split = True
                                     
-                    # fit new model
-                    #new_lr = QR_regressor(fit_intercept=True)
-                    #new_lr.fit(miss_X, Y)
-    
+                
                     # placeholders for node split
                     best_node_coef_ = new_lr.coef_.reshape(-1)
                     best_node_bias_ = new_lr.bias_
@@ -344,18 +345,29 @@ class FiniteAdaptability_MLP(object):
       max_features: Maximum number of features to consider at each split (used for ensembles). If False, then all features are used
       **kwargs: keyword arguments to solve the optimization problem prescribed
       '''
-  def __init__(self, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mae'):
+  def __init__(self, target_col, fix_col, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mse', **kwargs):
       
     self.D = D
     self.Max_models = Max_models
     self.red_threshold = red_threshold
     self.error_metric = error_metric
-        
-  def fit(self, X, Y, target_col, fix_col, **kwargs):
+    
+    # initialize target and fixed features
+    self.target_col = np.array(target_col).copy().astype(int)
+    self.fix_col = np.array(fix_col).copy().astype(int)
+
+    # arguments for base learner
+    self.gd_FDRR_params = kwargs
+
+
+  def fit(self, X, Y, val_split = 0.05, **kwargs):
     ''' Function to train the Tree.
     Requires a separate function that solves the inner optimization problem, can be used with any optimization tool.
-    '''       
-    self.inner_FDR_kwargs = kwargs
+    '''
+
+    self.MLP_train_dict = kwargs
+
+    # keyword arguments for standard class object resilient_MLP
     num_features = X.shape[1]    #Number of features
     n_obs = len(Y)
     
@@ -372,56 +384,81 @@ class FiniteAdaptability_MLP(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(target_col))]
+    self.missing_pattern = [np.zeros(len(self.target_col))]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
     # features that CANNOT change in the current node (fixed features and features that changed in parent nodes)
-    self.fixed_features = [np.array(fix_col).copy().astype(int)]
+    self.fixed_features = [self.fix_col]
 
     # features that CAN change missing pattern within current node
-    self.target_features = [np.array(target_col).copy().astype(int)]
+    self.target_features = [self.target_col]
     
     # node split parameters: feature to split on and its value
     self.feature = [-1]
     self.threshold = [-1]
 
-    ### Train Nominal model (no missing data here)
-
+    ####### Create train/validation data loaders for torch modules
     temp_miss_X = (1-self.missing_pattern[0])*X
-    # !!!! Insert pytorch function here
-    lr = QR_regressor(fit_intercept=True)
-    lr.fit(temp_miss_X, Y)
-    #lr = LinearRegression(fit_intercept = True)
-    #lr.fit(miss_X, Y)
-    
-    # Train Adversarially Robust model
-    if self.inner_FDR_kwargs['budget'] == 'equality':                
-        K_temp = 1
-    elif self.inner_FDR_kwargs['budget'] == 'inequality':
-        K_temp = len(self.target_features[0])
-    
-    fdr = FDR_regressor_test(K = K_temp)
-    fdr.fit(temp_miss_X, Y, self.target_features[0], self.fixed_features[0], **self.inner_FDR_kwargs)              
+    ### Train Nominal model (no missing data here)
+    n_valid_obs = int(val_split*len(Y))
 
+    if val_split == 0:    
+        tensor_trainY = torch.FloatTensor(Y)
+        tensor_validY = tensor_trainY
+
+        tensor_train_missX = torch.FloatTensor(temp_miss_X)
+        tensor_valid_missX = tensor_train_missX
+        
+    else:
+        tensor_trainY = torch.FloatTensor(Y[:-n_valid_obs])
+        tensor_validY = torch.FloatTensor(Y[-n_valid_obs:])
+
+        tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
+        tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+        
+    train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
+    valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
+        
+    ####### Train nominal model
+    #!!!!!!!!!!!!!! Add optimizer here
+
+    
+    mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], train_adversarially = False)
+    
+    optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+    mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+        
+    ######## Train Adversarially Robust model
+    K_temp = len(self.target_features[0])
+
+    robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], train_adversarially = True)
+
+    optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+    
+    robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
+
+    robust_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+    
 
     # Nominal and WC loss
-    insample_loss = eval_predictions(lr.predict(temp_miss_X), Y, self.error_metric)
-    insample_wc_loss = 2*fdr.objval
-    
+    insample_loss = eval_predictions(mlp_model.predict(tensor_train_missX), Y, self.error_metric)
+    insample_wc_loss = eval_predictions(robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
+        
+    print(insample_loss)
+    print(insample_wc_loss)
     # Nominal and WC loss
     self.Loss = [insample_loss]
     self.WC_Loss = [insample_wc_loss]
     
     # store nominal and WC model parameters
     # !!!!! Potentially store the weights of a torch model
-    self.node_coef_ = [lr.coef_.reshape(-1)]
-    self.node_bias_ = [lr.bias_]
-    self.node_model_ = [lr]
-    
-    self.wc_node_coef_ = [lr.coef_.reshape(-1)]
-    self.wc_node_bias_ = [lr.bias_]
-    self.wc_node_model_ = [lr]
+    self.node_model_ = [mlp_model]
+    self.wc_node_model_ = [robust_mlp_model]
     
     self.total_models = 1
     
@@ -452,35 +489,48 @@ class FiniteAdaptability_MLP(object):
             temp_missing_pattern[cand_feat] = 1
             temp_miss_X = (1-temp_missing_pattern)*X                
             
+            
+            ####### Create train/validation data loaders for torch modules
+            if val_split == 0:    
+                tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
+                tensor_valid_missX = tensor_train_missX
+            else:
+                tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
+                tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+
+            train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
+            valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
+                
             # Find performance degradation for the NOMINAL model when data are missing
-            current_node_loss = eval_predictions(self.node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+            current_node_loss = eval_predictions(self.node_model_[node].predict(tensor_train_missX), Y, self.error_metric)
         
             # Check if nominal model **degrades** enough (loss increase)
             nominal_loss_worse_ind = ((current_node_loss-self.Loss[node])/self.Loss[node] > self.red_threshold)   
             
             if (current_node_loss > Best_loss)*(nominal_loss_worse_ind):    
                 # Further check if a new model **improves** over the WC model enough (decrease loss)
-                # !!!! Not sure we need this
-                new_lr = QR_regressor(fit_intercept=True)
-                new_lr.fit(temp_miss_X, Y)
-            
-                retrain_loss = eval_predictions(new_lr.predict(temp_miss_X), Y, self.error_metric) .reshape(-1,1)
-                
-                wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+
+                ####### Train nominal model
+                new_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                                          target_col = self.target_features[node], fix_col = self.fixed_features[node], projection = self.gd_FDRR_params['projection'], 
+                                          train_adversarially = False)
+
+                optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+
+                new_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+                                      epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+
+                            
+                retrain_loss = eval_predictions(new_mlp_model.predict(tensor_train_missX), Y, self.error_metric) .reshape(-1,1)
+                wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(tensor_train_missX), Y, self.error_metric)
                 
                 if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
                                 
                     solution_count = solution_count + 1
                     apply_split = True
-                                    
-                    # fit new model
-                    #new_lr = QR_regressor(fit_intercept=True)
-                    #new_lr.fit(miss_X, Y)
-    
+                                        
                     # placeholders for node split
-                    best_node_coef_ = new_lr.coef_.reshape(-1)
-                    best_node_bias_ = new_lr.bias_
-                    best_new_model = new_lr
+                    best_new_model = new_mlp_model
                     best_split_feature = cand_feat
                     
                     Best_loss = current_node_loss
@@ -509,18 +559,35 @@ class FiniteAdaptability_MLP(object):
             left_target_cols = self.target_features[node].copy()
             left_target_cols = np.delete(left_target_cols, np.where(left_target_cols==best_split_feature))
             left_missing_pattern = self.missing_pattern[node].copy()
-            if self.inner_FDR_kwargs['budget'] == 'equality':                
-                K_temp = 1
-            elif self.inner_FDR_kwargs['budget'] == 'inequality':
-                K_temp = len(left_target_cols)
+            K_temp = len(left_target_cols)
                 
             temp_miss_X = (1-left_missing_pattern)*X
-            left_fdr = FDR_regressor_test(K = K_temp)
-            left_fdr.fit(temp_miss_X, Y, left_target_cols, left_fix_cols, **self.inner_FDR_kwargs)              
+            
+            if val_split == 0:    
+                tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
+                tensor_valid_missX = tensor_train_missX
+            else:
+                tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
+                tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+
+            left_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
+            left_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
+
+            left_robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                                      target_col = left_target_cols, fix_col = left_fix_cols, projection = self.gd_FDRR_params['projection'], 
+                                      train_adversarially = True)
+
+            optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+            
+            left_robust_mlp_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
+
+            left_robust_mlp_model.train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
+                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+
             
             # Estimate WC loss and nominal loss
-            left_insample_wcloss = 2*left_fdr.objval
-            
+            left_insample_wcloss = eval_predictions(left_robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
+
             # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
             self.Loss.append(self.Loss[node])
             self.WC_Loss.append(left_insample_wcloss)
@@ -528,13 +595,8 @@ class FiniteAdaptability_MLP(object):
             self.missing_pattern.append(left_missing_pattern)
             self.total_missing_feat.append(left_missing_pattern.sum())
 
-            self.node_coef_.append(self.node_coef_[node])
-            self.node_bias_.append(self.node_bias_[node])
             self.node_model_.append(self.node_model_[node])
-
-            self.wc_node_coef_.append(left_fdr.coef_)
-            self.wc_node_bias_.append(left_fdr.bias_)
-            self.wc_node_model_.append(left_fdr)
+            self.wc_node_model_.append(left_robust_mlp_model)
             
             # update missing patterns for downstream robust problem
             self.fixed_features.append(left_fix_cols)
@@ -548,18 +610,32 @@ class FiniteAdaptability_MLP(object):
             right_missing_pattern[best_split_feature] = 1
             
             # Nominal loss: is estimated/ WC loss: set to negative value
-            if self.inner_FDR_kwargs['budget'] == 'equality':                
-                K_temp = 1
-            elif self.inner_FDR_kwargs['budget'] == 'inequality':
-                K_temp = len(right_target_cols)
+            K_temp = len(right_target_cols)
             
             temp_miss_X = (1-right_missing_pattern)*X
-
-            right_fdr = FDR_regressor_test(K = K_temp)
-            right_fdr.fit(temp_miss_X, Y, right_target_cols, right_fix_cols, **self.inner_FDR_kwargs)              
             
+            if val_split == 0:    
+                tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
+            else:
+                tensor_trainY = torch.FloatTensor(Y[:-n_valid_obs])
+                tensor_validY = torch.FloatTensor(Y[-n_valid_obs:])
+
+            right_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
+            right_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
+
+            right_robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                                      target_col = right_target_cols, fix_col = right_fix_cols, projection = self.gd_FDRR_params['projection'], 
+                                      train_adversarially = True)
+
+            optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+            
+            right_robust_mlp_model.load_state_dict(new_mlp_model.state_dict(), strict=False)
+
+            right_robust_mlp_model.train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
+                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+
             # Estimate WC loss and nominal loss
-            right_insample_wcloss = 2*right_fdr.objval
+            right_insample_wcloss = eval_predictions(right_robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
             
             self.Loss.append(Best_insample_loss)
             self.WC_Loss.append(right_insample_wcloss)
@@ -567,13 +643,9 @@ class FiniteAdaptability_MLP(object):
             self.missing_pattern.append(right_missing_pattern)
             self.total_missing_feat.append(right_missing_pattern.sum())
 
-            self.node_coef_.append(new_lr.coef_)
-            self.node_bias_.append(new_lr.bias_)
-            self.node_model_.append(new_lr)
-            
-            self.wc_node_coef_.append(right_fdr.coef_)
-            self.wc_node_bias_.append(right_fdr.bias_)
-            self.wc_node_model_.append(right_fdr)
+
+            self.node_model_.append(new_mlp_model)            
+            self.wc_node_model_.append(right_robust_mlp_model)
                         
             # update missing patterns for downstream robust problem            
             self.fixed_features.append(left_fix_cols)
@@ -643,10 +715,10 @@ class FiniteAdaptability_MLP(object):
              #print('New Node: ', node)
          if (m0==self.missing_pattern[node]).all():
              # nominal model
-             Predictions.append( x0@self.node_coef_[node] + self.node_bias_[node] )
+             Predictions.append( self.node_model_[node].predict(torch.FloatTensor(x0)))
          else:
              # WC model
-             Predictions.append( x0@self.wc_node_coef_[node] + self.wc_node_bias_[node] )
+             Predictions.append( self.wc_node_model_[node].predict(torch.FloatTensor(x0)))
      return np.array(Predictions)
 
 
@@ -660,22 +732,6 @@ def eval_predictions(pred, target, metric = 'mae'):
         return np.sqrt(np.square(pred.reshape(-1)-target.reshape(-1)).mean())
     elif metric == 'mape':
         return np.mean(np.abs(pred.reshape(-1)-target.reshape(-1))/target)
-    
-    
-    
-    
-    
-###### Auxiliary functions
-
-def eval_predictions(pred, target, metric = 'mae'):
-    ''' Evaluates determinstic forecasts'''
-    if metric == 'mae':
-        return np.mean(np.abs(pred.reshape(-1)-target.reshape(-1)))
-    elif metric == 'rmse':
-        return np.sqrt(np.square(pred.reshape(-1)-target.reshape(-1)).mean())
-    elif metric == 'mape':
-        return np.mean(np.abs(pred.reshape(-1)-target.reshape(-1))/target)
-    
-    
-    
+    elif metric == 'mse':
+        return np.square(pred.reshape(-1)-target.reshape(-1)).mean()
     

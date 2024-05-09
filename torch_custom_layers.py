@@ -474,7 +474,7 @@ class resilient_MLP(nn.Module):
     
 class gd_FDRR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
-                 projection = False, UB = 1, LB = 0, Gamma = 1):
+                 projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True):
         super(gd_FDRR, self).__init__()
         """
         Standard MLP for regression
@@ -495,6 +495,8 @@ class gd_FDRR(nn.Module):
         self.target_col = torch.tensor(target_col, dtype=torch.int32)
         self.fix_col = torch.tensor(fix_col, dtype=torch.int32)
         self.gamma = Gamma
+        self.train_adversarially = train_adversarially
+        
         # create sequential model
         layer_sizes = [input_size] + hidden_sizes + [output_size]
         layers = []
@@ -653,32 +655,35 @@ class gd_FDRR(nn.Module):
                     # recover best weights
                     self.load_state_dict(best_weights)
                     break
-
-        print('Start adversarial training')
-        # initialize everthing
-        best_train_loss = float('inf')
-        best_val_loss = float('inf')
-        early_stopping_counter = 0
-        
-        for epoch in range(epochs):
-
-            average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)
-            val_loss = self.adversarial_epoch_train(val_loader)
-
-            if (verbose != -1)and(epoch%25 == 0):
-                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_weights = copy.deepcopy(self.state_dict())
-                early_stopping_counter = 0
-            else:
-                early_stopping_counter += 1
-                if early_stopping_counter >= patience:
-                    print("Early stopping triggered.")
-                    # recover best weights
-                    self.load_state_dict(best_weights)
-                    return    
+                
+        if self.train_adversarially:
+            print('Start adversarial training')
+            # initialize everthing
+            best_train_loss = float('inf')
+            best_val_loss = float('inf')
+            early_stopping_counter = 0
+            
+            for epoch in range(epochs):
+    
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)
+                val_loss = self.adversarial_epoch_train(val_loader)
+    
+                if (verbose != -1)and(epoch%25 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+    
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        return    
+        else:
+            return
 
 class adjustable_FDR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
