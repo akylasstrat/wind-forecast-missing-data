@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -349,33 +349,43 @@ import pickle
 #fin_retrain_model = FiniteRetrain(Max_models = 10, red_threshold=.01)
 #fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col)
 
-fin_retrain_model = v2_FiniteRobustRetrain(Max_models = 50, D = 20, red_threshold=.01)
-fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
+# fin_retrain_model = Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.1)
+# fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
+# fin_retrain_model = stable_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.05)
+# fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
+
+fin_retrain_model = depth_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.1)
+fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
 #%% Finite adaptability with MLPs
 
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
+# from FiniteRetrain import *
+# from FiniteRobustRetrain import *
+# from finite_adaptability_model_functions import *
+# #from torch_custom_layers import *
+# import pickle
 
-#optimizer = torch.optim.Adam(res_mlp_model.parameters())
+# # Standard MLPs (separate) forecasting wind production and dispatch decisions
+# n_features = tensor_trainPred.shape[1]
+# n_outputs = tensor_trainY.shape[1]
 
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-2
-patience = 25
+# #optimizer = torch.optim.Adam(res_mlp_model.parameters())
 
+# batch_size = 1000
+# num_epochs = 1000
+# learning_rate = 1e-2
+# patience = 25
 
-fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 50, D = 20, red_threshold=.01, 
-                                           input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True)
+# fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 10, red_threshold=.01, 
+#                                             input_size = n_features, hidden_sizes = [20, 20, 20], output_size = n_outputs, projection = True)
     
-fin_retrain_model.fit(trainPred.values, trainY, val_split = 0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                      lr = learning_rate, batch_size = batch_size)
+# fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+#                       lr = learning_rate, batch_size = batch_size)
 
 
-#with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
-#    pickle.dump(fin_retrain_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+# #with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
+# #    pickle.dump(fin_retrain_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 #%% Adversarial training MLP
 error = Target.values - persistence_pred
 error_mu = (Target.values - persistence_pred ).mean()
@@ -556,7 +566,8 @@ if config['retrain']:
 
 
 #%%%%%%%%% Testing: varying the number of missing observations/ persistence imputation
-    
+from utility_functions import *
+
 n_feat = len(target_col)
 n_test_obs = len(testY)
 iterations = 2
@@ -599,6 +610,7 @@ check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
 config['pattern'] = 'MCAR'
+
 
 for perc in percentage:
     if (config['pattern'] == 'MNAR')and(run_counter>1):
@@ -760,6 +772,9 @@ for perc in percentage:
         
         fin_retrain_pred = fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
         fin_retrain_pred = projection(fin_retrain_pred)
+        
+        abs_error = np.abs(fin_retrain_pred.reshape(-1,1)-Target.values)
+        leaf_ind_ = fin_retrain_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
 
         if config['scale']:
             fin_retrain_pred = target_scaler.inverse_transform(fin_retrain_pred)            
@@ -784,7 +799,7 @@ for perc in percentage:
 if config['save']:
     mae_df.to_csv(f'{cd}\\{case_folder}\\results\\{target_park}_ID_results.csv')
     
-#%% Plotting 
+# Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 

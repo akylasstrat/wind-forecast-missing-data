@@ -592,7 +592,7 @@ class gd_FDRR(nn.Module):
             
             # find adversarial example
             alpha = self.missing_data_attack(X, y, gamma = self.gamma)
-            
+            #print(alpha.sum(1).mean())
             # forward pass plus correction
             y_hat = self.forward(X*(1-alpha))            
             y_nom = self.forward(X)

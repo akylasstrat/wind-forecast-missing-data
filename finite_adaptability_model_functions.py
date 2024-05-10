@@ -11,15 +11,16 @@ from sklearn.linear_model import LinearRegression
 from FDR_regressor_test import *
 from FDR_regressor import *
 from QR_regressor import *
-from torch_custom_layers import *
+
 import torch
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
+from torch_custom_layers import *
 
 #from decision_solver import *
 
-class v2_FiniteRobustRetrain(object):
+class Finite_FDRR(object):
   '''This function initializes the GPT.
   
   Paremeters:
@@ -54,6 +55,368 @@ class v2_FiniteRobustRetrain(object):
     self.parent_node  = [None]
     self.children_left = [-1]
     self.children_right = [-1]
+    
+    self.children_left_dict = {}
+    self.children_right_dict = {}
+    self.children_left_dict[0] = -1
+    self.children_right_dict[0] = -1
+    
+    node_id_counter = 0
+    
+    #### Initialize root node
+    print('Initialize root node...')
+    # at root node, no missing data (1 = missing, 0 = not missing)
+    self.missing_pattern = [np.zeros(len(target_col))]
+    # number of missing features per tree node
+    self.total_missing_feat = [self.missing_pattern[0].sum()]
+
+    # features that CANNOT change in the current node (fixed features and features that changed in parent nodes)
+    self.fixed_features = [np.array(fix_col).copy().astype(int)]
+
+    # features that CAN change missing pattern within current node
+    self.target_features = [np.array(target_col).copy().astype(int)]
+    
+    # node split parameters: feature to split on and its value
+    self.feature = [-1]
+    self.threshold = [-1]
+
+    ### Train Nominal model (no missing data here)
+
+    temp_miss_X = (1-self.missing_pattern[0])*X
+    # !!!! Insert pytorch function here
+    lr = QR_regressor(fit_intercept=True)
+    lr.fit(temp_miss_X, Y)
+    #lr = LinearRegression(fit_intercept = True)
+    #lr.fit(miss_X, Y)
+    
+    # Train Adversarially Robust model
+    if self.inner_FDR_kwargs['budget'] == 'equality':                
+        K_temp = 1
+    elif self.inner_FDR_kwargs['budget'] == 'inequality':
+        K_temp = len(self.target_features[0])
+    
+    fdr = FDR_regressor_test(K = K_temp)
+    fdr.fit(temp_miss_X, Y, self.target_features[0], self.fixed_features[0], **self.inner_FDR_kwargs)              
+
+
+    # Nominal and WC loss
+    insample_loss = eval_predictions(lr.predict(temp_miss_X), Y, self.error_metric)
+    insample_wc_loss = 2*fdr.objval
+    
+    # Nominal and WC loss
+    self.Loss = [insample_loss]
+    self.WC_Loss = [insample_wc_loss]
+    self.Loss_gap = [self.WC_Loss[0] - self.Loss[0]]
+    # store nominal and WC model parameters
+    # !!!!! Potentially store the weights of a torch model
+    self.node_coef_ = [lr.coef_.reshape(-1)]
+    self.node_bias_ = [lr.bias_]
+    self.node_model_ = [lr]
+    
+    self.wc_node_coef_ = [fdr.coef_.reshape(-1)]
+    self.wc_node_bias_ = [fdr.bias_]
+    self.wc_node_model_ = [fdr]
+    
+    self.total_models = 1
+    
+    # keep a list with nodes_IDs that we have not checked yet (are neither parent nodes or set as leaf nodes)
+    nodes_ids_candidates = [0]
+    self.node_cand_id_ordered = [0]
+    temp_node_order = [0]
+    
+    # for count_, node in enumerate(self.node_cand_id_ordered):
+    #     if node not in nodes_ids_candidates: 
+    #         continue
+    #     if (node != temp_node_order[0]) and (keep_node_aux == False):
+    #         continue
+    #     elif (node == temp_node_order[0]) or (keep_node_aux == True):
+    #         keep_node_aux = True
+
+    for count_, node in enumerate(self.Node_id):
+
+        # Depth-first: grow the leaf with the highest WC loss        
+        print(f'Node = {node}')
+        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models):
+            # remove node from list to check (only used for best-first growth)
+
+            # Fix as leaf node and go back to loop
+            self.children_left.append(-1)
+            self.children_right.append(-1)
+            
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+
+            continue
+        
+        # candidate features that CAN go missing in current node        
+        cand_features = self.target_features[node]
+        
+            
+        # Initialize placeholder for subtree error
+        Best_loss = self.Loss[node]
+        # Indicators to check for splitting node
+        solution_count = 0
+        apply_split = False
+            
+        ### Loop over features, find the worst-case loss when a feature goes missing (i.e., feature value is set to 0)
+        for j, cand_feat in enumerate(cand_features):
+            #print('Col: ', j)
+            
+            # temporary missing patterns            
+            temp_missing_pattern = self.missing_pattern[node].copy()
+            temp_missing_pattern[cand_feat] = 1
+            temp_miss_X = (1-temp_missing_pattern)*X                
+            
+            # Find performance degradation for the NOMINAL model when data are missing
+            current_node_loss = eval_predictions(self.node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+        
+            # Check if nominal model **degrades** enough (loss increase)
+            nominal_loss_worse_ind = ((current_node_loss-self.Loss[node])/self.Loss[node] > self.red_threshold)   
+            wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+
+            if (current_node_loss > Best_loss) and (nominal_loss_worse_ind):    
+                # Further check if a new model **improves** over the WC model enough (decrease loss)
+                # !!!! Not sure we need this
+                
+                new_lr = QR_regressor(fit_intercept=True)
+                new_lr.fit(temp_miss_X, Y)
+            
+                retrain_loss = eval_predictions(new_lr.predict(temp_miss_X), Y, self.error_metric)
+                
+                if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
+                
+                    solution_count = solution_count + 1
+                    apply_split = True
+                                    
+                
+                    # placeholders for node split
+                    best_node_coef_ = new_lr.coef_.reshape(-1)
+                    best_node_bias_ = new_lr.bias_
+                    best_new_model = new_lr
+                    best_split_feature = cand_feat
+                    
+                    Best_loss = current_node_loss
+                    # update running loss function at current node/ nominal loss at right child node
+                    Best_insample_loss = retrain_loss
+
+        #If split is applied, then update tree structure (missing feature goes to right child, left child copies current node)
+        # Right child: new model with missing feature
+        # Left child: worst-case scenario of the remaining features
+        
+        if apply_split == True:
+
+            print(f'Solution found, learning WC model and updating tree structure...')
+
+            self.total_models += 1
+            
+            self.parent_node.extend(2*[node])    
+            #self.Node_id.extend([ 2*node + 1, 2*node + 2])
+            self.Node_id.extend([ node_id_counter + 1, node_id_counter + 2])
+            
+            # set depth of new nodes (parent node + 1)
+            self.Depth_id.extend(2*[self.Depth_id[node]+1])
+            
+            self.feature[node] = best_split_feature
+            self.feature.extend(2*[-1])
+            
+            #### Left child node: learn worst-case model/ !!! previous missing patterns need to be respected 
+            # update left child/ same parameters/ update fixed_cols/same missingness pattern
+            left_fix_cols = np.append(self.fixed_features[node].copy(), best_split_feature)
+            left_target_cols = self.target_features[node].copy()
+            left_target_cols = np.delete(left_target_cols, np.where(left_target_cols==best_split_feature))
+            left_missing_pattern = self.missing_pattern[node].copy()
+            if self.inner_FDR_kwargs['budget'] == 'equality':                
+                K_temp = 1
+            elif self.inner_FDR_kwargs['budget'] == 'inequality':
+                K_temp = len(left_target_cols)
+                
+            temp_miss_X = (1-left_missing_pattern)*X
+            left_fdr = FDR_regressor_test(K = K_temp)
+            left_fdr.fit(temp_miss_X, Y, left_target_cols, left_fix_cols, **self.inner_FDR_kwargs)              
+            
+            # Estimate WC loss and nominal loss
+            left_insample_wcloss = 2*left_fdr.objval
+            
+            # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
+            self.Loss.append(self.Loss[node])
+            self.WC_Loss.append(left_insample_wcloss)
+            self.Loss_gap.append(self.WC_Loss[-1] - self.Loss[-1]) 
+            
+            self.missing_pattern.append(left_missing_pattern)
+            self.total_missing_feat.append(left_missing_pattern.sum())
+
+            self.node_coef_.append(self.node_coef_[node])
+            self.node_bias_.append(self.node_bias_[node])
+            self.node_model_.append(self.node_model_[node])
+
+            self.wc_node_coef_.append(left_fdr.coef_)
+            self.wc_node_bias_.append(left_fdr.bias_)
+            self.wc_node_model_.append(left_fdr)
+            
+            # update missing patterns for downstream robust problem
+            self.fixed_features.append(left_fix_cols)
+            self.target_features.append(left_target_cols)
+            
+            #### Right child node: update with new model
+            # update right child/ update parameters/ update fixed_cols/same missingness pattern
+            right_fix_cols = left_fix_cols
+            right_target_cols = left_target_cols
+            right_missing_pattern = self.missing_pattern[node].copy()
+            right_missing_pattern[best_split_feature] = 1
+            
+            # Nominal loss: is estimated/ WC loss: set to negative value
+            if self.inner_FDR_kwargs['budget'] == 'equality':                
+                K_temp = 1
+            elif self.inner_FDR_kwargs['budget'] == 'inequality':
+                K_temp = len(right_target_cols)
+            
+            temp_miss_X = (1-right_missing_pattern)*X
+
+            right_fdr = FDR_regressor_test(K = K_temp)
+            right_fdr.fit(temp_miss_X, Y, right_target_cols, right_fix_cols, **self.inner_FDR_kwargs)              
+            
+            # Estimate WC loss and nominal loss
+            right_insample_wcloss = 2*right_fdr.objval
+            
+            self.Loss.append(Best_insample_loss)
+            self.WC_Loss.append(right_insample_wcloss)
+            self.Loss_gap.append(self.WC_Loss[-1] - self.Loss[-1]) 
+
+            self.missing_pattern.append(right_missing_pattern)
+            self.total_missing_feat.append(right_missing_pattern.sum())
+
+            self.node_coef_.append(new_lr.coef_)
+            self.node_bias_.append(new_lr.bias_)
+            self.node_model_.append(new_lr)
+            
+            self.wc_node_coef_.append(right_fdr.coef_)
+            self.wc_node_bias_.append(right_fdr.bias_)
+            self.wc_node_model_.append(right_fdr)
+                        
+            # update missing patterns for downstream robust problem            
+            self.fixed_features.append(left_fix_cols)
+            self.target_features.append(left_target_cols)
+                        
+            if node==0:
+                self.children_left[node] = node_id_counter+1
+                self.children_right[node] = node_id_counter+2
+                
+                self.children_left_dict[node] = node_id_counter+1
+                self.children_right_dict[node] = node_id_counter+2
+
+            else:
+                self.children_left_dict[node] = node_id_counter+1
+                self.children_right_dict[node] = node_id_counter+2
+                
+                self.children_left.append(node_id_counter+1)
+                self.children_right.append(node_id_counter+2)
+            node_id_counter = node_id_counter + 2
+            
+        else:
+            #Fix as leaf node
+            self.children_left.append(-1)
+            self.children_right.append(-1)
+
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+        
+  def apply(self, X, missing_mask):
+     ''' Function that returns the Leaf id for each point. Similar to sklearn's implementation.
+     '''
+     node_id = np.zeros((X.shape[0],1))
+     for i in range(X.shape[0]): 
+         #New query point
+         x0 = X[i:i+1,:]
+         m0 = missing_mask[i:i+1,:]
+
+         #Start from root node
+         node = 0
+         #Go downwards until reach a Leaf Node
+         while ((self.children_left[node] != -1) and (self.children_right[node] != -1)):
+             if (m0==self.missing_pattern[node]).all():
+                 break
+             if m0[:, self.feature[node]] == 0:
+                 # if feature is not missing, go left
+                 node = self.children_left[node]
+             elif m0[:,self.feature[node]] == 1:
+                 # if feature is missing, go right
+                node = self.children_right[node]
+             #print('New Node: ', node)
+         node_id[i] = self.Node_id[node]
+     return node_id
+  
+  def predict(self, X, missing_mask):
+     ''' Function to predict using a trained tree. Trees are fully compiled, i.e., 
+     leaves correspond to predictive prescriptions 
+     '''
+     Predictions = []
+     for i in range(X.shape[0]): 
+         #New query point
+         x0 = X[i:i+1,:]
+         m0 = missing_mask[i:i+1,:]
+         #Start from root node
+         node = 0
+         # !!!! If you go to leaf, might be overly conservative
+         #Go down the tree until you match the missing pattern OR a Leaf node is reached
+         while ((self.children_left_dict[node] != -1) and (self.children_left_dict[node] != -1)):
+
+             # if missing pattern matches exactly, break loop
+             if (m0==self.missing_pattern[node]).all():
+                 break
+             
+             elif m0[:, self.feature[node]] == 0:
+                 # if feature is not missing, go left
+                 node = self.children_left_dict[node]
+             elif m0[:,self.feature[node]] == 1:
+                 # if feature is missing, go right
+                node = self.children_right_dict[node]
+             #print('New Node: ', node)
+         if (m0==self.missing_pattern[node]).all():
+             # nominal model
+             Predictions.append( x0@self.node_coef_[node] + self.node_bias_[node] )
+         else:
+             # WC model
+             Predictions.append( x0@self.wc_node_coef_[node] + self.wc_node_bias_[node] )
+     return np.array(Predictions)
+
+class stable_Finite_FDRR(object):
+  '''This function initializes the GPT.
+  
+  Paremeters:
+      D: maximum depth of the tree (should include pruning??)
+      Nmin: minimum number of observations at each leaf
+      type_split: regular or random splits for the ExtraTree algorithm (perhaps passed as hyperparameter in the forest)
+      cost_complexity: Should be included for a simple tree
+      spo_weight: Parameter that controls the trade-off between prediction and prescription, to be included
+      max_features: Maximum number of features to consider at each split (used for ensembles). If False, then all features are used
+      **kwargs: keyword arguments to solve the optimization problem prescribed
+
+      '''
+  def __init__(self, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mae'):
+      
+    self.D = D
+    self.Max_models = Max_models
+    self.red_threshold = red_threshold
+    self.error_metric = error_metric
+        
+  def fit(self, X, Y, target_col, fix_col, **kwargs):
+    ''' Function to train the Tree.
+    Requires a separate function that solves the inner optimization problem, can be used with any optimization tool.
+    '''       
+    self.inner_FDR_kwargs = kwargs
+    num_features = X.shape[1]    #Number of features
+    n_obs = len(Y)
+    
+    # Each node has a combination
+    #Initialize tree structure
+    self.Node_id = [0]
+    self.Depth_id = [0]
+    self.parent_node  = [None]
+    self.children_left = [-1]
+    self.children_right = [-1]
+    
+    self.children_left_dict = {}
+    self.children_right_dict = {}
     
     node_id_counter = 0
     
@@ -119,6 +482,10 @@ class v2_FiniteRobustRetrain(object):
             # Fix as leaf node and go back to loop
             self.children_left.append(-1)
             self.children_right.append(-1)
+            
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+
             continue
         
         # candidate features that CAN go missing in current node        
@@ -267,16 +634,434 @@ class v2_FiniteRobustRetrain(object):
             if node==0:
                 self.children_left[node] = node_id_counter+1
                 self.children_right[node] = node_id_counter+2
+                
             else:
                 self.children_left.append(node_id_counter+1)
                 self.children_right.append(node_id_counter+2)
+                
+            self.children_left_dict[node] = node_id_counter+1
+            self.children_right_dict[node] = node_id_counter+2
+
             node_id_counter = node_id_counter + 2
             
         else:
             #Fix as leaf node
             self.children_left.append(-1)
             self.children_right.append(-1)
+
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
             
+  def apply(self, X, missing_mask):
+     ''' Function that returns the Leaf id for each point. Similar to sklearn's implementation.
+     '''
+     node_id = np.zeros((X.shape[0],1))
+     for i in range(X.shape[0]): 
+         #New query point
+         x0 = X[i:i+1,:]
+         m0 = missing_mask[i:i+1,:]
+
+         #Start from root node
+         node = 0
+         #Go downwards until reach a Leaf Node
+         while ((self.children_left[node] != -1) and (self.children_right[node] != -1)):
+             if (m0==self.missing_pattern[node]).all():
+                 break
+             if m0[:, self.feature[node]] == 0:
+                 # if feature is not missing, go left
+                 node = self.children_left[node]
+             elif m0[:,self.feature[node]] == 1:
+                 # if feature is missing, go right
+                node = self.children_right[node]
+             #print('New Node: ', node)
+         node_id[i] = self.Node_id[node]
+     return node_id
+
+  def v2_predict(self, X, missing_mask):
+     ''' Function to predict using a trained tree. Trees are fully compiled, i.e., 
+     leaves correspond to predictive prescriptions 
+     '''
+     Predictions = []
+     for i in range(X.shape[0]): 
+         #New query point
+         x0 = X[i:i+1,:]
+         m0 = missing_mask[i:i+1,:]
+         #Start from root node
+         node = 0
+         # !!!! If you go to leaf, might be overly conservative
+         #Go down the tree until you match the missing pattern OR a Leaf node is reached
+         while ((self.children_left_dict[node] != -1) and (self.children_right_dict[node] != -1)):
+             if (m0==self.missing_pattern[node]).all():
+                 break
+             
+             elif m0[:, self.feature[node]] == 0:
+                 # if feature is not missing, go left
+                 node = self.children_left_dict[node]
+             elif m0[:,self.feature[node]] == 1:
+                 # if feature is missing, go right
+                node = self.children_right_dict[node]
+             #print('New Node: ', node)
+         if (m0==self.missing_pattern[node]).all():
+             # nominal model
+             Predictions.append( x0@self.node_coef_[node] + self.node_bias_[node] )
+         else:
+             # WC model
+             Predictions.append( x0@self.wc_node_coef_[node] + self.wc_node_bias_[node] )
+     return np.array(Predictions)
+   
+  def predict(self, X, missing_mask):
+     ''' Function to predict using a trained tree. Trees are fully compiled, i.e., 
+     leaves correspond to predictive prescriptions 
+     '''
+     Predictions = []
+     for i in range(X.shape[0]): 
+         #New query point
+         x0 = X[i:i+1,:]
+         m0 = missing_mask[i:i+1,:]
+         #Start from root node
+         node = 0
+         # !!!! If you go to leaf, might be overly conservative
+         #Go down the tree until you match the missing pattern OR a Leaf node is reached
+         while ((self.children_left[node] != -1) and (self.children_right[node] != -1)):
+             if (m0==self.missing_pattern[node]).all():
+                 break
+             
+             elif m0[:, self.feature[node]] == 0:
+                 # if feature is not missing, go left
+                 node = self.children_left[node]
+             elif m0[:,self.feature[node]] == 1:
+                 # if feature is missing, go right
+                node = self.children_right[node]
+             #print('New Node: ', node)
+         if (m0==self.missing_pattern[node]).all():
+             # nominal model
+             Predictions.append( x0@self.node_coef_[node] + self.node_bias_[node] )
+         else:
+             # WC model
+             Predictions.append( x0@self.wc_node_coef_[node] + self.wc_node_bias_[node] )
+     return np.array(Predictions)
+
+
+class depth_Finite_FDRR(object):
+  '''This function initializes the GPT.
+  
+  Paremeters:
+      D: maximum depth of the tree (should include pruning??)
+      Nmin: minimum number of observations at each leaf
+      type_split: regular or random splits for the ExtraTree algorithm (perhaps passed as hyperparameter in the forest)
+      cost_complexity: Should be included for a simple tree
+      spo_weight: Parameter that controls the trade-off between prediction and prescription, to be included
+      max_features: Maximum number of features to consider at each split (used for ensembles). If False, then all features are used
+      **kwargs: keyword arguments to solve the optimization problem prescribed
+
+      '''
+  def __init__(self, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mae'):
+      
+    self.D = D
+    self.Max_models = Max_models
+    self.red_threshold = red_threshold
+    self.error_metric = error_metric
+        
+  def fit(self, X, Y, target_col, fix_col, tree_grow_algo = 'leaf-first', **kwargs):
+    ''' Function to train the Tree.
+    Requires a separate function that solves the inner optimization problem, can be used with any optimization tool.
+    '''       
+    self.inner_FDR_kwargs = kwargs
+    num_features = X.shape[1]    #Number of features
+    n_obs = len(Y)
+    
+    # Each node has a combination
+    #Initialize tree structure
+    self.Node_id = [0]
+    self.Depth_id = [0]
+    self.parent_node  = [None]
+    self.children_left = [-1]
+    self.children_right = [-1]
+    
+    node_id_counter = 0
+    
+    #### Initialize root node
+    print('Initialize root node...')
+    # at root node, no missing data (1 = missing, 0 = not missing)
+    self.missing_pattern = [np.zeros(len(target_col))]
+    # number of missing features per tree node
+    self.total_missing_feat = [self.missing_pattern[0].sum()]
+
+    # features that CANNOT change in the current node (fixed features and features that changed in parent nodes)
+    self.fixed_features = [np.array(fix_col).copy().astype(int)]
+
+    # features that CAN change missing pattern within current node
+    self.target_features = [np.array(target_col).copy().astype(int)]
+    
+    # node split parameters: feature to split on and its value
+    self.feature = [-1]
+    self.threshold = [-1]
+
+    ### Train Nominal model (no missing data here)
+
+    temp_miss_X = (1-self.missing_pattern[0])*X
+    # !!!! Insert pytorch function here
+    lr = QR_regressor(fit_intercept=True)
+    lr.fit(temp_miss_X, Y)
+    #lr = LinearRegression(fit_intercept = True)
+    #lr.fit(miss_X, Y)
+    
+    # Train Adversarially Robust model
+    if self.inner_FDR_kwargs['budget'] == 'equality':                
+        K_temp = 1
+    elif self.inner_FDR_kwargs['budget'] == 'inequality':
+        K_temp = len(self.target_features[0])
+    
+    fdr = FDR_regressor_test(K = K_temp)
+    fdr.fit(temp_miss_X, Y, self.target_features[0], self.fixed_features[0], **self.inner_FDR_kwargs)              
+
+
+    # Nominal and WC loss
+    insample_loss = eval_predictions(lr.predict(temp_miss_X), Y, self.error_metric)
+    insample_wc_loss = 2*fdr.objval
+    
+    # Nominal and WC loss
+    self.Loss = [insample_loss]
+    self.WC_Loss = [insample_wc_loss]
+    self.Loss_gap = [self.WC_Loss[0] - self.Loss[0]]
+    # store nominal and WC model parameters
+    # !!!!! Potentially store the weights of a torch model
+    self.node_coef_ = [lr.coef_.reshape(-1)]
+    self.node_bias_ = [lr.bias_]
+    self.node_model_ = [lr]
+    
+    self.wc_node_coef_ = [fdr.coef_.reshape(-1)]
+    self.wc_node_bias_ = [fdr.bias_]
+    self.wc_node_model_ = [fdr]
+    
+    self.total_models = 1
+    
+    # keep a list with nodes_IDs that we have not checked yet (are neither parent nodes or set as leaf nodes)
+    nodes_ids_candidates = [0]
+    self.node_cand_id_ordered = [0]
+    temp_node_order = [0]
+    iter_ = 1
+    keep_node_aux = False
+    
+    self.children_left_dict = {}
+    self.children_right_dict = {}
+    
+    for count_, node in enumerate(self.node_cand_id_ordered):
+        if node not in nodes_ids_candidates: 
+            continue
+        if (node != temp_node_order[0]) and (keep_node_aux == False):
+            continue
+        elif (node == temp_node_order[0]) or (keep_node_aux == True):
+            keep_node_aux = True
+
+    # for count_, node in enumerate(self.Node_id):
+
+        # Depth-first: grow the leaf with the highest WC loss
+        
+        print(f'Node = {node}')
+        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models):
+            # remove node from list to check (only used for best-first growth)
+            nodes_ids_candidates.remove(node)
+
+            # Fix as leaf node and go back to loop
+            self.children_left.append(-1)
+            self.children_right.append(-1)
+            
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+
+            continue
+        
+        # candidate features that CAN go missing in current node        
+        cand_features = self.target_features[node]
+        
+            
+        # Initialize placeholder for subtree error
+        Best_loss = self.Loss[node]
+        # Indicators to check for splitting node
+        solution_count = 0
+        apply_split = False
+            
+        ### Loop over features, find the worst-case loss when a feature goes missing (i.e., feature value is set to 0)
+        for j, cand_feat in enumerate(cand_features):
+            #print('Col: ', j)
+            
+            # temporary missing patterns            
+            temp_missing_pattern = self.missing_pattern[node].copy()
+            temp_missing_pattern[cand_feat] = 1
+            temp_miss_X = (1-temp_missing_pattern)*X                
+            
+            # Find performance degradation for the NOMINAL model when data are missing
+            current_node_loss = eval_predictions(self.node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+        
+            # Check if nominal model **degrades** enough (loss increase)
+            nominal_loss_worse_ind = ((current_node_loss-self.Loss[node])/self.Loss[node] > self.red_threshold)   
+            wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(temp_miss_X), Y, self.error_metric)
+
+            if (current_node_loss > Best_loss) and (nominal_loss_worse_ind):    
+                # Further check if a new model **improves** over the WC model enough (decrease loss)
+                # !!!! Not sure we need this
+                
+                new_lr = QR_regressor(fit_intercept=True)
+                new_lr.fit(temp_miss_X, Y)
+            
+                retrain_loss = eval_predictions(new_lr.predict(temp_miss_X), Y, self.error_metric)
+                
+                if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
+                
+                    solution_count = solution_count + 1
+                    apply_split = True
+                                    
+                
+                    # placeholders for node split
+                    best_node_coef_ = new_lr.coef_.reshape(-1)
+                    best_node_bias_ = new_lr.bias_
+                    best_new_model = new_lr
+                    best_split_feature = cand_feat
+                    
+                    Best_loss = current_node_loss
+                    # update running loss function at current node/ nominal loss at right child node
+                    Best_insample_loss = retrain_loss
+
+        #If split is applied, then update tree structure (missing feature goes to right child, left child copies current node)
+        # Right child: new model with missing feature
+        # Left child: worst-case scenario of the remaining features
+        
+        if apply_split == True:
+
+            print(f'Solution found, learning WC model and updating tree structure...')
+
+            self.total_models += 1
+            
+            self.parent_node.extend(2*[node])    
+            #self.Node_id.extend([ 2*node + 1, 2*node + 2])
+            self.Node_id.extend([ node_id_counter + 1, node_id_counter + 2])
+            # self.Node_id.extend([ node + 1, node + 2])
+
+            nodes_ids_candidates.remove(node)            
+            #nodes_ids_candidates = nodes_ids_candidates + [ 2*node + 1, 2*node + 2]
+            nodes_ids_candidates = nodes_ids_candidates + [ node_id_counter + 1, node_id_counter + 2]
+            
+            # set depth of new nodes (parent node + 1)
+            self.Depth_id.extend(2*[self.Depth_id[node]+1])
+            
+            self.feature[node] = best_split_feature
+            self.feature.extend(2*[-1])
+            
+            #### Left child node: learn worst-case model/ !!! previous missing patterns need to be respected 
+            # update left child/ same parameters/ update fixed_cols/same missingness pattern
+            left_fix_cols = np.append(self.fixed_features[node].copy(), best_split_feature)
+            left_target_cols = self.target_features[node].copy()
+            left_target_cols = np.delete(left_target_cols, np.where(left_target_cols==best_split_feature))
+            left_missing_pattern = self.missing_pattern[node].copy()
+            if self.inner_FDR_kwargs['budget'] == 'equality':                
+                K_temp = 1
+            elif self.inner_FDR_kwargs['budget'] == 'inequality':
+                K_temp = len(left_target_cols)
+                
+            temp_miss_X = (1-left_missing_pattern)*X
+            left_fdr = FDR_regressor_test(K = K_temp)
+            left_fdr.fit(temp_miss_X, Y, left_target_cols, left_fix_cols, **self.inner_FDR_kwargs)              
+            
+            # Estimate WC loss and nominal loss
+            left_insample_wcloss = 2*left_fdr.objval
+            
+            # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
+            self.Loss.append(self.Loss[node])
+            self.WC_Loss.append(left_insample_wcloss)
+            self.Loss_gap.append(self.WC_Loss[-1] - self.Loss[-1]) 
+            
+            self.missing_pattern.append(left_missing_pattern)
+            self.total_missing_feat.append(left_missing_pattern.sum())
+
+            self.node_coef_.append(self.node_coef_[node])
+            self.node_bias_.append(self.node_bias_[node])
+            self.node_model_.append(self.node_model_[node])
+
+            self.wc_node_coef_.append(left_fdr.coef_)
+            self.wc_node_bias_.append(left_fdr.bias_)
+            self.wc_node_model_.append(left_fdr)
+            
+            # update missing patterns for downstream robust problem
+            self.fixed_features.append(left_fix_cols)
+            self.target_features.append(left_target_cols)
+            
+            #### Right child node: update with new model
+            # update right child/ update parameters/ update fixed_cols/same missingness pattern
+            right_fix_cols = left_fix_cols
+            right_target_cols = left_target_cols
+            right_missing_pattern = self.missing_pattern[node].copy()
+            right_missing_pattern[best_split_feature] = 1
+            
+            # Nominal loss: is estimated/ WC loss: set to negative value
+            if self.inner_FDR_kwargs['budget'] == 'equality':                
+                K_temp = 1
+            elif self.inner_FDR_kwargs['budget'] == 'inequality':
+                K_temp = len(right_target_cols)
+            
+            temp_miss_X = (1-right_missing_pattern)*X
+
+            right_fdr = FDR_regressor_test(K = K_temp)
+            right_fdr.fit(temp_miss_X, Y, right_target_cols, right_fix_cols, **self.inner_FDR_kwargs)              
+            
+            # Estimate WC loss and nominal loss
+            right_insample_wcloss = 2*right_fdr.objval
+            
+            self.Loss.append(Best_insample_loss)
+            self.WC_Loss.append(right_insample_wcloss)
+            self.Loss_gap.append(self.WC_Loss[-1] - self.Loss[-1]) 
+
+            self.missing_pattern.append(right_missing_pattern)
+            self.total_missing_feat.append(right_missing_pattern.sum())
+
+            self.node_coef_.append(new_lr.coef_)
+            self.node_bias_.append(new_lr.bias_)
+            self.node_model_.append(new_lr)
+            
+            self.wc_node_coef_.append(right_fdr.coef_)
+            self.wc_node_bias_.append(right_fdr.bias_)
+            self.wc_node_model_.append(right_fdr)
+                        
+            # update missing patterns for downstream robust problem            
+            self.fixed_features.append(left_fix_cols)
+            self.target_features.append(left_target_cols)
+                        
+            if node==0:
+                self.children_left[node] = node_id_counter+1
+                self.children_right[node] = node_id_counter+2
+                
+                self.children_left_dict[node] = node_id_counter+1
+                self.children_right_dict[node] = node_id_counter+2
+
+            else:
+                self.children_left_dict[node] = node_id_counter+1
+                self.children_right_dict[node] = node_id_counter+2
+                
+                self.children_left.append(node_id_counter+1)
+                self.children_right.append(node_id_counter+2)
+            node_id_counter = node_id_counter + 2
+            
+        else:
+            nodes_ids_candidates.remove(node)
+
+            #Fix as leaf node
+            self.children_left.append(-1)
+            self.children_right.append(-1)
+
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+        
+        # order current non-leaf nodes in descending order in terms of WC loss
+        #print(nodes_ids_candidates)
+        #print(np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1])
+        #self.node_cand_id_ordered = self.node_cand_id_ordered[:count_+1]
+        self.node_cand_id_ordered.extend([nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]])
+        temp_node_order = [nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]]
+        #self.node_cand_id_ordered.remove(1)    
+        keep_node_aux = False        
+        #print(self.node_cand_id_ordered)
+        #asfd
+
   def apply(self, X, missing_mask):
      ''' Function that returns the Leaf id for each point. Similar to sklearn's implementation.
      '''
@@ -315,16 +1100,18 @@ class v2_FiniteRobustRetrain(object):
          node = 0
          # !!!! If you go to leaf, might be overly conservative
          #Go down the tree until you match the missing pattern OR a Leaf node is reached
-         while ((self.children_left[node] != -1) and (self.children_right[node] != -1)):
+         while ((self.children_left_dict[node] != -1) and (self.children_left_dict[node] != -1)):
+
+             # if missing pattern matches exactly, break loop
              if (m0==self.missing_pattern[node]).all():
                  break
              
              elif m0[:, self.feature[node]] == 0:
                  # if feature is not missing, go left
-                 node = self.children_left[node]
+                 node = self.children_left_dict[node]
              elif m0[:,self.feature[node]] == 1:
                  # if feature is missing, go right
-                node = self.children_right[node]
+                node = self.children_right_dict[node]
              #print('New Node: ', node)
          if (m0==self.missing_pattern[node]).all():
              # nominal model
@@ -432,10 +1219,12 @@ class FiniteAdaptability_MLP(object):
                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
         
     ######## Train Adversarially Robust model
-    K_temp = len(self.target_features[0])
+    # budget of robustness
+    gamma_temp = len(self.target_features[0])
 
     robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
-                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], train_adversarially = True)
+                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], train_adversarially = True, 
+                              Gamma = gamma_temp)
 
     optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
     
@@ -463,6 +1252,8 @@ class FiniteAdaptability_MLP(object):
     self.total_models = 1
     
     for node in self.Node_id:
+        # depth-first: grow the leaf with the highest worst-case loss
+        
         print(f'Node = {node}')
         if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models):
             # Fix as leaf node and go back to loop
@@ -510,7 +1301,7 @@ class FiniteAdaptability_MLP(object):
             if (current_node_loss > Best_loss)*(nominal_loss_worse_ind):    
                 # Further check if a new model **improves** over the WC model enough (decrease loss)
 
-                ####### Train nominal model
+                ####### Train nominal model with missing data
                 new_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                           target_col = self.target_features[node], fix_col = self.fixed_features[node], projection = self.gd_FDRR_params['projection'], 
                                           train_adversarially = False)
@@ -559,7 +1350,7 @@ class FiniteAdaptability_MLP(object):
             left_target_cols = self.target_features[node].copy()
             left_target_cols = np.delete(left_target_cols, np.where(left_target_cols==best_split_feature))
             left_missing_pattern = self.missing_pattern[node].copy()
-            K_temp = len(left_target_cols)
+            gamma_temp = len(self.target_features[0])
                 
             temp_miss_X = (1-left_missing_pattern)*X
             
@@ -575,7 +1366,7 @@ class FiniteAdaptability_MLP(object):
 
             left_robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = left_target_cols, fix_col = left_fix_cols, projection = self.gd_FDRR_params['projection'], 
-                                      train_adversarially = True)
+                                      train_adversarially = True, Gamma = gamma_temp)
 
             optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
@@ -625,7 +1416,7 @@ class FiniteAdaptability_MLP(object):
 
             right_robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = right_target_cols, fix_col = right_fix_cols, projection = self.gd_FDRR_params['projection'], 
-                                      train_adversarially = True)
+                                      train_adversarially = True, Gamma = gamma_temp)
 
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
