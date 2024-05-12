@@ -337,7 +337,6 @@ class resilient_MLP(nn.Module):
             return delta_proj.detach()
 
 
-
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
         """ Construct adversarial missing data examples on X, returns a vector of x*(1-a)
             if a_j == 1: x_j is missing"""
@@ -508,7 +507,51 @@ class gd_FDRR(nn.Module):
         self.model = nn.Sequential(*layers)
         if (self.sigmoid_activation) and (self.projection == False):
             self.model.add_module('sigmoid', nn.Sigmoid())
-                            
+        
+        # Projection layer (can find closed-form solution)
+        alpha_hat = cp.Parameter((input_size))
+        alpha_proj = cp.Variable((input_size), nonneg = True)
+    
+        Constraints = [alpha_proj <= 1, alpha_proj.sum() <= self.gamma] 
+                        
+        objective_funct = cp.Minimize(  cp.norm(alpha_proj - alpha_hat) ) 
+                
+        l1_norm_projection = cp.Problem(objective_funct, Constraints)         
+        self.projection_layer = CvxpyLayer(l1_norm_projection, parameters=[alpha_hat], variables = [alpha_proj])
+    
+    def l1_norm_attack(self, X, y, num_iter=10, randomize=False):
+            # initialize with greedy heuristic search 
+            alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)
+            
+            alpha = torch.ones_like(X, requires_grad=True)
+            
+            alpha.data = alpha_init
+            
+            opt = torch.optim.SGD([alpha], lr=1e-2)
+
+            for t in range(num_iter):
+                
+                # pred = self.forward(X*(1-alpha))
+                # loss = -self.estimate_loss(pred, y).mean() 
+                
+                # opt.zero_grad()
+                # loss.backward()
+                # opt.step()
+                                    
+                y_hat = self.forward(X*(1-alpha))
+                loss = self.estimate_loss(y_hat, y).mean() 
+                loss.backward()
+                alpha.data = (alpha + 1e-2*alpha.grad.detach().sign())
+                alpha.grad.zero_()
+                
+                # project
+                # alpha_proj = project_onto_l1_ball(delta, epsilon)
+                alpha_proj = self.projection_layer(alpha)[0]
+                alpha.data = alpha_proj
+                # print(alpha[0])
+
+            return alpha.detach()
+        
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
         """ Construct adversarial missing data examples on X, returns a vector of x*(1-a)
             if a_j == 1: x_j is missing"""
@@ -521,9 +564,11 @@ class gd_FDRR(nn.Module):
         wc_loss = current_loss
         best_alpha =  torch.zeros_like(X)
         current_target_col = self.target_col
-
+        
+        #print(f'Gamma:{gamma}')
+        
         for g in range(1, gamma+1):
-            
+            local_loss = []
             # placeholders for splitting a column
             best_col = None
             apply_split = False  
@@ -537,20 +582,24 @@ class gd_FDRR(nn.Module):
                 # predict using adversarial example
                 y_hat = self.forward(X*(1-alpha_temp))
                 temp_loss = self.estimate_loss(y_hat, y).mean()
+                local_loss.append(temp_loss.data)
                 
-                # check if performance degrades enough, apply split
-                if temp_loss > wc_loss:
-                    # update
-                    wc_loss = temp_loss
-                    best_alpha = alpha_temp
-                    best_col = col
-                    apply_split = True
-            # update list of eligible columns
-            if apply_split:
-                current_target_col = torch.cat([current_target_col[0:best_col], current_target_col[best_col+1:]])   
+            best_col_ind = np.argsort(local_loss)[-1]
+            best_alpha[:,current_target_col[best_col_ind]] = 1
+            current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
 
-            else:
-                break
+                # # check if performance degrades enough, apply split
+                # if temp_loss > wc_loss:
+                #     # update
+                #     wc_loss = temp_loss
+                #     best_alpha = alpha_temp
+                #     best_col = col
+                #     apply_split = True
+            # update list of eligible columns
+            # if apply_split:
+            #     current_target_col = torch.cat([current_target_col[0:best_col], current_target_col[best_col+1:]])   
+            # else:
+            #     break
         
         return best_alpha
     
@@ -560,10 +609,11 @@ class gd_FDRR(nn.Module):
         Args:
             x: input tensors/ features
         """
-        if self.projection:
-            return (torch.maximum(torch.minimum(self.model(x), self.UB), self.LB))
-        else:
-            return self.model(x)
+        return self.model(x)
+        # if self.projection:
+        #     return (torch.maximum(torch.minimum(self.model(x), self.UB), self.LB))
+        # else:
+        #     return self.model(x)
         
     
     def epoch_train(self, loader, opt=None):
@@ -592,7 +642,12 @@ class gd_FDRR(nn.Module):
             
             # find adversarial example
             alpha = self.missing_data_attack(X, y, gamma = self.gamma)
+            # print(alpha.sum(1).mean())
+            
+            # alpha = self.l1_norm_attack(X,y)
+            
             #print(alpha.sum(1).mean())
+
             # forward pass plus correction
             y_hat = self.forward(X*(1-alpha))            
             y_nom = self.forward(X)
@@ -628,33 +683,34 @@ class gd_FDRR(nn.Module):
         
         return loss_i
             
-    def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0):
+    def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False):
         
         best_train_loss = float('inf')
         best_val_loss = float('inf')
         early_stopping_counter = 0
         best_weights = copy.deepcopy(self.state_dict())
         
-        print('Train model for nominal case, warm-start the adversarial training')
-        for epoch in range(epochs):
-            
-            average_train_loss = self.epoch_train(train_loader, optimizer)
-            val_loss = self.epoch_train(val_loader)
-
-            if (verbose != -1) and (epoch%25 == 0):
-                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_weights = copy.deepcopy(self.state_dict())
-                early_stopping_counter = 0
-            else:
-                early_stopping_counter += 1
-                if early_stopping_counter >= patience:
-                    print("Early stopping triggered.")
-                    # recover best weights
-                    self.load_state_dict(best_weights)
-                    break
+        if (self.train_adversarially == False) or (warm_start):
+            print('Train model for nominal case or warm-start the adversarial training')
+            for epoch in range(epochs):
+                
+                average_train_loss = self.epoch_train(train_loader, optimizer)
+                val_loss = self.epoch_train(val_loader)
+    
+                if (verbose != -1) and (epoch%25 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+    
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        break
                 
         if self.train_adversarially:
             print('Start adversarial training')

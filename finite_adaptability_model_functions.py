@@ -743,26 +743,30 @@ class stable_Finite_FDRR(object):
 
 
 class depth_Finite_FDRR(object):
-  '''This function initializes the GPT.
+  '''Adversarially robust regression with finite adaptability.
+      Recursively partitions feature space and estimates worst-case model parameters.
   
   Paremeters:
       D: maximum depth of the tree (should include pruning??)
-      Nmin: minimum number of observations at each leaf
-      type_split: regular or random splits for the ExtraTree algorithm (perhaps passed as hyperparameter in the forest)
-      cost_complexity: Should be included for a simple tree
-      spo_weight: Parameter that controls the trade-off between prediction and prescription, to be included
-      max_features: Maximum number of features to consider at each split (used for ensembles). If False, then all features are used
+      Max_models: Maximum number of adaptive models
+      red_threshold: threshold in loss improvement to split a new node
+      error_metric: Evaluation metric
+      max_gap: Maximum percentage gap between optimistic and pessimistic bound
+      tree_grow_algo = {'leaf-wise', 'level-wise'}: how to grow the tree. Leaf-wise grows best-first, level-wise moves horizontally and grows each level
+              'leaf-wise' is the *suggested* one
       **kwargs: keyword arguments to solve the optimization problem prescribed
 
       '''
-  def __init__(self, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mae'):
+  def __init__(self, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mae', max_gap = 0.001):
       
     self.D = D
+    # Upper bound on loss gap (percentage) across all nodes
+    self.max_gap = max_gap
     self.Max_models = Max_models
     self.red_threshold = red_threshold
     self.error_metric = error_metric
         
-  def fit(self, X, Y, target_col, fix_col, tree_grow_algo = 'leaf-first', **kwargs):
+  def fit(self, X, Y, target_col, fix_col, tree_grow_algo = 'leaf-wise', **kwargs):
     ''' Function to train the Tree.
     Requires a separate function that solves the inner optimization problem, can be used with any optimization tool.
     '''       
@@ -824,6 +828,8 @@ class depth_Finite_FDRR(object):
     self.Loss = [insample_loss]
     self.WC_Loss = [insample_wc_loss]
     self.Loss_gap = [self.WC_Loss[0] - self.Loss[0]]
+    self.Loss_gap_perc = [(self.WC_Loss[0] - self.Loss[0])/self.Loss[0]]
+    
     # store nominal and WC model parameters
     # !!!!! Potentially store the weights of a torch model
     self.node_coef_ = [lr.coef_.reshape(-1)]
@@ -836,33 +842,44 @@ class depth_Finite_FDRR(object):
     
     self.total_models = 1
     
-    # keep a list with nodes_IDs that we have not checked yet (are neither parent nodes or set as leaf nodes)
-    nodes_ids_candidates = [0]
-    self.node_cand_id_ordered = [0]
-    temp_node_order = [0]
-    iter_ = 1
-    keep_node_aux = False
+    # Keep list with nodes that we have not checked yet (are neither parent nodes or set as leaf nodes)
+    # Lists are updated dynamically at each iteration    
+    # list of nodes that we could split on
+    list_nodes_candidates = [0]
+    # same list ordered by loss gap (best-first)
+    list_nodes_candidates_ordered = [0]    
     
+    self.list_nodes_candidates_ordered = [0]
+        
     self.children_left_dict = {}
     self.children_right_dict = {}
     
-    for count_, node in enumerate(self.node_cand_id_ordered):
-        if node not in nodes_ids_candidates: 
-            continue
-        if (node != temp_node_order[0]) and (keep_node_aux == False):
-            continue
-        elif (node == temp_node_order[0]) or (keep_node_aux == True):
-            keep_node_aux = True
-
-    # for count_, node in enumerate(self.Node_id):
-
-        # Depth-first: grow the leaf with the highest WC loss
+    # while the (ordered) list of candidate nodes is not empty
+    if tree_grow_algo == 'leaf-wise':
+        # **suggested approach**, grow best-first, leafwise 
+        list_to_check = list_nodes_candidates_ordered
+    else:
+        # grow depth-wise
+        list_to_check = list_nodes_candidates
         
+    while list_to_check:     
+        # node to check in iteration
+        node = list_to_check[0]
+        
+        # Depth-first: grow the leaf with the highest WC loss        
         print(f'Node = {node}')
-        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models):
+        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models) or (self.Loss_gap_perc[node] <= self.max_gap):
             # remove node from list to check (only used for best-first growth)
-            nodes_ids_candidates.remove(node)
+            
+            list_nodes_candidates.remove(node)
+            list_nodes_candidates_ordered.remove(node)
 
+            # update checking list
+            if tree_grow_algo == 'leaf-wise':
+                list_to_check = list_nodes_candidates_ordered
+            else:
+                list_to_check = list_nodes_candidates
+            
             # Fix as leaf node and go back to loop
             self.children_left.append(-1)
             self.children_right.append(-1)
@@ -875,7 +892,6 @@ class depth_Finite_FDRR(object):
         # candidate features that CAN go missing in current node        
         cand_features = self.target_features[node]
         
-            
         # Initialize placeholder for subtree error
         Best_loss = self.Loss[node]
         # Indicators to check for splitting node
@@ -937,11 +953,7 @@ class depth_Finite_FDRR(object):
             #self.Node_id.extend([ 2*node + 1, 2*node + 2])
             self.Node_id.extend([ node_id_counter + 1, node_id_counter + 2])
             # self.Node_id.extend([ node + 1, node + 2])
-
-            nodes_ids_candidates.remove(node)            
-            #nodes_ids_candidates = nodes_ids_candidates + [ 2*node + 1, 2*node + 2]
-            nodes_ids_candidates = nodes_ids_candidates + [ node_id_counter + 1, node_id_counter + 2]
-            
+                        
             # set depth of new nodes (parent node + 1)
             self.Depth_id.extend(2*[self.Depth_id[node]+1])
             
@@ -968,8 +980,9 @@ class depth_Finite_FDRR(object):
             
             # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
             self.Loss.append(self.Loss[node])
-            self.WC_Loss.append(left_insample_wcloss)
+            self.WC_Loss.append(left_insample_wcloss)            
             self.Loss_gap.append(self.WC_Loss[-1] - self.Loss[-1]) 
+            self.Loss_gap_perc.append((self.WC_Loss[-1] - self.Loss[-1])/self.Loss[-1]) 
             
             self.missing_pattern.append(left_missing_pattern)
             self.total_missing_feat.append(left_missing_pattern.sum())
@@ -1010,6 +1023,7 @@ class depth_Finite_FDRR(object):
             self.Loss.append(Best_insample_loss)
             self.WC_Loss.append(right_insample_wcloss)
             self.Loss_gap.append(self.WC_Loss[-1] - self.Loss[-1]) 
+            self.Loss_gap_perc.append((self.WC_Loss[-1] - self.Loss[-1])/self.Loss[-1]) 
 
             self.missing_pattern.append(right_missing_pattern)
             self.total_missing_feat.append(right_missing_pattern.sum())
@@ -1039,10 +1053,24 @@ class depth_Finite_FDRR(object):
                 
                 self.children_left.append(node_id_counter+1)
                 self.children_right.append(node_id_counter+2)
-            node_id_counter = node_id_counter + 2
             
+            # Update lists of candidate nodes (node is removed in both cases)
+            list_nodes_candidates = list_nodes_candidates + [ node_id_counter + 1, node_id_counter + 2]
+            list_nodes_candidates_ordered = [list_nodes_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[list_nodes_candidates])[::-1]]
+                    
+            list_nodes_candidates.remove(node)            
+            list_nodes_candidates_ordered.remove(node)            
+            
+            # Update checking list for while loop
+            if tree_grow_algo == 'leaf-wise':
+                list_to_check = list_nodes_candidates_ordered
+            else:
+                list_to_check = list_nodes_candidates
+
+            # Update the total number nodes
+            node_id_counter = node_id_counter + 2
+
         else:
-            nodes_ids_candidates.remove(node)
 
             #Fix as leaf node
             self.children_left.append(-1)
@@ -1051,14 +1079,22 @@ class depth_Finite_FDRR(object):
             self.children_left_dict[node] = -1
             self.children_right_dict[node] = -1
         
+            # Update lists of candidate nodes (remove node)
+            list_nodes_candidates.remove(node)            
+            list_nodes_candidates_ordered.remove(node)            
+        
+            # Update checking list for while loop
+            if tree_grow_algo == 'leaf-wise':
+                list_to_check = list_nodes_candidates_ordered
+            else:
+                list_to_check = list_nodes_candidates
+
         # order current non-leaf nodes in descending order in terms of WC loss
-        #print(nodes_ids_candidates)
-        #print(np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1])
-        #self.node_cand_id_ordered = self.node_cand_id_ordered[:count_+1]
-        self.node_cand_id_ordered.extend([nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]])
-        temp_node_order = [nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]]
+
+        # self.node_cand_id_ordered.extend([nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]])
+        # temp_node_order = [nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]]
         #self.node_cand_id_ordered.remove(1)    
-        keep_node_aux = False        
+        # keep_node_aux = False        
         #print(self.node_cand_id_ordered)
         #asfd
 
@@ -1121,7 +1157,6 @@ class depth_Finite_FDRR(object):
              Predictions.append( x0@self.wc_node_coef_[node] + self.wc_node_bias_[node] )
      return np.array(Predictions)
 
-
 class FiniteAdaptability_MLP(object):
   '''This function initializes the GPT.
   
@@ -1147,12 +1182,13 @@ class FiniteAdaptability_MLP(object):
     self.gd_FDRR_params = kwargs
 
 
-  def fit(self, X, Y, val_split = 0.05, **kwargs):
+  def fit(self, X, Y, tree_grow_algo = 'leaf-wise', max_gap = 0.001, val_split = 0.05, **kwargs):
     ''' Function to train the Tree.
     Requires a separate function that solves the inner optimization problem, can be used with any optimization tool.
     '''
 
     self.MLP_train_dict = kwargs
+    self.max_gap = max_gap
 
     # keyword arguments for standard class object resilient_MLP
     num_features = X.shape[1]    #Number of features
@@ -1165,6 +1201,8 @@ class FiniteAdaptability_MLP(object):
     self.parent_node  = [None]
     self.children_left = [-1]
     self.children_right = [-1]
+    self.children_left_dict = {}
+    self.children_right_dict = {}
     
     node_id_counter = 0
     
@@ -1231,7 +1269,8 @@ class FiniteAdaptability_MLP(object):
     robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
 
     robust_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
+                          warm_start = True)
     
 
     # Nominal and WC loss
@@ -1240,9 +1279,12 @@ class FiniteAdaptability_MLP(object):
         
     print(insample_loss)
     print(insample_wc_loss)
-    # Nominal and WC loss
+    
+    # Nominal, WC loss, and loss gap
     self.Loss = [insample_loss]
     self.WC_Loss = [insample_wc_loss]
+    self.Loss_gap = [self.WC_Loss[0] - self.Loss[0]]
+    self.Loss_gap_perc = [(self.WC_Loss[0] - self.Loss[0])/self.Loss[0]]
     
     # store nominal and WC model parameters
     # !!!!! Potentially store the weights of a torch model
@@ -1251,14 +1293,45 @@ class FiniteAdaptability_MLP(object):
     
     self.total_models = 1
     
-    for node in self.Node_id:
-        # depth-first: grow the leaf with the highest worst-case loss
+    # Keep list with nodes that we have not checked yet (are neither parent nodes or set as leaf nodes), updated dynamically at each iteration
+    # list of nodes that we could split on
+    list_nodes_candidates = [0]
+    # same list ordered by loss gap (best-first)
+    list_nodes_candidates_ordered = [0]    
+
+    # while the (ordered) list of candidate nodes is not empty
+    if tree_grow_algo == 'leaf-wise':
+        # **suggested approach**, grow best-first, leafwise 
+        list_to_check = list_nodes_candidates_ordered
+    else:
+        # grow depth-wise
+        list_to_check = list_nodes_candidates
         
+    while list_to_check:     
+        # node to check in iteration
+        node = list_to_check[0]
+        
+        # Depth-first: grow the leaf with the highest WC loss        
         print(f'Node = {node}')
-        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models):
+        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models) or (self.Loss_gap_perc[node] <= self.max_gap):
+            # remove node from list to check (only used for best-first growth)
+            
+            list_nodes_candidates.remove(node)
+            list_nodes_candidates_ordered.remove(node)
+
+            # update checking list
+            if tree_grow_algo == 'leaf-wise':
+                list_to_check = list_nodes_candidates_ordered
+            else:
+                list_to_check = list_nodes_candidates
+            
             # Fix as leaf node and go back to loop
             self.children_left.append(-1)
             self.children_right.append(-1)
+            
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+
             continue
         
         # candidate features that CAN go missing in current node        
@@ -1309,10 +1382,11 @@ class FiniteAdaptability_MLP(object):
                 optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
 
                 new_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                                      epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+                                      epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
+                                      verbose = self.MLP_train_dict['verbose'])
 
                             
-                retrain_loss = eval_predictions(new_mlp_model.predict(tensor_train_missX), Y, self.error_metric) .reshape(-1,1)
+                retrain_loss = eval_predictions(new_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
                 wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(tensor_train_missX), Y, self.error_metric)
                 
                 if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
@@ -1350,7 +1424,7 @@ class FiniteAdaptability_MLP(object):
             left_target_cols = self.target_features[node].copy()
             left_target_cols = np.delete(left_target_cols, np.where(left_target_cols==best_split_feature))
             left_missing_pattern = self.missing_pattern[node].copy()
-            gamma_temp = len(self.target_features[0])
+            gamma_temp = len(left_target_cols)
                 
             temp_miss_X = (1-left_missing_pattern)*X
             
@@ -1373,7 +1447,8 @@ class FiniteAdaptability_MLP(object):
             left_robust_mlp_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
 
             left_robust_mlp_model.train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
-                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
+                                  warm_start = False)
 
             
             # Estimate WC loss and nominal loss
@@ -1382,6 +1457,8 @@ class FiniteAdaptability_MLP(object):
             # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
             self.Loss.append(self.Loss[node])
             self.WC_Loss.append(left_insample_wcloss)
+            self.Loss_gap.append( self.WC_Loss[-1] -  self.Loss[-1])
+            self.Loss_gap_perc.append( (self.WC_Loss[-1] -  self.Loss[-1])/self.Loss[-1] )
             
             self.missing_pattern.append(left_missing_pattern)
             self.total_missing_feat.append(left_missing_pattern.sum())
@@ -1401,7 +1478,7 @@ class FiniteAdaptability_MLP(object):
             right_missing_pattern[best_split_feature] = 1
             
             # Nominal loss: is estimated/ WC loss: set to negative value
-            K_temp = len(right_target_cols)
+            gamma_temp = len(right_target_cols)
             
             temp_miss_X = (1-right_missing_pattern)*X
             
@@ -1423,14 +1500,17 @@ class FiniteAdaptability_MLP(object):
             right_robust_mlp_model.load_state_dict(new_mlp_model.state_dict(), strict=False)
 
             right_robust_mlp_model.train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
-                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
+                                  warm_start = False)
 
             # Estimate WC loss and nominal loss
             right_insample_wcloss = eval_predictions(right_robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
             
             self.Loss.append(Best_insample_loss)
             self.WC_Loss.append(right_insample_wcloss)
-            
+            self.Loss_gap.append( self.WC_Loss[-1] -  self.Loss[-1])
+            self.Loss_gap_perc.append( (self.WC_Loss[-1] -  self.Loss[-1])/self.Loss[-1] )
+
             self.missing_pattern.append(right_missing_pattern)
             self.total_missing_feat.append(right_missing_pattern.sum())
 
@@ -1448,12 +1528,44 @@ class FiniteAdaptability_MLP(object):
             else:
                 self.children_left.append(node_id_counter+1)
                 self.children_right.append(node_id_counter+2)
+
+            self.children_left_dict[node] = node_id_counter+1
+            self.children_right_dict[node] = node_id_counter+1
+
+            # Update lists of candidate nodes (node is removed in both cases)
+            list_nodes_candidates = list_nodes_candidates + [ node_id_counter + 1, node_id_counter + 2]
+            
+            list_nodes_candidates_ordered = [list_nodes_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[list_nodes_candidates])[::-1]]
+                    
+            list_nodes_candidates.remove(node)            
+            list_nodes_candidates_ordered.remove(node)            
+                        
+            # Update checking list for while loop
+            if tree_grow_algo == 'leaf-wise':
+                list_to_check = list_nodes_candidates_ordered
+            else:
+                list_to_check = list_nodes_candidates
+
             node_id_counter = node_id_counter + 2
             
         else:
             #Fix as leaf node
             self.children_left.append(-1)
             self.children_right.append(-1)
+            
+            self.children_left_dict[node] = -1
+            self.children_right_dict[node] = -1
+
+            # Update lists of candidate nodes (remove node)
+            list_nodes_candidates.remove(node)            
+            list_nodes_candidates_ordered.remove(node)            
+        
+            # Update checking list for while loop
+            if tree_grow_algo == 'leaf-wise':
+                list_to_check = list_nodes_candidates_ordered
+            else:
+                list_to_check = list_nodes_candidates
+
             
   def apply(self, X, missing_mask):
      ''' Function that returns the Leaf id for each point. Similar to sklearn's implementation.
@@ -1467,15 +1579,15 @@ class FiniteAdaptability_MLP(object):
          #Start from root node
          node = 0
          #Go downwards until reach a Leaf Node
-         while ((self.children_left[node] != -1) and (self.children_right[node] != -1)):
+         while ((self.children_left_dict[node] != -1) and (self.children_right_dict[node] != -1)):
              if (m0==self.missing_pattern[node]).all():
                  break
              if m0[:, self.feature[node]] == 0:
                  # if feature is not missing, go left
-                 node = self.children_left[node]
+                 node = self.children_left_dict[node]
              elif m0[:,self.feature[node]] == 1:
                  # if feature is missing, go right
-                node = self.children_right[node]
+                node = self.children_right_dict[node]
              #print('New Node: ', node)
          node_id[i] = self.Node_id[node]
      return node_id
@@ -1493,16 +1605,16 @@ class FiniteAdaptability_MLP(object):
          node = 0
          # !!!! If you go to leaf, might be overly conservative
          #Go down the tree until you match the missing pattern OR a Leaf node is reached
-         while ((self.children_left[node] != -1) and (self.children_right[node] != -1)):
+         while ((self.children_left_dict[node] != -1) and (self.children_right_dict[node] != -1)):
              if (m0==self.missing_pattern[node]).all():
                  break
              
              elif m0[:, self.feature[node]] == 0:
                  # if feature is not missing, go left
-                 node = self.children_left[node]
+                 node = self.children_left_dict[node]
              elif m0[:,self.feature[node]] == 1:
                  # if feature is missing, go right
-                node = self.children_right[node]
+                node = self.children_right_dict[node]
              #print('New Node: ', node)
          if (m0==self.missing_pattern[node]).all():
              # nominal model

@@ -97,6 +97,7 @@ class FDR_regressor_test(object):
             self.bias_ = fdr_model.bias_
             self.cpu_time = fdr_model.cpu_time
             self.objval = fdr_model.objval
+            self.wc_loss = fdr_model.objval
 
         elif self.solve_multiple == True:
         

@@ -355,33 +355,35 @@ import pickle
 # fin_retrain_model = stable_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.05)
 # fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
-fin_retrain_model = depth_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.1)
-fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
+fin_retrain_model = depth_Finite_FDRR(Max_models = 25, D = 20, red_threshold = 0.1, max_gap = 0.25)
+fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
+                      budget = 'inequality', solution = 'reformulation')
 
 #%% Finite adaptability with MLPs
 
-# from FiniteRetrain import *
-# from FiniteRobustRetrain import *
-# from finite_adaptability_model_functions import *
-# #from torch_custom_layers import *
-# import pickle
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+from torch_custom_layers import *
+import pickle
 
-# # Standard MLPs (separate) forecasting wind production and dispatch decisions
-# n_features = tensor_trainPred.shape[1]
-# n_outputs = tensor_trainY.shape[1]
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
 
-# #optimizer = torch.optim.Adam(res_mlp_model.parameters())
+#optimizer = torch.optim.Adam(res_mlp_model.parameters())
 
-# batch_size = 1000
-# num_epochs = 1000
-# learning_rate = 1e-2
-# patience = 25
+batch_size = 500
+num_epochs = 1000
+learning_rate = 1e-2
+patience = 10
 
-# fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 10, red_threshold=.01, 
-#                                             input_size = n_features, hidden_sizes = [20, 20, 20], output_size = n_outputs, projection = True)
+fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 10, red_threshold=.01, 
+                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True)
     
-# fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-#                       lr = learning_rate, batch_size = batch_size)
+fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+                      epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                      lr = learning_rate, batch_size = batch_size)
 
 
 # #with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
@@ -479,7 +481,7 @@ from torch_custom_layers import *
 batch_size = 500
 num_epochs = 1000
 learning_rate = 1e-2
-patience = 50
+patience = 25
     
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 n_valid_obs = int(0.1*len(trainY))
@@ -500,7 +502,7 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 gd_FDR_models = []
-for K in range(10):
+for K in range(20):
 
 
     gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
@@ -508,7 +510,7 @@ for K in range(10):
     
     optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = learning_rate)
     gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0)
+                          patience = patience, verbose = 0, warm_start = True)
 
     gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
     
@@ -516,14 +518,18 @@ for K in range(10):
     
     print('Adj FDR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
 
-for K in range(10):
+for K in range(20):
     print('Adj FDR: ', eval_point_pred(gd_FDR_models[K].predict(tensor_testPred), Target.values, digits=4))
     plt.plot(gd_FDR_models[K].predict(tensor_testPred)[:1000])
 plt.show()
 #%%
-for name, param in gd_fdr_model.named_parameters():
-    if param.requires_grad:
-        print( name, param.data)
+for k in range(20):
+    for name, param in gd_FDR_models[k].named_parameters():
+        if param.requires_grad:
+            plt.plot(param.data.detach().numpy().T)
+plt.show()
+        # print( name, param.data)
+        
 #%%%%% FDDR-AAR: train one model per value of \Gamma
 
 case_folder = config['store_folder']
@@ -730,7 +736,7 @@ for perc in percentage:
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
             
-            if i < 5:
+            if i < 15:
                 fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
             else:
                 fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
