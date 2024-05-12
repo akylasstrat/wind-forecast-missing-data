@@ -736,7 +736,7 @@ for perc in percentage:
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
             
-            if i < 15:
+            if i < 20:
                 fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
             else:
                 fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
