@@ -773,15 +773,14 @@ class gd_FDRR(nn.Module):
             early_stopping_counter = 0
             
             for epoch in range(epochs):
-    
-                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)
-                val_loss = self.adversarial_epoch_train(val_loader)
+
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
     
                 if (verbose != -1)and(epoch%25 == 0):
-                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
-    
-                if average_train_loss < best_val_loss:
-                    best_val_loss = average_train_loss
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f}")
+                
+                if average_train_loss < best_train_loss:
+                    best_train_loss = average_train_loss
                     best_weights = copy.deepcopy(self.state_dict())
                     early_stopping_counter = 0
                 else:
@@ -791,6 +790,24 @@ class gd_FDRR(nn.Module):
                         # recover best weights
                         self.load_state_dict(best_weights)
                         return    
+
+                # average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
+                # val_loss = self.adversarial_epoch_train(val_loader)
+    
+                # if (verbose != -1)and(epoch%25 == 0):
+                #     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                
+                # if val_loss < best_val_loss:
+                #     best_val_loss = val_loss
+                #     best_weights = copy.deepcopy(self.state_dict())
+                #     early_stopping_counter = 0
+                # else:
+                #     early_stopping_counter += 1
+                #     if early_stopping_counter >= patience:
+                #         print("Early stopping triggered.")
+                #         # recover best weights
+                #         self.load_state_dict(best_weights)
+                #         return    
         else:
             return
 

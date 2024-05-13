@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -355,7 +355,7 @@ import pickle
 # fin_retrain_model = stable_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.05)
 # fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
-fin_retrain_model = depth_Finite_FDRR(Max_models = 25, D = 20, red_threshold = 0.1, max_gap = 0.25)
+fin_retrain_model = depth_Finite_FDRR(Max_models = 10, D = 20, red_threshold = 0.1, max_gap = 0.25)
 fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                       budget = 'inequality', solution = 'reformulation')
 
@@ -438,7 +438,7 @@ from torch_custom_layers import *
 batch_size = 500
 num_epochs = 1000
 learning_rate = 1e-2
-patience = 50
+patience = 25
 
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 n_valid_obs = int(0.1*len(trainY))
@@ -473,64 +473,8 @@ print('Adj FDR: ', eval_point_pred(adj_fdr_pred, Target.values, digits=4))
 for name, param in adj_fdr_model.named_parameters():
     if param.requires_grad:
         print( name, param.data)
-        
-#%%%% Gradient-based FDRR
 
-from torch_custom_layers import * 
-
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-2
-patience = 25
-    
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
-
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
-
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
-
-#### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-gd_FDR_models = []
-for K in [10]:
-
-
-    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K)
-    
-    optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = learning_rate)
-    gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0, warm_start = True)
-
-    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
-    
-    gd_FDR_models.append(gd_fdr_model)
-    
-    print('Adj FDR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
-
-for K in range(20):
-    print('Adj FDR: ', eval_point_pred(gd_FDR_models[K].predict(tensor_testPred), Target.values, digits=4))
-    plt.plot(gd_FDR_models[K].predict(tensor_testPred)[:1000])
-plt.show()
-#%%
-for k in range(len(gd_FDR_models)):
-    for name, param in gd_FDR_models[k].named_parameters():
-        if param.requires_grad:
-            plt.plot(param.data.detach().numpy().T)
-plt.show()
-        # print( name, param.data)
-        
-#%%%%% FDDR-AAR: train one model per value of \Gamma
+#%%%% FDDR-AAR: train one model per value of \Gamma
 
 case_folder = config['store_folder']
 output_file_name = f'{cd}\\{case_folder}\\trained-models\\{target_park}_fdrr-aar_{max_lag}.pickle'
@@ -562,6 +506,74 @@ if config['train']:
 else:
     with open(output_file_name, 'rb') as handle:    
             FDRR_AAR_models = pickle.load(handle)
+#%%%% Gradient-based FDRR
+
+from torch_custom_layers import * 
+
+batch_size = 500
+num_epochs = 1000
+learning_rate = 1e-3
+patience = 25
+    
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_valid_obs = int(0.1*len(trainY))
+
+tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
+tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
+tensor_testY = torch.FloatTensor(testY)
+
+tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
+tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
+tensor_testPred = torch.FloatTensor(testPred.values)
+
+#### MLP model to predict wind from features
+train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
+valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
+
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+gd_FDR_models = []
+
+# nominal model (no missing data) to warm-start all future models
+nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                          target_col = target_col, fix_col = fix_col, projection = False, Gamma = 0, train_adversarially = False)
+
+optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
+nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                      patience = patience, verbose = 0)
+
+for K in range(len(target_col)):
+    
+    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K)
+    
+    optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
+
+    # initialize weights with nominal model
+    gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+
+    gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                          patience = patience, verbose = 0, warm_start = False)
+
+    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
+    
+    gd_FDR_models.append(gd_fdr_model)
+    
+    print('Adj FDR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
+
+    print('Adj FDR: ', eval_point_pred(gd_fdr_model.predict(tensor_testPred), Target.values, digits=4))
+    plt.plot(gd_fdr_model.predict(tensor_testPred)[:1000], label='GD')
+    plt.plot(projection(FDRR_AAR_models[K].predict(testPred)[:1000]), label='MinMax')
+    plt.legend()
+    plt.show()
+
+    for name, param in gd_fdr_model.named_parameters():
+        if param.requires_grad:
+            plt.plot(param.data.detach().numpy().T)
+    plt.plot(FDRR_AAR_models[K].coef_)
+    plt.show()
+
             
 #%%%%%%%%% Retrain without missing features (Tawn, Browell)
 
@@ -736,7 +748,7 @@ for perc in percentage:
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
             
-            if i < 20:
+            if i < 0:
                 fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
             else:
                 fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
@@ -809,7 +821,7 @@ if config['save']:
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['PERS', 'LS', 'LS-l1', 'LAD', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP', 'resMLP']
+models_to_plot = ['PERS', 'LS', 'LS-l1', 'LAD', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
            '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{RETRAIN}$', '$\mathtt{FIN-RETRAIN}$', 
