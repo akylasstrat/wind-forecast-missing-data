@@ -508,6 +508,25 @@ class gd_FDRR(nn.Module):
         if (self.sigmoid_activation) and (self.projection == False):
             self.model.add_module('sigmoid', nn.Sigmoid())
         
+        # # Adversarial example
+        # w_coef = cp.Parameter((input_size))
+        # w_bias = cp.Parameter((1))
+        # x_batch = cp.Parameter((input_size))
+        # y_batch = cp.Parameter((1), nonneg = True)
+        
+        # alpha_hat = cp.Variable((input_size), nonneg = True)
+        # x_aux = cp.Variable((input_size))
+        # missing_aux = cp.Variable((input_size))
+        # error = cp.Variable((1))
+
+        # Constraints = [x_aux == x_batch, error == y_batch - (w_coef@(cp.multiply(x_aux, missing_aux)) + w_bias), alpha_hat <= 1, 
+        #                alpha_hat.sum() <= self.gamma, missing_aux == 1-alpha_hat] 
+                        
+        # objective_funct = cp.Maximize(  cp.norm(error,1) ) 
+                
+        # adversarial_example = cp.Problem(objective_funct, Constraints)         
+        # self.adversarial_layer = CvxpyLayer(adversarial_example, parameters=[w_coef, w_bias, x_batch, y_batch], variables = [alpha_hat, error, x_aux, missing_aux])
+        
         # Projection layer (can find closed-form solution)
         alpha_hat = cp.Parameter((input_size))
         alpha_proj = cp.Variable((input_size), nonneg = True)
@@ -523,10 +542,10 @@ class gd_FDRR(nn.Module):
             # initialize with greedy heuristic search 
             alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)
             
-            alpha = torch.ones_like(X, requires_grad=True)
+            alpha = torch.zeros_like(X, requires_grad=True)
             
-            alpha.data = alpha_init
-            
+            #alpha.data = alpha_init
+            proj_simplex = nn.Softmax()
             opt = torch.optim.SGD([alpha], lr=1e-2)
 
             for t in range(num_iter):
@@ -546,8 +565,8 @@ class gd_FDRR(nn.Module):
                 
                 # project
                 # alpha_proj = project_onto_l1_ball(delta, epsilon)
-                alpha_proj = self.projection_layer(alpha)[0]
-                alpha.data = alpha_proj
+                # alpha_proj = self.projection_layer(alpha)[0]
+                # alpha.data = alpha_proj
                 # print(alpha[0])
 
             return alpha.detach()
@@ -564,15 +583,23 @@ class gd_FDRR(nn.Module):
         wc_loss = current_loss
         best_alpha =  torch.zeros_like(X)
         current_target_col = self.target_col
-        
-        #print(f'Gamma:{gamma}')
-        
+
+        # # find gamma features with higher weight        
+        # for layer in self.model.children():
+        #     if isinstance(layer, nn.Linear):                
+        #         w_coef_param = to_np(layer.weight)
+                
+        # col_ind = np.argsort(np.abs(w_coef_param[0]))[::-1][:gamma]
+        # for c in col_ind:   best_alpha[c] = 1
+
+                
         for g in range(1, gamma+1):
             local_loss = []
             # placeholders for splitting a column
             best_col = None
             apply_split = False  
             alpha_init = best_alpha     
+            
             # loop over target columns (for current node), find worst-case loss:
             for col in current_target_col:
                 # create adversarial example
@@ -588,14 +615,14 @@ class gd_FDRR(nn.Module):
             best_alpha[:,current_target_col[best_col_ind]] = 1
             current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
 
-                # # check if performance degrades enough, apply split
-                # if temp_loss > wc_loss:
-                #     # update
-                #     wc_loss = temp_loss
-                #     best_alpha = alpha_temp
-                #     best_col = col
-                #     apply_split = True
-            # update list of eligible columns
+            #     # check if performance degrades enough, apply split
+            #     if temp_loss > wc_loss:
+            #         # update
+            #         wc_loss = temp_loss
+            #         best_alpha = alpha_temp
+            #         best_col = col
+            #         apply_split = True
+            # #update list of eligible columns
             # if apply_split:
             #     current_target_col = torch.cat([current_target_col[0:best_col], current_target_col[best_col+1:]])   
             # else:
@@ -638,31 +665,57 @@ class gd_FDRR(nn.Module):
         """Adversarial training/evaluation epoch over the dataset"""
         total_loss = 0.
         
+        alpha_val = np.zeros(len(self.target_col))
+        for layer in self.model.children():
+            if isinstance(layer, nn.Linear):                
+                w_coef_param = to_np(layer.weight)                
+        col_ind = np.argsort(np.abs(w_coef_param[0]))[::-1][:self.gamma]
+        for c in col_ind:   alpha_val[c] = 1
+
+
         for X,y in loader:
             
-            # find adversarial example
+            #### Find adversarial example
+            
+            # Greedy top-down heuristic
             alpha = self.missing_data_attack(X, y, gamma = self.gamma)
+            
+            # alpha = torch.ones_like(X)*torch.FloatTensor(alpha_val).reshape(1,-1)
+
+            # L1 attack with projected gradient descent            
+            # alpha = self.l1_norm_attack(X,y)
+            # # print(alpha.sum(1).mean())
+            # print(alpha[0])
+            # # Solve LP
+            # for layer in self.model.children():
+            #     if isinstance(layer, nn.Linear):
+                    
+            #         w_coef_param = layer.weight
+            #         w_bias_param = layer.bias
+            
+            # alpha = self.adversarial_layer(w_coef_param, w_bias_param, X, y)
+            # print(alpha[0])
             # print(alpha.sum(1).mean())
             
-            # alpha = self.l1_norm_attack(X,y)
-            
-            #print(alpha.sum(1).mean())
-
             # forward pass plus correction
-            y_hat = self.forward(X*(1-alpha))            
-            y_nom = self.forward(X)
+            y_hat = self.forward(X*(1-alpha))        
+            
+            # y_nom = self.forward(X)
+            # print(y_nom[0])
+            
             #delta = self.pgd_linf(X, y)
             #y_hat = self.forward(X + delta)
-            
+                  
             #loss = nn.MSELoss()(yp,y)
-            loss_i = self.estimate_loss(y_hat, y)             
+            loss_i = self.estimate_loss(y_hat, y)    
             loss = torch.mean(loss_i)
-            
+
             if opt:
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
             total_loss += loss.item() * X.shape[0]
+
             
         return total_loss / len(loader.dataset)
     
@@ -727,8 +780,8 @@ class gd_FDRR(nn.Module):
                 if (verbose != -1)and(epoch%25 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
     
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
+                if average_train_loss < best_val_loss:
+                    best_val_loss = average_train_loss
                     best_weights = copy.deepcopy(self.state_dict())
                     early_stopping_counter = 0
                 else:

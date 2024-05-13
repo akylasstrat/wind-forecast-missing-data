@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -502,7 +502,7 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 gd_FDR_models = []
-for K in range(20):
+for K in [10]:
 
 
     gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
@@ -523,7 +523,7 @@ for K in range(20):
     plt.plot(gd_FDR_models[K].predict(tensor_testPred)[:1000])
 plt.show()
 #%%
-for k in range(20):
+for k in range(len(gd_FDR_models)):
     for name, param in gd_FDR_models[k].named_parameters():
         if param.requires_grad:
             plt.plot(param.data.detach().numpy().T)
