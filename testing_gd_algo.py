@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Tue May 14 12:27:37 2024
+
+@author: astratig
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Finite adaptability
 
 @author: a.stratigakos
@@ -186,6 +193,7 @@ target_park = 'p_1257'
 
 # number of lags back to consider
 min_lag = config['min_lag']
+config['max_lag'] = 2
 max_lag = config['max_lag']
 
 power_df = power_df
@@ -262,54 +270,6 @@ print('Ridge: ', eval_point_pred(ridge_pred, Target.values, digits=4))
 print('LAD: ', eval_point_pred(lad_pred, Target.values, digits=4))
 print('LAD-L1: ', eval_point_pred(lad_l1_pred, Target.values, digits=4))
 
-#%% MLP model
-from torch_custom_layers import * 
-
-batch_size = 200
-num_epochs = 1000
-learning_rate = 1e-3
-patience = 50
-
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
-
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
-
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
-
-#### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-mlp_model = MLP(input_size = n_features, hidden_sizes = [50, 50, 50, 50], output_size = n_outputs, 
-                projection = True)
-
-optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_decay = 1e-4)
-mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = -1)
-
-mlp_pred = mlp_model.predict(tensor_testPred)
-#mlp_pred = projection(mlp_pred)
-
-print('MLP: ', eval_point_pred(mlp_pred, Target.values, digits=4))
-
-
-
-#%%
-# check forecasts visually
-plt.plot(Target[:60].values)
-plt.plot(lr_pred[:60])
-plt.plot(lad_pred[:60])
-plt.plot(lasso_pred[:60])
-plt.plot(persistence_pred[:60])
-plt.show()
 
 #%%
 
@@ -322,157 +282,6 @@ target_pred = Predictors.columns
 fixed_pred = []
 target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
 fix_col = []
-'''
-missing_cols = list(itertools.combinations(range(len(target_col)), 2))
-
-for i, comb in enumerate(missing_cols):
-    miss_trainPred = trainPred.values.copy()
-    
-    miss_trainPred[:,comb] = 0
-    
-    lad_temp = QR_regressor(fit_intercept = True)
-    lad_temp.fit(miss_trainPred, trainY)
-    
-    objval.append(lad_temp.objval)
-
-plt.plot(objval)
-plt.show()
-'''
-
-
-#%% 
-from FiniteRetrain import *
-from FiniteRobustRetrain import *
-from finite_adaptability_model_functions import *
-import pickle
-
-#fin_retrain_model = FiniteRetrain(Max_models = 10, red_threshold=.01)
-#fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col)
-
-# fin_retrain_model = Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.1)
-# fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
-
-# fin_retrain_model = stable_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.05)
-# fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
-
-fin_retrain_model = depth_Finite_FDRR(Max_models = 10, D = 20, red_threshold = 0.1, max_gap = 0.25)
-fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
-                      budget = 'inequality', solution = 'reformulation')
-
-#%% Finite adaptability with MLPs
-
-from FiniteRetrain import *
-from FiniteRobustRetrain import *
-from finite_adaptability_model_functions import *
-from torch_custom_layers import *
-import pickle
-
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-#optimizer = torch.optim.Adam(res_mlp_model.parameters())
-
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-2
-patience = 10
-
-fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 10, red_threshold=.01, 
-                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True)
-    
-fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
-                      epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                      lr = learning_rate, batch_size = batch_size)
-
-
-# #with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
-# #    pickle.dump(fin_retrain_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-#%% Adversarial training MLP
-error = Target.values - persistence_pred
-error_mu = (Target.values - persistence_pred ).mean()
-error_std = (Target.values - persistence_pred ).std()
-error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
-
-from torch_custom_layers import * 
-
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-3
-patience = 25
-
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
-
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
-
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
-
-#### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-res_mlp_model = resilient_MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = True)
-
-
-optimizer = torch.optim.Adam(res_mlp_model.parameters(), lr = learning_rate)
-res_mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0)
-
-res_mlp_pred = res_mlp_model.predict(tensor_testPred)
-
-print('MLP: ', eval_point_pred(res_mlp_pred, Target.values, digits=4))
-
-#%% Adjustable FDR
-
-from torch_custom_layers import * 
-
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-2
-patience = 25
-
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
-
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
-
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
-
-#### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = True, Gamma = 10)
-
-
-optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = learning_rate)
-adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0)
-
-adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, torch.zeros_like(tensor_testPred))
-
-print('Adj FDR: ', eval_point_pred(adj_fdr_pred, Target.values, digits=4))
-#%%
-for name, param in adj_fdr_model.named_parameters():
-    if param.requires_grad:
-        print( name, param.data)
 
 #%%%% FDDR-AAR: train one model per value of \Gamma
 
@@ -487,7 +296,7 @@ fix_col = []
 K_parameter = np.arange(0, len(target_pred)+1)
 
 FDRR_AAR_models = []
-config['train'] = False
+config['train'] = True
 if config['train']:
     for K in K_parameter:
         print('Gamma: ', K)
@@ -500,9 +309,6 @@ if config['train']:
         print('FDR: ', eval_point_pred(fdr_pred, Target.values, digits=2))
         FDRR_AAR_models.append(fdr)
     
-    if config['save']:
-        with open(output_file_name, 'wb') as handle:
-            pickle.dump(FDRR_AAR_models, handle)
 else:
     with open(output_file_name, 'rb') as handle:    
             FDRR_AAR_models = pickle.load(handle)
@@ -542,16 +348,110 @@ nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimi
                       patience = patience, verbose = 0)
 #%%
 batch_size = 500
+from torch_custom_layers import *
 
-for K in [20]:
+for K in [10]:
     
     gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K)
+                              target_col = target_col, fix_col = fix_col, projection = False, 
+                              Gamma = K, train_adversarially = True)
+    
+    optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-2)
+
+    # initialize weights with nominal model
+    gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+        
+    gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                          patience = patience, verbose = 0, warm_start = False)
+
+    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
+    
+    gd_FDR_models.append(gd_fdr_model)
+    
+    print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
+    print('FDRR: ', eval_point_pred(projection(FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
+    
+    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-best_alpha[0:1]))[:1000], label='GD')
+    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-best_alpha.detach().numpy()[0:1]))[:1000]), label='MinMax')
+    plt.legend()
+    plt.show()
+
+    for name, param in gd_fdr_model.named_parameters():
+        if param.requires_grad:
+            plt.plot(param.data.detach().numpy().T)
+    plt.plot(FDRR_AAR_models[K].coef_)
+    plt.show()
+
+#%%
+
+# Version two
+batch_size = 50
+
+X = tensor_trainPred
+y = tensor_trainY
+
+for K in [10]:
+    # find a good vertex for adversarial examples
+    y_hat = nominal_model.forward(X)        
+    current_loss = nominal_model.estimate_loss(y_hat, y).mean()
+    # initialize wc loss and adversarial example
+    wc_loss = current_loss.data
+    best_alpha =  torch.zeros_like(X)
+    current_target_col = torch.tensor(target_col)
+        
+    # Iterate over gamma, greedily add one feature per iteration
+    for g in range(K):
+        
+        # store losses for all features
+        local_loss = []
+        # placeholders for splitting a column
+        best_col = None
+        apply_split = False  
+        # !!!!! Important to use clone/copy here, else we update both
+        alpha_init = torch.clone(best_alpha)   
+        
+        # Nominal loss for this iteration using previous alpha values
+        y_hat = nominal_model.forward(X*(1-alpha_init))
+        temp_nominal_loss = nominal_model.estimate_loss(y_hat, y).mean().data
+                
+        # loop over target columns (for current node), find worst-case loss:
+        for col in current_target_col:
+            # create adversarial example
+            alpha_temp = torch.clone(alpha_init)
+            
+            # set feature to missing
+            alpha_temp[:,col] = 1
+                
+            # predict using adversarial example
+            y_hat = nominal_model.forward(X*(1-alpha_temp))
+            temp_loss = nominal_model.estimate_loss(y_hat, y).mean().data
+            local_loss.append(temp_loss.data)
+
+        best_col_ind = np.argsort(local_loss)[-1]                
+        wc_loss = np.max(local_loss)
+        best_col = current_target_col[best_col_ind]
+
+        if wc_loss > temp_nominal_loss:
+            # update
+            best_alpha[:,best_col] = 1
+            apply_split = True
+            
+        #update list of eligible columns
+        if apply_split:
+            current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
+        else:
+            break
+        
+    train_base_data_loader = create_data_loader([tensor_trainPred*(1-best_alpha), tensor_trainY], batch_size = batch_size, shuffle = True)
+    valid_base_data_loader = create_data_loader([tensor_validPred*(1-best_alpha), tensor_validY], batch_size = batch_size, shuffle = True)
+                
+    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K, train_adversarially=False)
     
     optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
 
     # initialize weights with nominal model
-    gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+    # gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
 
     gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                           patience = patience, verbose = 0, warm_start = False)
@@ -563,8 +463,8 @@ for K in [20]:
     print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
     print('FDRR: ', eval_point_pred(projection(FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
     
-    plt.plot(gd_fdr_model.predict(tensor_testPred)[:1000], label='GD')
-    plt.plot(projection(FDRR_AAR_models[K].predict(testPred)[:1000]), label='MinMax')
+    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-best_alpha[0:1]))[:1000], label='GD')
+    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-best_alpha.detach().numpy()[0:1]))[:1000]), label='MinMax')
     plt.legend()
     plt.show()
 
@@ -574,15 +474,8 @@ for K in [20]:
     plt.plot(FDRR_AAR_models[K].coef_)
     plt.show()
 
+
             
-#%%%%%%%%% Retrain without missing features (Tawn, Browell)
-
-if config['retrain']:
-    retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
-                                                           target_col, fix_col, max(K_parameter), base_loss='l2')
-
-
-
 #%%%%%%%%% Testing: varying the number of missing observations/ persistence imputation
 from utility_functions import *
 
@@ -597,10 +490,10 @@ percentage = [0, .001, .005, .01, .05, .1]
 # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
-models = ['PERS', 'LS', 'LS-l2', 'LS-l1', 'LAD', 'LAD-l1','FDRR-R', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP', 
+models = ['PERS', 'FDRR-R', 'FDRR-AAR', 'GD-FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP', 
           'resMLP']
 labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
-           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR-R}$', '$\mathtt{FDRR-AAR}$', 
+           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR-R}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{GD-FDRR}$', 
            '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
 
 
@@ -695,70 +588,17 @@ for perc in percentage:
             pers_pred = target_scaler.inverse_transform(pers_pred)            
         pers_mae = eval_predictions(pers_pred.reshape(-1,1), Target.values, metric=error_metric)
         
-        #### LS model
-        lr_pred = projection(lr.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lr_pred = target_scaler.inverse_transform(lr_pred)            
-        lr_mae = eval_predictions(lr_pred.reshape(-1,1), Target.values, metric=error_metric)
-        
-        #### LASSO
-        lasso_pred = projection(lasso.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lasso_pred = target_scaler.inverse_transform(lasso_pred)    
-        lasso_mae = eval_predictions(lasso_pred, Target.values, metric= error_metric)
-    
-        #### RIDGE
-        l2_pred = projection(ridge.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            l2_pred = target_scaler.inverse_transform(l2_pred)    
-        l2_mae = eval_predictions(l2_pred, Target.values, metric= error_metric)
-    
-        #### LAD model
-        lad_pred = projection(lad.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lad_pred = target_scaler.inverse_transform(lad_pred)            
-        lad_mae = eval_predictions(lad_pred.reshape(-1,1), Target.values, metric=error_metric)
-
-        #### LAD-l1 model
-        lad_l1_pred = projection(lad_l1.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lad_l1_pred = target_scaler.inverse_transform(lad_l1_pred)            
-        lad_l1_mae = eval_predictions(lad_l1_pred.reshape(-1,1), Target.values, metric=error_metric)
-        
-        #### MLPimp
-        mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
-        if config['scale']:
-            mlp_pred = target_scaler.inverse_transform(mlp_pred)    
-        mlp_mae = eval_predictions(mlp_pred, Target.values, metric= error_metric)
-
-        #### Adversarial MLP
-        
-        res_mlp_pred = adj_fdr_model.predict(torch.FloatTensor(miss_X_zero.values), torch.FloatTensor(final_mask_ind)).reshape(-1,1)
-        if config['scale']:
-            res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
-        res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
-
-        '''
-        res_mlp_pred = res_mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
-        if config['scale']:
-            res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
-        res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
-        '''
         #### FDRR-AAR (select the appropriate model for each case)
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
-            
-            if i < 0:
-                fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
-            else:
-                fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
-                fdr_pred = projection(fdr_pred)
+            fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
+            fdr_pred = projection(fdr_pred)
                 
             # Robust
             if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
             fdr_aar_predictions.append(fdr_pred.reshape(-1))
         fdr_aar_predictions = np.array(fdr_aar_predictions).T
-        
+
         # Use only the model with the appropriate K
         final_fdr_aar_pred = fdr_aar_predictions[:,0]
         if (perc>0)or(config['pattern']=='MNAR'):
@@ -769,45 +609,31 @@ for perc in percentage:
         
         fdr_aar_mae = eval_predictions(final_fdr_aar_pred, Target.values, metric= error_metric)
 
-        ##### RETRAIN model
-        if config['retrain']:
-            f_retrain_pred = retrain_pred[:,0:1].copy()
-            if perc > 0:
-                rows_w_missing_data = np.where(miss_X.isna().values.sum(1)==1)[0]
+
+        #### FDRR-AAR (select the appropriate model for each case)
+        gd_fdr_aar_predictions = []
+        for i, k in enumerate(K_parameter):
+            
+            fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
                 
-                for row in rows_w_missing_data:
-                    
-                    temp_feat = np.sort(np.where(miss_X.isna().values[row]))[0]
-                    temp_feat = list(temp_feat)                    
-                    # find position in combinations list
-                    j_ind = retrain_comb.index(temp_feat)
-                    f_retrain_pred[row] = retrain_pred[row, j_ind]                
-    
-            retrain_mae = eval_predictions(f_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
-            temp_df['RETRAIN'] = retrain_mae
+            # Robust
+            if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
+            gd_fdr_aar_predictions.append(fdr_pred.reshape(-1))
+        gd_fdr_aar_predictions = np.array(gd_fdr_aar_predictions).T
 
-        #### FINITE-RETRAIN
+        # Use only the model with the appropriate K
+        final_gd_fdr_aar_pred = gd_fdr_aar_predictions[:,0]
+        if (perc>0)or(config['pattern']=='MNAR'):
+            for j, ind in enumerate(mask_ind):
+                n_miss_feat = miss_X.isna().values[j].sum()
+                final_gd_fdr_aar_pred[j] = gd_fdr_aar_predictions[j, n_miss_feat]
+        final_gd_fdr_aar_pred = final_gd_fdr_aar_pred.reshape(-1,1)
         
-        fin_retrain_pred = fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        fin_retrain_pred = projection(fin_retrain_pred)
-        
-        abs_error = np.abs(fin_retrain_pred.reshape(-1,1)-Target.values)
-        leaf_ind_ = fin_retrain_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
-
-        if config['scale']:
-            fin_retrain_pred = target_scaler.inverse_transform(fin_retrain_pred)            
-        fin_retrain_mae = eval_predictions(fin_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+        gd_fdr_aar_mae = eval_predictions(final_gd_fdr_aar_pred, Target.values, metric= error_metric)
         
         temp_df['PERS'] = [pers_mae]                        
-        temp_df['LS'] = [lr_mae]        
-        temp_df['LS-l2'] = [lasso_mae]
-        temp_df['LS-l1'] = [l2_mae]                
-        temp_df['LAD'] = [lad_mae]        
-        temp_df['LAD-l1'] = [lad_l1_mae]
-        temp_df['MLP'] = [mlp_mae]
         temp_df['FDRR-AAR'] = fdr_aar_mae
-        temp_df['FIN-RETRAIN'] = fin_retrain_mae
-        temp_df['resMLP'] = res_mlp_mae
+        temp_df['GD-FDRR-AAR'] = gd_fdr_aar_mae
 
         #temp_df['FDRR-CL'] = fdr_cl_mae
         
@@ -821,10 +647,10 @@ if config['save']:
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['PERS', 'LS', 'LS-l1', 'LAD', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN']
+models_to_plot = ['PERS', 'FDRR-AAR', 'GD-FDRR-AAR']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
-           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{RETRAIN}$', '$\mathtt{FIN-RETRAIN}$', 
+           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{GD-FDRR}$', '$\mathtt{FIN-RETRAIN}$', 
            '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
 
 

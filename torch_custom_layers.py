@@ -538,37 +538,43 @@ class gd_FDRR(nn.Module):
         l1_norm_projection = cp.Problem(objective_funct, Constraints)         
         self.projection_layer = CvxpyLayer(l1_norm_projection, parameters=[alpha_hat], variables = [alpha_proj])
     
-    def l1_norm_attack(self, X, y, num_iter=10, randomize=False):
+    def l1_norm_attack(self, X, y, num_iter=1000, randomize=False):
             # initialize with greedy heuristic search 
-            alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)
+            # alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)
             
-            alpha = torch.zeros_like(X, requires_grad=True)
+            #alpha = torch.zeros_like(X[0:1], requires_grad=True)           
+            alpha = torch.rand((1, X.shape[1]), requires_grad=True)
             
             #alpha.data = alpha_init
             proj_simplex = nn.Softmax()
-            opt = torch.optim.SGD([alpha], lr=1e-2)
-
+            optimizer = torch.optim.SGD([alpha], lr=1e-1)
+            print(alpha)
             for t in range(num_iter):
+
                 
-                # pred = self.forward(X*(1-alpha))
-                # loss = -self.estimate_loss(pred, y).mean() 
-                
-                # opt.zero_grad()
-                # loss.backward()
-                # opt.step()
-                                    
-                y_hat = self.forward(X*(1-alpha))
-                loss = self.estimate_loss(y_hat, y).mean() 
+                pred = self.forward(X*(1-alpha))
+
+                loss = nn.MSELoss()(pred, y)
+                optimizer.zero_grad()
+                alpha.retain_grad()
+
                 loss.backward()
-                alpha.data = (alpha + 1e-2*alpha.grad.detach().sign())
-                alpha.grad.zero_()
+
+                optimizer.step()                
+                #alpha.clamp(0,1)              
+                
+                # y_hat = self.forward(X*(1-alpha))
+                # loss = self.estimate_loss(y_hat, y).mean() 
+                # loss.backward()
+                # alpha.data = (alpha + 1e-2*alpha.grad.detach().sign())
+                # alpha.grad.zero_()
                 
                 # project
                 # alpha_proj = project_onto_l1_ball(delta, epsilon)
                 # alpha_proj = self.projection_layer(alpha)[0]
                 # alpha.data = alpha_proj
-                # print(alpha[0])
-
+            print(alpha)
+            asdf
             return alpha.detach()
         
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
@@ -580,7 +586,7 @@ class gd_FDRR(nn.Module):
         
         current_loss = self.estimate_loss(y_hat, y).mean()
         # initialize wc loss and adversarial example
-        wc_loss = current_loss
+        wc_loss = current_loss.data
         best_alpha =  torch.zeros_like(X)
         current_target_col = self.target_col
 
@@ -592,41 +598,89 @@ class gd_FDRR(nn.Module):
         # col_ind = np.argsort(np.abs(w_coef_param[0]))[::-1][:gamma]
         # for c in col_ind:   best_alpha[c] = 1
 
-                
-        for g in range(1, gamma+1):
+        # print(f'Budget Gamma={gamma}')
+        
+        # Iterate over gamma, greedily add one feature per iteration
+        for g in range(gamma):
+            
+            # store losses for all features
             local_loss = []
             # placeholders for splitting a column
             best_col = None
             apply_split = False  
-            alpha_init = best_alpha     
+            # !!!!! Important to use clone/copy here, else we update both
+            alpha_init = torch.clone(best_alpha)   
+            
+            # Nominal loss for this iteration using previous alpha values
+            y_hat = self.forward(X*(1-alpha_init))
+            
+            temp_nominal_loss = self.estimate_loss(y_hat, y).mean().data
+            
+            # print(f'Current gamma = {g}')
+            # print(f'Initial loss:{temp_nominal_loss}')
             
             # loop over target columns (for current node), find worst-case loss:
             for col in current_target_col:
                 # create adversarial example
                 alpha_temp = torch.clone(alpha_init)
+                # print(f'Feature:{col}')
+                # print('Initial example')
+                # print(alpha_temp[0])
+                
+                # set feature to missing
                 alpha_temp[:,col] = 1
+                
+                # print('Temporary adversarial example')
+                # print(alpha_temp[0])
                 
                 # predict using adversarial example
                 y_hat = self.forward(X*(1-alpha_temp))
-                temp_loss = self.estimate_loss(y_hat, y).mean()
+                temp_loss = self.estimate_loss(y_hat, y).mean().data
                 local_loss.append(temp_loss.data)
-                
-            best_col_ind = np.argsort(local_loss)[-1]
-            best_alpha[:,current_target_col[best_col_ind]] = 1
-            current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
+            
+            
+            
+            best_col_ind = np.argsort(local_loss)[-1]                
+            wc_loss = np.max(local_loss)
+            best_col = current_target_col[best_col_ind]
 
-            #     # check if performance degrades enough, apply split
-            #     if temp_loss > wc_loss:
-            #         # update
-            #         wc_loss = temp_loss
-            #         best_alpha = alpha_temp
-            #         best_col = col
-            #         apply_split = True
-            # #update list of eligible columns
-            # if apply_split:
-            #     current_target_col = torch.cat([current_target_col[0:best_col], current_target_col[best_col+1:]])   
-            # else:
-            #     break
+            # Find Feature with WC loss over this iteration
+            # print(f'All losses = {local_loss}')
+            # print(f'WC Loss:{wc_loss}')
+
+            # if g == 2: stop_
+            
+            # print(best_col)
+            # print(best_col_ind)
+            # print(torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]]))
+            
+            
+            # print(f'Nominal Loss:{temp_nominal_loss}')
+            # print(f'WC Loss:{wc_loss}')
+            # print(f'Feature:{best_col}')
+
+            # best_alpha[:,current_target_col[best_col_ind]] = 1
+            # current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
+
+            # check if performance degrades enough, apply split
+            
+            # if wc_loss > temp_nominal_loss:
+            #     # update
+            #     best_alpha[:,best_col] = 1
+            #     apply_split = True
+                
+            best_alpha[:,best_col] = 1
+            apply_split = True
+                
+            
+            # if g == 2: 
+            #     print(best_alpha[0])
+            #     stop_  
+            #update list of eligible columns
+            if apply_split:
+                current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
+            else:
+                break
         
         return best_alpha
     
@@ -661,31 +715,58 @@ class gd_FDRR(nn.Module):
             
         return total_loss / len(loader.dataset)
     
+    def adversarial_epoch_train_heur(self, loader, alpha, opt=None):
+        """Adversarial training/evaluation epoch over the dataset"""
+        total_loss = 0.
+        
+        index_iter_ = 0
+        
+        for X,y in loader:            
+            #### Find adversarial example
+                        
+            # forward pass plus correction
+            y_hat = self.forward(X*(1-alpha[index_iter_:index_iter_ + X.shape[0]]))        
+            
+            index_iter_ += X.shape[0]
+                  
+            #loss = nn.MSELoss()(yp,y)
+            loss_i = self.estimate_loss(y_hat, y)    
+            loss = torch.mean(loss_i)
+
+            if opt:
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+            total_loss += loss.item() * X.shape[0]
+
+            
+        return total_loss / len(loader.dataset)
+    
     def adversarial_epoch_train(self, loader, opt=None):
         """Adversarial training/evaluation epoch over the dataset"""
         total_loss = 0.
         
-        alpha_val = np.zeros(len(self.target_col))
-        for layer in self.model.children():
-            if isinstance(layer, nn.Linear):                
-                w_coef_param = to_np(layer.weight)                
-        col_ind = np.argsort(np.abs(w_coef_param[0]))[::-1][:self.gamma]
-        for c in col_ind:   alpha_val[c] = 1
-
-
-        for X,y in loader:
-            
+        # alpha_val = np.zeros(len(self.target_col))
+        # for layer in self.model.children():
+        #     if isinstance(layer, nn.Linear):                
+        #         w_coef_param = to_np(layer.weight)                
+        # col_ind = np.argsort(np.abs(w_coef_param[0]))[::-1][:self.gamma]
+        # for c in col_ind:   
+        #     alpha_val[c] = 1
+                    
+        for X,y in loader:            
             #### Find adversarial example
             
             # Greedy top-down heuristic
-            alpha = self.missing_data_attack(X, y, gamma = self.gamma)
+            # alpha = self.missing_data_attack(X, y, gamma = self.gamma)
+            #print(alpha.sum(1)[0])
             
             # alpha = torch.ones_like(X)*torch.FloatTensor(alpha_val).reshape(1,-1)
 
             # L1 attack with projected gradient descent            
-            # alpha = self.l1_norm_attack(X,y)
-            # # print(alpha.sum(1).mean())
-            # print(alpha[0])
+            alpha = self.l1_norm_attack(X,y)
+            print(alpha.sum(1).mean())
+            
             # # Solve LP
             # for layer in self.model.children():
             #     if isinstance(layer, nn.Linear):
@@ -772,9 +853,19 @@ class gd_FDRR(nn.Module):
             best_val_loss = float('inf')
             early_stopping_counter = 0
             
+            # Find worst_case alpha
+            
+            alpha_tensor_list = []
+            for X,y in train_loader:
+                alpha_adv = self.missing_data_attack(X, y, gamma = self.gamma)
+                alpha_tensor_list.append(alpha_adv)
+                
+            alpha_tensor = torch.cat(alpha_tensor_list, dim = 0)
+            
             for epoch in range(epochs):
 
                 average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
+                # average_train_loss = self.adversarial_epoch_train_heur(train_loader, alpha_tensor, optimizer)                
     
                 if (verbose != -1)and(epoch%25 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f}")
