@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -347,8 +347,10 @@ optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
 nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                       patience = patience, verbose = 0)
 #%%
-batch_size = 500
+batch_size = 50
 from torch_custom_layers import *
+
+test_alpha = torch.tensor([1., 1,1, 0, 1., 1., 1, 1., 1., 1., 0., 0., 1.]).reshape(1,-1)
 
 for K in [10]:
     
@@ -366,13 +368,13 @@ for K in [10]:
 
     gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
     
-    gd_FDR_models.append(gd_fdr_model)
+    gd_FDR_models.append(gd_fdr_model)s
     
     print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
     print('FDRR: ', eval_point_pred(projection(FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
     
-    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-best_alpha[0:1]))[:1000], label='GD')
-    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-best_alpha.detach().numpy()[0:1]))[:1000]), label='MinMax')
+    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
+    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-test_alpha.detach().numpy()))[:1000]), label='MinMax')
     plt.legend()
     plt.show()
 
@@ -398,7 +400,7 @@ for K in [10]:
     wc_loss = current_loss.data
     best_alpha =  torch.zeros_like(X)
     current_target_col = torch.tensor(target_col)
-        
+    
     # Iterate over gamma, greedily add one feature per iteration
     for g in range(K):
         
@@ -441,7 +443,7 @@ for K in [10]:
             current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
         else:
             break
-        
+    sadf
     train_base_data_loader = create_data_loader([tensor_trainPred*(1-best_alpha), tensor_trainY], batch_size = batch_size, shuffle = True)
     valid_base_data_loader = create_data_loader([tensor_validPred*(1-best_alpha), tensor_validY], batch_size = batch_size, shuffle = True)
                 

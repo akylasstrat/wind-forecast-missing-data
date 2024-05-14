@@ -538,23 +538,23 @@ class gd_FDRR(nn.Module):
         l1_norm_projection = cp.Problem(objective_funct, Constraints)         
         self.projection_layer = CvxpyLayer(l1_norm_projection, parameters=[alpha_hat], variables = [alpha_proj])
     
-    def l1_norm_attack(self, X, y, num_iter=1000, randomize=False):
+    def l1_norm_attack(self, X, y, num_iter = 1000, randomize=False):
             # initialize with greedy heuristic search 
             # alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)
             
-            #alpha = torch.zeros_like(X[0:1], requires_grad=True)           
-            alpha = torch.rand((1, X.shape[1]), requires_grad=True)
+            alpha = torch.zeros_like(X[0:1], requires_grad=True)           
+            #alpha = torch.rand((1, X.shape[1]), requires_grad=True)
             
             #alpha.data = alpha_init
             proj_simplex = nn.Softmax()
             optimizer = torch.optim.SGD([alpha], lr=1e-1)
-            print(alpha)
+            # print(alpha)
             for t in range(num_iter):
 
-                
-                pred = self.forward(X*(1-alpha))
+                with torch.no_grad():
+                    pred = self.forward(X*(1-alpha))
 
-                loss = nn.MSELoss()(pred, y)
+                loss = -nn.MSELoss()(pred, y)
                 optimizer.zero_grad()
                 alpha.retain_grad()
 
@@ -571,10 +571,10 @@ class gd_FDRR(nn.Module):
                 
                 # project
                 # alpha_proj = project_onto_l1_ball(delta, epsilon)
-                # alpha_proj = self.projection_layer(alpha)[0]
-                # alpha.data = alpha_proj
-            print(alpha)
-            asdf
+            alpha_proj = self.projection_layer(alpha)[0]
+            alpha.data = alpha_proj
+            # print(alpha)
+
             return alpha.detach()
         
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
@@ -611,10 +611,12 @@ class gd_FDRR(nn.Module):
             # !!!!! Important to use clone/copy here, else we update both
             alpha_init = torch.clone(best_alpha)   
             
-            # Nominal loss for this iteration using previous alpha values
-            y_hat = self.forward(X*(1-alpha_init))
-            
+            with torch.no_grad():
+                y_hat = self.forward(X*(1-best_alpha))
+
+            # Nominal loss for this iteration using previous alpha values            
             temp_nominal_loss = self.estimate_loss(y_hat, y).mean().data
+            wc_loss = temp_nominal_loss
             
             # print(f'Current gamma = {g}')
             # print(f'Initial loss:{temp_nominal_loss}')
@@ -634,8 +636,10 @@ class gd_FDRR(nn.Module):
                 # print(alpha_temp[0])
                 
                 # predict using adversarial example
-                y_hat = self.forward(X*(1-alpha_temp))
-                temp_loss = self.estimate_loss(y_hat, y).mean().data
+                with torch.no_grad():
+                    y_adv_hat = self.forward(X*(1-alpha_temp))
+                    
+                temp_loss = self.estimate_loss(y_adv_hat, y).mean().data
                 local_loss.append(temp_loss.data)
             
             
@@ -664,13 +668,13 @@ class gd_FDRR(nn.Module):
 
             # check if performance degrades enough, apply split
             
-            # if wc_loss > temp_nominal_loss:
-            #     # update
-            #     best_alpha[:,best_col] = 1
-            #     apply_split = True
-                
-            best_alpha[:,best_col] = 1
-            apply_split = True
+            if wc_loss > temp_nominal_loss:
+                # update
+                best_alpha[:,best_col] = 1
+                apply_split = True
+            
+            # best_alpha[:,best_col] = 1
+            # apply_split = True
                 
             
             # if g == 2: 
@@ -759,13 +763,16 @@ class gd_FDRR(nn.Module):
             
             # Greedy top-down heuristic
             # alpha = self.missing_data_attack(X, y, gamma = self.gamma)
-            #print(alpha.sum(1)[0])
             
+            # sample random features
+            feat_col = np.random.choice(np.arange(len(self.target_col)), replace = False, size = (self.gamma))
+            alpha = torch.zeros_like(X)
+            for c in feat_col: alpha[:,c] = 1
+
             # alpha = torch.ones_like(X)*torch.FloatTensor(alpha_val).reshape(1,-1)
 
-            # L1 attack with projected gradient descent            
-            alpha = self.l1_norm_attack(X,y)
-            print(alpha.sum(1).mean())
+            # # L1 attack with projected gradient descent            
+            # alpha = self.l1_norm_attack(X,y) 
             
             # # Solve LP
             # for layer in self.model.children():
@@ -864,32 +871,14 @@ class gd_FDRR(nn.Module):
             
             for epoch in range(epochs):
 
-                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
+                # average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
                 # average_train_loss = self.adversarial_epoch_train_heur(train_loader, alpha_tensor, optimizer)                
     
-                if (verbose != -1)and(epoch%25 == 0):
-                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f}")
-                
-                if average_train_loss < best_train_loss:
-                    best_train_loss = average_train_loss
-                    best_weights = copy.deepcopy(self.state_dict())
-                    early_stopping_counter = 0
-                else:
-                    early_stopping_counter += 1
-                    if early_stopping_counter >= patience:
-                        print("Early stopping triggered.")
-                        # recover best weights
-                        self.load_state_dict(best_weights)
-                        return    
-
-                # average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
-                # val_loss = self.adversarial_epoch_train(val_loader)
-    
                 # if (verbose != -1)and(epoch%25 == 0):
-                #     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                #     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f}")
                 
-                # if val_loss < best_val_loss:
-                #     best_val_loss = val_loss
+                # if average_train_loss < best_train_loss:
+                #     best_train_loss = average_train_loss
                 #     best_weights = copy.deepcopy(self.state_dict())
                 #     early_stopping_counter = 0
                 # else:
@@ -899,6 +888,24 @@ class gd_FDRR(nn.Module):
                 #         # recover best weights
                 #         self.load_state_dict(best_weights)
                 #         return    
+
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
+                val_loss = self.adversarial_epoch_train(val_loader)
+    
+                if (verbose != -1)and(epoch%25 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        return    
         else:
             return
 
