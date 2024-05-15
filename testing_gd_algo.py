@@ -284,6 +284,7 @@ target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
 fix_col = []
 
 #%%%% FDDR-AAR: train one model per value of \Gamma
+from FDR_regressor_test import *
 
 case_folder = config['store_folder']
 output_file_name = f'{cd}\\{case_folder}\\trained-models\\{target_park}_fdrr-aar_{max_lag}.pickle'
@@ -296,6 +297,8 @@ fix_col = []
 K_parameter = np.arange(0, len(target_pred)+1)
 
 FDRR_AAR_models = []
+ineq_FDRR_AAR_models = []
+
 config['train'] = True
 if config['train']:
     for K in K_parameter:
@@ -308,10 +311,42 @@ if config['train']:
     
         print('FDR: ', eval_point_pred(fdr_pred, Target.values, digits=2))
         FDRR_AAR_models.append(fdr)
+
+
+        ineq_fdr = FDR_regressor_test(K = K)
+        ineq_fdr.fit(trainPred.values, trainY, target_col, fix_col, solution = 'reformulation', budget = 'inequality')              
+        ineq_FDRR_AAR_models.append(ineq_fdr)
+
+        print('FDR: ', eval_point_pred(fdr_pred, Target.values, digits=2))
+        print('ineq_FDR: ', eval_point_pred(ineq_fdr.predict(testPred).reshape(-1,1), Target.values, digits=2))
     
 else:
     with open(output_file_name, 'rb') as handle:    
             FDRR_AAR_models = pickle.load(handle)
+
+#%% 
+
+for K in np.arange(11): 
+    plt.plot(FDRR_AAR_models[K].coef_, label = 'equality')
+    plt.plot(ineq_FDRR_AAR_models[K].coef_, label = 'inequality')
+    plt.legend()
+    plt.show()
+    
+#%%
+K_select = 8
+for K in np.arange(K_select + 1):
+    feat = np.random.choice(target_col, size = K, replace = False)
+    a = np.zeros((1,trainPred.shape[1]))
+    a[:,feat] = 1
+    
+    plt.plot(FDRR_AAR_models[K_select].predict(testPred*(1-a)[:1000]))
+    plt.plot(ineq_FDRR_AAR_models[K_select].predict(testPred*(1-a)[:1000]))
+    plt.show()
+    
+    print(f'Realized number of missing features: {K}')
+    print('FDR: ', eval_point_pred(FDRR_AAR_models[K_select].predict(testPred*(1-a)).reshape(-1,1), Target.values, digits=2)[1])
+    print('ineq_FDR: ', eval_point_pred(ineq_FDRR_AAR_models[K_select].predict(testPred*(1-a)).reshape(-1,1), Target.values, digits=2)[1])
+
 #%%%% Gradient-based FDRR
 
 from torch_custom_layers import * 
@@ -337,8 +372,6 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-gd_FDR_models = []
-
 # nominal model (no missing data) to warm-start all future models
 nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                           target_col = target_col, fix_col = fix_col, projection = False, Gamma = 0, train_adversarially = False)
@@ -347,116 +380,29 @@ optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
 nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                       patience = patience, verbose = 0)
 #%%
-batch_size = 50
+batch_size = 250
+gd_FDR_models = []
+
 from torch_custom_layers import *
 
-test_alpha = torch.tensor([1., 1,1, 0, 1., 1., 1, 1., 1., 1., 0., 0., 1.]).reshape(1,-1)
-
-for K in [10]:
+for K in K_parameter:
     
-    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+    feat = np.random.choice(target_col, size = K, replace = False)
+    a = np.zeros((1,trainPred.shape[1]))
+    a[:,feat] = 1
+    test_alpha = torch.FloatTensor(a)
+    
+    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [20, 20, 20], output_size = n_outputs, 
                               target_col = target_col, fix_col = fix_col, projection = False, 
-                              Gamma = K, train_adversarially = True)
+                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
     
     optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-2)
 
-    # initialize weights with nominal model
-    gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
-        
-    gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0, warm_start = False)
-
-    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
-    
-    gd_FDR_models.append(gd_fdr_model)s
-    
-    print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
-    print('FDRR: ', eval_point_pred(projection(FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
-    
-    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
-    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-test_alpha.detach().numpy()))[:1000]), label='MinMax')
-    plt.legend()
-    plt.show()
-
-    for name, param in gd_fdr_model.named_parameters():
-        if param.requires_grad:
-            plt.plot(param.data.detach().numpy().T)
-    plt.plot(FDRR_AAR_models[K].coef_)
-    plt.show()
-
-#%%
-
-# Version two
-batch_size = 50
-
-X = tensor_trainPred
-y = tensor_trainY
-
-for K in [10]:
-    # find a good vertex for adversarial examples
-    y_hat = nominal_model.forward(X)        
-    current_loss = nominal_model.estimate_loss(y_hat, y).mean()
-    # initialize wc loss and adversarial example
-    wc_loss = current_loss.data
-    best_alpha =  torch.zeros_like(X)
-    current_target_col = torch.tensor(target_col)
-    
-    # Iterate over gamma, greedily add one feature per iteration
-    for g in range(K):
-        
-        # store losses for all features
-        local_loss = []
-        # placeholders for splitting a column
-        best_col = None
-        apply_split = False  
-        # !!!!! Important to use clone/copy here, else we update both
-        alpha_init = torch.clone(best_alpha)   
-        
-        # Nominal loss for this iteration using previous alpha values
-        y_hat = nominal_model.forward(X*(1-alpha_init))
-        temp_nominal_loss = nominal_model.estimate_loss(y_hat, y).mean().data
-                
-        # loop over target columns (for current node), find worst-case loss:
-        for col in current_target_col:
-            # create adversarial example
-            alpha_temp = torch.clone(alpha_init)
-            
-            # set feature to missing
-            alpha_temp[:,col] = 1
-                
-            # predict using adversarial example
-            y_hat = nominal_model.forward(X*(1-alpha_temp))
-            temp_loss = nominal_model.estimate_loss(y_hat, y).mean().data
-            local_loss.append(temp_loss.data)
-
-        best_col_ind = np.argsort(local_loss)[-1]                
-        wc_loss = np.max(local_loss)
-        best_col = current_target_col[best_col_ind]
-
-        if wc_loss > temp_nominal_loss:
-            # update
-            best_alpha[:,best_col] = 1
-            apply_split = True
-            
-        #update list of eligible columns
-        if apply_split:
-            current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
-        else:
-            break
-    sadf
-    train_base_data_loader = create_data_loader([tensor_trainPred*(1-best_alpha), tensor_trainY], batch_size = batch_size, shuffle = True)
-    valid_base_data_loader = create_data_loader([tensor_validPred*(1-best_alpha), tensor_validY], batch_size = batch_size, shuffle = True)
-                
-    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K, train_adversarially=False)
-    
-    optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
-
-    # initialize weights with nominal model
+    # initialize weights with nominal model (Does not affect solution much)
     # gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
-
+        
     gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0, warm_start = False)
+                          patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
 
     gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
     
@@ -464,20 +410,62 @@ for K in [10]:
     
     print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
     print('FDRR: ', eval_point_pred(projection(FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
+    print('ineq-FDRR: ', eval_point_pred(projection(ineq_FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
     
-    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-best_alpha[0:1]))[:1000], label='GD')
-    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-best_alpha.detach().numpy()[0:1]))[:1000]), label='MinMax')
+    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
+    plt.plot(projection(FDRR_AAR_models[K].predict(testPred*(1-a))[:1000]), label='Eq-MinMax')
+    plt.plot(projection(ineq_FDRR_AAR_models[K].predict(testPred*(1-a))[:1000]), label='Ineq-MinMax')
     plt.legend()
     plt.show()
 
-    for name, param in gd_fdr_model.named_parameters():
-        if param.requires_grad:
-            plt.plot(param.data.detach().numpy().T)
-    plt.plot(FDRR_AAR_models[K].coef_)
+    for layer in gd_fdr_model.model.children():
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+    plt.plot(FDRR_AAR_models[K].coef_, label='Eq-MinMax')
+    plt.plot(ineq_FDRR_AAR_models[K].coef_, label='Ineq-MinMax')
+    plt.legend()
     plt.show()
 
+#%% Different iterations of Finite Adaptive 
 
-            
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+
+fin_retrain_model = depth_Finite_FDRR(Max_models = 10, D = 20, red_threshold = 0.1, max_gap = 0.25)
+fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
+                      budget = 'inequality', solution = 'reformulation')
+
+#%% Finite adaptability with Gradient-based algorithm
+
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+from torch_custom_layers import *
+
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+#optimizer = torch.optim.Adam(res_mlp_model.parameters())
+
+batch_size = 250
+num_epochs = 1000
+learning_rate = 1e-2
+patience = 20
+
+gd_fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 20, red_threshold = 0.1, 
+                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+                                            train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
+                                            warm_start = False)
+
+gd_fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+                      epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                      lr = learning_rate, batch_size = batch_size)
+
+
+
+
 #%%%%%%%%% Testing: varying the number of missing observations/ persistence imputation
 from utility_functions import *
 
@@ -492,11 +480,10 @@ percentage = [0, .001, .005, .01, .05, .1]
 # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
-models = ['PERS', 'FDRR-R', 'FDRR-AAR', 'GD-FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP', 
-          'resMLP']
-labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
-           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR-R}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{GD-FDRR}$', 
-           '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
+models = ['PERS', 'FDRR', 'ineq-FDRR', 'GD-FDRR', 'FIN-RETRAIN', 'GD-FIN-RETRAIN']
+# labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
+#            '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR-R}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{GD-FDRR}$', 
+#            '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
 
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -600,60 +587,89 @@ for perc in percentage:
             if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
             fdr_aar_predictions.append(fdr_pred.reshape(-1))
         fdr_aar_predictions = np.array(fdr_aar_predictions).T
-
-        # Use only the model with the appropriate K
-        final_fdr_aar_pred = fdr_aar_predictions[:,0]
-        if (perc>0)or(config['pattern']=='MNAR'):
-            for j, ind in enumerate(mask_ind):
-                n_miss_feat = miss_X.isna().values[j].sum()
-                final_fdr_aar_pred[j] = fdr_aar_predictions[j, n_miss_feat]
-        final_fdr_aar_pred = final_fdr_aar_pred.reshape(-1,1)
         
-        fdr_aar_mae = eval_predictions(final_fdr_aar_pred, Target.values, metric= error_metric)
+        # FDRR with inequality on budget
+        ineq_fdr_predictions = []
 
-
-        #### FDRR-AAR (select the appropriate model for each case)
-        gd_fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
-            
-            fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
+            temp_pred = ineq_FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
+            temp_pred = projection(temp_pred)
                 
             # Robust
-            if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
-            gd_fdr_aar_predictions.append(fdr_pred.reshape(-1))
+            if config['scale']: temp_pred = target_scaler.inverse_transform(temp_pred)
+            ineq_fdr_predictions.append(temp_pred.reshape(-1))
+        ineq_fdr_predictions = np.array(ineq_fdr_predictions).T
+
+
+        gd_fdr_aar_predictions = []
+
+        for i, k in enumerate(K_parameter):
+            gd_fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)                
+            # Robust
+            if config['scale']: 
+                fdr_pred = target_scaler.inverse_transform(gd_fdr_pred)
+            gd_fdr_aar_predictions.append(gd_fdr_pred.reshape(-1))
         gd_fdr_aar_predictions = np.array(gd_fdr_aar_predictions).T
 
         # Use only the model with the appropriate K
+        final_fdr_aar_pred = fdr_aar_predictions[:,0]
         final_gd_fdr_aar_pred = gd_fdr_aar_predictions[:,0]
+        final_ineq_fdr_aar_pred = ineq_fdr_predictions[:,0]
+        
         if (perc>0)or(config['pattern']=='MNAR'):
             for j, ind in enumerate(mask_ind):
                 n_miss_feat = miss_X.isna().values[j].sum()
+                
+                final_fdr_aar_pred[j] = fdr_aar_predictions[j, n_miss_feat]                
                 final_gd_fdr_aar_pred[j] = gd_fdr_aar_predictions[j, n_miss_feat]
+                final_ineq_fdr_aar_pred[j] = ineq_fdr_predictions[j, n_miss_feat]
+
+        final_fdr_aar_pred = final_fdr_aar_pred.reshape(-1,1)
         final_gd_fdr_aar_pred = final_gd_fdr_aar_pred.reshape(-1,1)
+        final_ineq_fdr_aar_pred = final_ineq_fdr_aar_pred.reshape(-1,1)
         
-        gd_fdr_aar_mae = eval_predictions(final_gd_fdr_aar_pred, Target.values, metric= error_metric)
         
+        fdr_aar_mae = eval_predictions(final_fdr_aar_pred, Target.values, metric= error_metric)
+        gd_fdr_aar_mae = eval_predictions(final_gd_fdr_aar_pred, Target.values, metric= error_metric)        
+        ineq_fdr_aar_mae = eval_predictions(final_ineq_fdr_aar_pred, Target.values, metric= error_metric)
+        
+        #### FINITE-RETRAIN
+        
+        fin_retrain_pred = fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        fin_retrain_pred = projection(fin_retrain_pred)
+        if config['scale']:
+            fin_retrain_pred = target_scaler.inverse_transform(fin_retrain_pred)            
+        fin_retrain_mae = eval_predictions(fin_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+        
+        ##### Gradient-based Finite Retrain
+        gd_fin_retrain_pred = gd_fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int)).reshape(-1,1)
+        gd_fin_retrain_pred = projection(gd_fin_retrain_pred)
+        if config['scale']: gd_fin_retrain_pred = target_scaler.inverse_transform(gd_fin_retrain_pred)            
+        gd_fin_retrain_mae = eval_predictions(gd_fin_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+
         temp_df['PERS'] = [pers_mae]                        
-        temp_df['FDRR-AAR'] = fdr_aar_mae
-        temp_df['GD-FDRR-AAR'] = gd_fdr_aar_mae
+        temp_df['FDRR'] = fdr_aar_mae
+        temp_df['GD-FDRR'] = gd_fdr_aar_mae
+        temp_df['ineq-FDRR'] = ineq_fdr_aar_mae
+        temp_df['FIN-RETRAIN'] = fin_retrain_mae
+        temp_df['GD-FIN-RETRAIN'] = gd_fin_retrain_mae
 
         #temp_df['FDRR-CL'] = fdr_cl_mae
         
         mae_df = pd.concat([mae_df, temp_df])
         run_counter += 1
-    
+#%%
 if config['save']:
     mae_df.to_csv(f'{cd}\\{case_folder}\\results\\{target_park}_ID_results.csv')
-    
+
 # Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['PERS', 'FDRR-AAR', 'GD-FDRR-AAR']
+models_to_plot = ['PERS', 'FDRR', 'ineq-FDRR', 'GD-FDRR', 'FIN-RETRAIN', 'GD-FIN-RETRAIN']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
-labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
-           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{GD-FDRR}$', '$\mathtt{FIN-RETRAIN}$', 
-           '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
+labels = ['$\mathtt{PERS}$','$\mathtt{FDRR}$', '$\mathtt{ineq-FDRR}$', '$\mathtt{GD-FDRR}$', '$\mathtt{FIN-RETRAIN}$', 
+          '$\mathtt{GD-FIN-RETRAIN}$']
 
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))

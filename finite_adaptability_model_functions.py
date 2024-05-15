@@ -1150,9 +1150,11 @@ class depth_Finite_FDRR(object):
                 node = self.children_right_dict[node]
              #print('New Node: ', node)
          if (m0==self.missing_pattern[node]).all():
+
              # nominal model
              Predictions.append( x0@self.node_coef_[node] + self.node_bias_[node] )
          else:
+
              # WC model
              Predictions.append( x0@self.wc_node_coef_[node] + self.wc_node_bias_[node] )
      return np.array(Predictions)
@@ -1250,27 +1252,30 @@ class FiniteAdaptability_MLP(object):
 
     
     mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
-                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], train_adversarially = False)
+                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
+                              train_adversarially = False, budget_constraint = self.gd_FDRR_params['budget_constraint'])
     
     optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
     mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'])
+                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
+                          verbose = self.MLP_train_dict['verbose'])
         
     ######## Train Adversarially Robust model
     # budget of robustness
     gamma_temp = len(self.target_features[0])
 
     robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
-                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], train_adversarially = True, 
-                              Gamma = gamma_temp)
+                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
+                              train_adversarially = True, 
+                              Gamma = gamma_temp, budget_constraint = self.gd_FDRR_params['budget_constraint'])
 
     optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
     
-    robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
+    # robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
 
     robust_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
-                          warm_start = True)
+                          warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
     
 
     # Nominal and WC loss
@@ -1440,15 +1445,16 @@ class FiniteAdaptability_MLP(object):
 
             left_robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = left_target_cols, fix_col = left_fix_cols, projection = self.gd_FDRR_params['projection'], 
-                                      train_adversarially = True, Gamma = gamma_temp)
+                                      train_adversarially = True, Gamma = gamma_temp, 
+                                      budget_constraint = self.gd_FDRR_params['budget_constraint'])
 
             optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
-            left_robust_mlp_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
+            # left_robust_mlp_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
 
             left_robust_mlp_model.train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
-                                  warm_start = False)
+                                  warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
 
             
             # Estimate WC loss and nominal loss
@@ -1481,27 +1487,28 @@ class FiniteAdaptability_MLP(object):
             gamma_temp = len(right_target_cols)
             
             temp_miss_X = (1-right_missing_pattern)*X
-            
             if val_split == 0:    
                 tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
+                tensor_valid_missX = tensor_train_missX
             else:
-                tensor_trainY = torch.FloatTensor(Y[:-n_valid_obs])
-                tensor_validY = torch.FloatTensor(Y[-n_valid_obs:])
-
+                tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
+                tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+                
             right_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
             right_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
 
             right_robust_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = right_target_cols, fix_col = right_fix_cols, projection = self.gd_FDRR_params['projection'], 
-                                      train_adversarially = True, Gamma = gamma_temp)
+                                      train_adversarially = True, 
+                                      Gamma = gamma_temp, budget_constraint = self.gd_FDRR_params['budget_constraint'])
 
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
-            right_robust_mlp_model.load_state_dict(new_mlp_model.state_dict(), strict=False)
+            right_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
 
             right_robust_mlp_model.train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
-                                  warm_start = False)
+                                  warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
 
             # Estimate WC loss and nominal loss
             right_insample_wcloss = eval_predictions(right_robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
@@ -1519,8 +1526,8 @@ class FiniteAdaptability_MLP(object):
             self.wc_node_model_.append(right_robust_mlp_model)
                         
             # update missing patterns for downstream robust problem            
-            self.fixed_features.append(left_fix_cols)
-            self.target_features.append(left_target_cols)
+            self.fixed_features.append(right_fix_cols)
+            self.target_features.append(right_target_cols)
                         
             if node==0:
                 self.children_left[node] = node_id_counter+1
@@ -1530,7 +1537,7 @@ class FiniteAdaptability_MLP(object):
                 self.children_right.append(node_id_counter+2)
 
             self.children_left_dict[node] = node_id_counter+1
-            self.children_right_dict[node] = node_id_counter+1
+            self.children_right_dict[node] = node_id_counter+2
 
             # Update lists of candidate nodes (node is removed in both cases)
             list_nodes_candidates = list_nodes_candidates + [ node_id_counter + 1, node_id_counter + 2]
@@ -1603,6 +1610,7 @@ class FiniteAdaptability_MLP(object):
          m0 = missing_mask[i:i+1,:]
          #Start from root node
          node = 0
+
          # !!!! If you go to leaf, might be overly conservative
          #Go down the tree until you match the missing pattern OR a Leaf node is reached
          while ((self.children_left_dict[node] != -1) and (self.children_right_dict[node] != -1)):
@@ -1616,13 +1624,17 @@ class FiniteAdaptability_MLP(object):
                  # if feature is missing, go right
                 node = self.children_right_dict[node]
              #print('New Node: ', node)
+         
          if (m0==self.missing_pattern[node]).all():
              # nominal model
-             Predictions.append( self.node_model_[node].predict(torch.FloatTensor(x0)))
+             print(f'Nominal Node:{node}')
+             Predictions.append( self.node_model_[node].predict(torch.FloatTensor(x0)).reshape(-1))
          else:
+             print(f'WC Node:{node}')
              # WC model
-             Predictions.append( self.wc_node_model_[node].predict(torch.FloatTensor(x0)))
-     return np.array(Predictions)
+             Predictions.append( self.wc_node_model_[node].predict(torch.FloatTensor(x0)).reshape(-1))
+
+     return np.array(Predictions).reshape(-1,1)
 
 
 ###### Auxiliary functions

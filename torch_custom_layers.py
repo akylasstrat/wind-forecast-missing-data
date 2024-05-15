@@ -473,7 +473,7 @@ class resilient_MLP(nn.Module):
     
 class gd_FDRR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
-                 projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True):
+                 projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
         super(gd_FDRR, self).__init__()
         """
         Standard MLP for regression
@@ -482,7 +482,9 @@ class gd_FDRR(nn.Module):
             
             output_size: equal to the number of combination weights, i.e., number of experts we want to combine
             sigmoid_activation: enable sigmoid function as a final layer, to ensure output is in [0,1]
-            
+            budget_constraint: {'inequality', 'equality'}. If 'equality', solution approximates FDRR-reformulation with tight budget constraint.
+            If 'equality', solution approximates FDRR-reformulation with inequality in the budget constraint (Gamma is upper bound). This relaxes the inner max problem, 
+            which makes the robust formulation more pessimistic.
         """
         # Initialize learnable weight parameters
         self.num_features = input_size
@@ -495,6 +497,7 @@ class gd_FDRR(nn.Module):
         self.fix_col = torch.tensor(fix_col, dtype=torch.int32)
         self.gamma = Gamma
         self.train_adversarially = train_adversarially
+        self.budget_constraint = budget_constraint
         
         # create sequential model
         layer_sizes = [input_size] + hidden_sizes + [output_size]
@@ -531,7 +534,10 @@ class gd_FDRR(nn.Module):
         alpha_hat = cp.Parameter((input_size))
         alpha_proj = cp.Variable((input_size), nonneg = True)
     
-        Constraints = [alpha_proj <= 1, alpha_proj.sum() <= self.gamma] 
+        if self.budget_constraint == 'equality':
+            Constraints = [alpha_proj <= 1, alpha_proj.sum() == self.gamma] 
+        elif self.budget_constraint == 'inequality':
+            Constraints = [alpha_proj <= 1, alpha_proj.sum() <= self.gamma] 
                         
         objective_funct = cp.Minimize(  cp.norm(alpha_proj - alpha_hat) ) 
                 
@@ -546,20 +552,19 @@ class gd_FDRR(nn.Module):
             #alpha = torch.rand((1, X.shape[1]), requires_grad=True)
             
             #alpha.data = alpha_init
-            proj_simplex = nn.Softmax()
+            # proj_simplex = nn.Softmax()
+
             optimizer = torch.optim.SGD([alpha], lr=1e-1)
             # print(alpha)
             for t in range(num_iter):
 
-                with torch.no_grad():
-                    pred = self.forward(X*(1-alpha))
+                    
+                pred = self.forward(X*(1-alpha))
 
                 loss = -nn.MSELoss()(pred, y)
                 optimizer.zero_grad()
-                alpha.retain_grad()
-
+                
                 loss.backward()
-
                 optimizer.step()                
                 #alpha.clamp(0,1)              
                 
@@ -589,16 +594,6 @@ class gd_FDRR(nn.Module):
         wc_loss = current_loss.data
         best_alpha =  torch.zeros_like(X)
         current_target_col = self.target_col
-
-        # # find gamma features with higher weight        
-        # for layer in self.model.children():
-        #     if isinstance(layer, nn.Linear):                
-        #         w_coef_param = to_np(layer.weight)
-                
-        # col_ind = np.argsort(np.abs(w_coef_param[0]))[::-1][:gamma]
-        # for c in col_ind:   best_alpha[c] = 1
-
-        # print(f'Budget Gamma={gamma}')
         
         # Iterate over gamma, greedily add one feature per iteration
         for g in range(gamma):
@@ -618,8 +613,6 @@ class gd_FDRR(nn.Module):
             temp_nominal_loss = self.estimate_loss(y_hat, y).mean().data
             wc_loss = temp_nominal_loss
             
-            # print(f'Current gamma = {g}')
-            # print(f'Initial loss:{temp_nominal_loss}')
             
             # loop over target columns (for current node), find worst-case loss:
             for col in current_target_col:
@@ -647,39 +640,20 @@ class gd_FDRR(nn.Module):
             best_col_ind = np.argsort(local_loss)[-1]                
             wc_loss = np.max(local_loss)
             best_col = current_target_col[best_col_ind]
-
-            # Find Feature with WC loss over this iteration
-            # print(f'All losses = {local_loss}')
-            # print(f'WC Loss:{wc_loss}')
-
-            # if g == 2: stop_
             
-            # print(best_col)
-            # print(best_col_ind)
-            # print(torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]]))
-            
-            
-            # print(f'Nominal Loss:{temp_nominal_loss}')
-            # print(f'WC Loss:{wc_loss}')
-            # print(f'Feature:{best_col}')
-
-            # best_alpha[:,current_target_col[best_col_ind]] = 1
-            # current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
-
-            # check if performance degrades enough, apply split
-            
-            if wc_loss > temp_nominal_loss:
-                # update
+            # !!!!! This approximates an equality constraint on the total budget
+            if self.budget_constraint == 'equality':
                 best_alpha[:,best_col] = 1
                 apply_split = True
-            
-            # best_alpha[:,best_col] = 1
-            # apply_split = True
+            elif self.budget_constraint == 'inequality':
+                
+                # check if performance degrades enough, apply split
+                if wc_loss > temp_nominal_loss:
+                    # update
+                    best_alpha[:,best_col] = 1
+                    apply_split = True
                 
             
-            # if g == 2: 
-            #     print(best_alpha[0])
-            #     stop_  
             #update list of eligible columns
             if apply_split:
                 current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
@@ -746,7 +720,7 @@ class gd_FDRR(nn.Module):
             
         return total_loss / len(loader.dataset)
     
-    def adversarial_epoch_train(self, loader, opt=None):
+    def adversarial_epoch_train(self, loader, opt=None, attack_type = 'greedy'):
         """Adversarial training/evaluation epoch over the dataset"""
         total_loss = 0.
         
@@ -761,18 +735,19 @@ class gd_FDRR(nn.Module):
         for X,y in loader:            
             #### Find adversarial example
             
-            # Greedy top-down heuristic
-            # alpha = self.missing_data_attack(X, y, gamma = self.gamma)
-            
-            # sample random features
-            feat_col = np.random.choice(np.arange(len(self.target_col)), replace = False, size = (self.gamma))
-            alpha = torch.zeros_like(X)
-            for c in feat_col: alpha[:,c] = 1
-
-            # alpha = torch.ones_like(X)*torch.FloatTensor(alpha_val).reshape(1,-1)
-
-            # # L1 attack with projected gradient descent            
-            # alpha = self.l1_norm_attack(X,y) 
+            if attack_type == 'greedy':
+                # Greedy top-down heuristic
+                # Works best when budget_constraint == 'inequality'
+                alpha = self.missing_data_attack(X, y, gamma = self.gamma)
+            elif attack_type == 'random_sample':
+                # sample random features            
+                # Approximates well the FDR-reformulation with budget equality constraint
+                feat_col = np.random.choice(np.arange(len(self.target_col)), replace = False, size = (self.gamma))
+                alpha = torch.zeros_like(X)
+                for c in feat_col: alpha[:,c] = 1
+            elif attack_type == 'l1_norm':                
+                # L1 attack with projected gradient descent            
+                alpha = self.l1_norm_attack(X,y) 
             
             # # Solve LP
             # for layer in self.model.children():
@@ -824,7 +799,8 @@ class gd_FDRR(nn.Module):
         
         return loss_i
             
-    def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False):
+    def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False, 
+                    attack_type = 'greedy'):
         
         best_train_loss = float('inf')
         best_val_loss = float('inf')
@@ -870,26 +846,7 @@ class gd_FDRR(nn.Module):
             alpha_tensor = torch.cat(alpha_tensor_list, dim = 0)
             
             for epoch in range(epochs):
-
-                # average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
-                # average_train_loss = self.adversarial_epoch_train_heur(train_loader, alpha_tensor, optimizer)                
-    
-                # if (verbose != -1)and(epoch%25 == 0):
-                #     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f}")
-                
-                # if average_train_loss < best_train_loss:
-                #     best_train_loss = average_train_loss
-                #     best_weights = copy.deepcopy(self.state_dict())
-                #     early_stopping_counter = 0
-                # else:
-                #     early_stopping_counter += 1
-                #     if early_stopping_counter >= patience:
-                #         print("Early stopping triggered.")
-                #         # recover best weights
-                #         self.load_state_dict(best_weights)
-                #         return    
-
-                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)                
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
                 val_loss = self.adversarial_epoch_train(val_loader)
     
                 if (verbose != -1)and(epoch%25 == 0):
