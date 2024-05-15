@@ -1627,10 +1627,8 @@ class FiniteAdaptability_MLP(object):
          
          if (m0==self.missing_pattern[node]).all():
              # nominal model
-             print(f'Nominal Node:{node}')
              Predictions.append( self.node_model_[node].predict(torch.FloatTensor(x0)).reshape(-1))
          else:
-             print(f'WC Node:{node}')
              # WC model
              Predictions.append( self.wc_node_model_[node].predict(torch.FloatTensor(x0)).reshape(-1))
 
