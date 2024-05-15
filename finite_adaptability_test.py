@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -355,7 +355,7 @@ import pickle
 # fin_retrain_model = stable_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.05)
 # fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
 
-fin_retrain_model = depth_Finite_FDRR(Max_models = 10, D = 20, red_threshold = 0.1, max_gap = 0.25)
+fin_retrain_model = depth_Finite_FDRR(Max_models = 25, D = 20, red_threshold = 0.1, max_gap = 0.25)
 fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                       budget = 'inequality', solution = 'reformulation')
 
@@ -376,15 +376,16 @@ n_outputs = tensor_trainY.shape[1]
 batch_size = 500
 num_epochs = 1000
 learning_rate = 1e-2
-patience = 10
+patience = 15
 
-fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 10, red_threshold=.01, 
-                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True)
-    
-fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+gd_fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 20, red_threshold = 0.1, 
+                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+                                            train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
+                                            warm_start = False)
+
+gd_fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
                       epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                       lr = learning_rate, batch_size = batch_size)
-
 
 # #with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
 # #    pickle.dump(fin_retrain_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
