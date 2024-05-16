@@ -1230,7 +1230,11 @@ class FiniteAdaptability_MLP(object):
     ### Train Nominal model (no missing data here)
     n_valid_obs = int(val_split*len(Y))
 
-    if val_split == 0:    
+    if val_split == 0:  
+        # use the same data to train and validate
+        trainY = Y
+        validY = Y
+        
         tensor_trainY = torch.FloatTensor(Y)
         tensor_validY = tensor_trainY
 
@@ -1238,6 +1242,9 @@ class FiniteAdaptability_MLP(object):
         tensor_valid_missX = tensor_train_missX
         
     else:
+        trainY = Y[:-n_valid_obs]
+        validY = Y[-n_valid_obs:]
+
         tensor_trainY = torch.FloatTensor(Y[:-n_valid_obs])
         tensor_validY = torch.FloatTensor(Y[-n_valid_obs:])
 
@@ -1279,8 +1286,8 @@ class FiniteAdaptability_MLP(object):
     
 
     # Nominal and WC loss
-    insample_loss = eval_predictions(mlp_model.predict(tensor_train_missX), Y, self.error_metric)
-    insample_wc_loss = eval_predictions(robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
+    insample_loss = eval_predictions(mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
+    insample_wc_loss = eval_predictions(robust_mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
         
     print(insample_loss)
     print(insample_wc_loss)
@@ -1371,7 +1378,7 @@ class FiniteAdaptability_MLP(object):
             valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
                 
             # Find performance degradation for the NOMINAL model when data are missing
-            current_node_loss = eval_predictions(self.node_model_[node].predict(tensor_train_missX), Y, self.error_metric)
+            current_node_loss = eval_predictions(self.node_model_[node].predict(tensor_train_missX), trainY, self.error_metric)
         
             # Check if nominal model **degrades** enough (loss increase)
             nominal_loss_worse_ind = ((current_node_loss-self.Loss[node])/self.Loss[node] > self.red_threshold)   
@@ -1391,8 +1398,8 @@ class FiniteAdaptability_MLP(object):
                                       verbose = self.MLP_train_dict['verbose'])
 
                             
-                retrain_loss = eval_predictions(new_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
-                wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(tensor_train_missX), Y, self.error_metric)
+                retrain_loss = eval_predictions(new_mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
+                wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(tensor_train_missX), trainY, self.error_metric)
                 
                 if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
                                 
@@ -1458,7 +1465,7 @@ class FiniteAdaptability_MLP(object):
 
             
             # Estimate WC loss and nominal loss
-            left_insample_wcloss = eval_predictions(left_robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
+            left_insample_wcloss = eval_predictions(left_robust_mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
 
             # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
             self.Loss.append(self.Loss[node])
@@ -1511,7 +1518,7 @@ class FiniteAdaptability_MLP(object):
                                   warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
 
             # Estimate WC loss and nominal loss
-            right_insample_wcloss = eval_predictions(right_robust_mlp_model.predict(tensor_train_missX), Y, self.error_metric)
+            right_insample_wcloss = eval_predictions(right_robust_mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
             
             self.Loss.append(Best_insample_loss)
             self.WC_Loss.append(right_insample_wcloss)
