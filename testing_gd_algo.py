@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -449,17 +449,17 @@ n_outputs = tensor_trainY.shape[1]
 
 #optimizer = torch.optim.Adam(res_mlp_model.parameters())
 
-batch_size = 250
+batch_size = 500
 num_epochs = 1000
 learning_rate = 1e-2
 patience = 20
 
 gd_fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 20, red_threshold = 0.1, 
-                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+                                            input_size = n_features, hidden_sizes = [20, 20, 20], output_size = n_outputs, projection = True, 
                                             train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
                                             warm_start = False)
 
-gd_fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+gd_fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
                       epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                       lr = learning_rate, batch_size = batch_size)
 
