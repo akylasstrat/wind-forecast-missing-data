@@ -92,6 +92,16 @@ def eval_predictions(pred, target, metric = 'mae'):
     elif metric == 'mse':
         return np.square(pred-target).mean()
 
+def mae(predictions, actual):
+    ''' Evaluates determinstic forecasts
+        Outputs: MAE'''
+    return np.abs(np.array(predictions) - actual).mean(0)
+
+def rmse(predictions, actual):
+    ''' Evaluates determinstic forecasts
+        Outputs: MAE'''
+    return np.sqrt(np.square(np.array(predictions) - actual).mean(0))
+
 def eval_point_pred(predictions, actual, digits = None):
     ''' Evaluates determinstic forecasts
         Outputs: MAPE, RMSE, MAE'''

@@ -86,10 +86,10 @@ class MLP(nn.Module):
         Args:
             x: input tensors/ features
         """
-        if self.projection:
-            return (torch.maximum(torch.minimum( self.model(x), self.UB), self.LB))
-        else:
-            return self.model(x)
+        # if self.projection:
+        #     return (torch.maximum(torch.minimum( self.model(x), self.UB), self.LB))
+        # else:
+        return self.model(x)
             
     def epoch_train(self, loader, opt=None):
         """Standard training/evaluation epoch over the dataset"""
@@ -113,11 +113,19 @@ class MLP(nn.Module):
     
     def predict(self, x):
         # used for inference only
-        with torch.no_grad():         
-            if self.projection:
-                return (torch.maximum(torch.minimum( self.model(x), self.UB), self.LB)).detach().numpy()
-            else:
-                return self.model(x).detach().numpy()
+        if torch.is_tensor(x):
+            with torch.no_grad():         
+                if self.projection:
+                    return (torch.maximum(torch.minimum( self.model(x), self.UB), self.LB)).detach().numpy()
+                else:
+                    return self.model(x).detach().numpy()
+        else:
+            tensor_x = torch.FloatTensor(x.copy())
+            with torch.no_grad():         
+                if self.projection:
+                    return (torch.maximum(torch.minimum( self.model(tensor_x), self.UB), self.LB)).detach().numpy()
+                else:
+                    return self.model(tensor_x).detach().numpy()
             
     def estimate_loss(self, y_hat, y_target):
         
@@ -784,12 +792,17 @@ class gd_FDRR(nn.Module):
     
     def predict(self, X, project = True):
         # used for inference only, returns a numpy
+        if torch.is_tensor(X):
+            temp_X = X
+        else:
+            temp_X = torch.FloatTensor(X.copy())
+
         with torch.no_grad():     
 
             if self.projection or project:
-                return (torch.maximum(torch.minimum(self.model(X), self.UB), self.LB)).detach().numpy()
+                return (torch.maximum(torch.minimum(self.model(temp_X), self.UB), self.LB)).detach().numpy()
             else:
-                return self.model(X).detach().numpy()
+                return self.model(temp_X).detach().numpy()
             
     def estimate_loss(self, y_hat, y_target):
         

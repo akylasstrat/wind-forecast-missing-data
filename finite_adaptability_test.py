@@ -184,7 +184,11 @@ plt.show()
 #%%
 target_park = 'p_1257'
 
-# number of lags back to consider
+# min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
+# max_lag: number of historical observations to include
+config['min_lag'] = 4
+config['max_lag'] = 4 + config['min_lag']
+
 min_lag = config['min_lag']
 max_lag = config['max_lag']
 
@@ -195,7 +199,7 @@ target_scaler = MinMaxScaler()
 pred_scaler = MinMaxScaler()
 
 start = '2019-01-01'
-split = '2019-03-01'
+split = '2019-04-01'
 end = '2020-01-01'
 
 if config['scale']:
@@ -214,18 +218,50 @@ else:
     testPred = Predictors[split:end]
 
 
-#trainPred = np.column_stack((trainPred, np.ones(len(trainPred))))
-#testPred = np.column_stack((testPred, np.ones(len(testPred))))
+#%%%% Tune the number of lags using a linear regression
 
-#%%%% Linear models: linear regression, ridge, lasso 
+# potential_lags = np.arange(1, 7)
+# loss = []
+# for lag in potential_lags:
+
+#     Y, Predictors, pred_col = create_IDsupervised(target_park, power_df, min_lag, min_lag + lag)
+
+#     target_scaler = MinMaxScaler()
+#     pred_scaler = MinMaxScaler()
+
+#     start = '2019-01-01'
+#     split = '2019-04-01'
+#     end = '2020-01-01'
+
+#     trainY = target_scaler.fit_transform(Y[start:split].values)
+#     testY = target_scaler.transform(Y[split:end])
+#     Target = Y[split:end]
+    
+#     trainPred = pred_scaler.fit_transform(Predictors[start:split])
+#     testPred = pred_scaler.transform(Predictors[split:end])
+
+#     ### Linear models: linear regression, ridge, lasso 
+#     lr = LinearRegression(fit_intercept = True)
+#     lr.fit(trainPred, trainY)
+#     lr_pred = target_scaler.inverse_transform(lr.predict(testPred).reshape(-1,1))
+
+#     loss.append(mae(lr_pred, Target.values))
+
+# max_lag = potential_lags[np.argmin(loss)] + min_lag
+
+#%%%% Base Performance: Evaluate Forecasts without Missing Values
+
+base_Predictions = pd.DataFrame(data = [])
+
+### Linear models: linear regression, ridge, lasso 
 
 # Hyperparameter tuning with by cross-validation
 param_grid = {"alpha": [10**pow for pow in range(-5,2)]}
 
-ridge = GridSearchCV(Ridge(fit_intercept = True, max_iter = 5000), param_grid)
+ridge = GridSearchCV(Ridge(fit_intercept = True, max_iter = 10_000), param_grid)
 ridge.fit(trainPred, trainY)
 
-lasso = GridSearchCV(Lasso(fit_intercept = True, max_iter = 5000), param_grid)
+lasso = GridSearchCV(Lasso(fit_intercept = True, max_iter = 10_000), param_grid)
 lasso.fit(trainPred, trainY)
 
 lr = LinearRegression(fit_intercept = True)
@@ -251,27 +287,28 @@ else:
     lad_l1_pred = projection(lad_l1.predict(testPred).reshape(-1,1))
 
 persistence_pred = Target.values[:-config['min_lag']]
-persistence_pred = np.insert(persistence_pred, 0, trainY[-1]).reshape(-1,1)
-persistence_mae = eval_point_pred(persistence_pred, Target.values, digits=4)[1]
+for i in range(config['min_lag']):
+    persistence_pred = np.insert(persistence_pred, 0, trainY[-(1+i)]).reshape(-1,1)
 
-print('Climatology: ', eval_point_pred(trainY.mean(), Target.values, digits=4))
-print('Persistence: ', eval_point_pred(persistence_pred, Target.values, digits=4))
-print('LR: ', eval_point_pred(lr_pred, Target.values, digits=4))
-print('Lasso: ', eval_point_pred(lasso_pred, Target.values, digits=4))
-print('Ridge: ', eval_point_pred(ridge_pred, Target.values, digits=4))
-print('LAD: ', eval_point_pred(lad_pred, Target.values, digits=4))
-print('LAD-L1: ', eval_point_pred(lad_l1_pred, Target.values, digits=4))
+base_Predictions['Persistence'] = persistence_pred.reshape(-1)
+base_Predictions['LS'] = lr_pred.reshape(-1)
+base_Predictions['Lasso'] = lasso_pred.reshape(-1)
+base_Predictions['Ridge'] = ridge_pred.reshape(-1)
+base_Predictions['LAD'] = lad_pred.reshape(-1)
+base_Predictions['LAD-L1'] = lad_l1_pred.reshape(-1)
+base_Predictions['Climatology'] = trainY.mean()
 
-#%% MLP model
+#%% Neural Network: train a standard MLP model
+
 from torch_custom_layers import * 
 
-batch_size = 200
+batch_size = 512
 num_epochs = 1000
 learning_rate = 1e-3
-patience = 50
+patience = 25
 
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
+n_valid_obs = int(0.2*len(trainY))
 
 tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
 tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
@@ -282,8 +319,8 @@ tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
 tensor_testPred = torch.FloatTensor(testPred.values)
 
 #### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
+train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
+valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
 
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
@@ -291,18 +328,19 @@ n_outputs = tensor_trainY.shape[1]
 mlp_model = MLP(input_size = n_features, hidden_sizes = [50, 50, 50, 50], output_size = n_outputs, 
                 projection = True)
 
-optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_decay = 1e-4)
+optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_decay = 1e-5)
 mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = -1)
+                      patience = patience, verbose = 0)
+base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
 
-mlp_pred = mlp_model.predict(tensor_testPred)
-#mlp_pred = projection(mlp_pred)
+#%% Estimate MAE for base models
+print('Base Model Performance, no missing data')
+from utility_functions import *
+base_mae = pd.DataFrame(data = [], columns = base_Predictions.columns)
 
-print('MLP: ', eval_point_pred(mlp_pred, Target.values, digits=4))
+base_mae.loc[0] = mae(base_Predictions, Target.values)
+print((100*base_mae.mean()).round(2))
 
-
-
-#%%
 # check forecasts visually
 plt.plot(Target[:60].values)
 plt.plot(lr_pred[:60])
@@ -311,53 +349,26 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show()
 
-#%%
-
-lad = QR_regressor(fit_intercept = True)
-lad.fit(trainPred, trainY)
-
-objval = []
+#%%%%%%%%% Adversarial Models
 
 target_pred = Predictors.columns
 fixed_pred = []
 target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
 fix_col = []
-'''
-missing_cols = list(itertools.combinations(range(len(target_col)), 2))
-
-for i, comb in enumerate(missing_cols):
-    miss_trainPred = trainPred.values.copy()
-    
-    miss_trainPred[:,comb] = 0
-    
-    lad_temp = QR_regressor(fit_intercept = True)
-    lad_temp.fit(miss_trainPred, trainY)
-    
-    objval.append(lad_temp.objval)
-
-plt.plot(objval)
-plt.show()
-'''
 
 
-#%% 
+### Finite Adaptability - LAD
 from FiniteRetrain import *
 from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
 import pickle
 
-#fin_retrain_model = FiniteRetrain(Max_models = 10, red_threshold=.01)
-#fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col)
-
-# fin_retrain_model = Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.1)
-# fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
-
-# fin_retrain_model = stable_Finite_FDRR(Max_models = 50, D = 20, red_threshold = 0.05)
-# fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')
-
-fin_retrain_model = depth_Finite_FDRR(Max_models = 25, D = 20, red_threshold = 0.1, max_gap = 0.25)
-fin_retrain_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
+fin_lad_model = depth_Finite_FDRR(Max_models = 25, D = 20, red_threshold = 0.1, max_gap = 0.25)
+fin_lad_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                       budget = 'inequality', solution = 'reformulation')
+
+with open(f'{cd}\\trained-models\\{target_park}_fin_lad_model.pickle', 'wb') as handle:
+    pickle.dump(fin_lad_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 #%% Finite adaptability with MLPs
 
@@ -373,107 +384,111 @@ n_outputs = tensor_trainY.shape[1]
 
 #optimizer = torch.optim.Adam(res_mlp_model.parameters())
 
-batch_size = 500
+batch_size = 512
 num_epochs = 1000
 learning_rate = 1e-2
 patience = 15
 
-gd_fin_retrain_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 20, red_threshold = 0.1, 
+fin_ls_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 20, red_threshold = 0.1, 
                                             input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                             train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
                                             warm_start = False)
 
-gd_fin_retrain_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+fin_ls_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
                       epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                       lr = learning_rate, batch_size = batch_size)
 
-# #with open(f'{cd}\\trained_models\\test_model.pickle', 'wb') as handle:
-# #    pickle.dump(fin_retrain_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open(f'{cd}\\trained-models\\{target_park}fin_ls_model.pickle', 'wb') as handle:
+    pickle.dump(fin_lad_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
 #%% Adversarial training MLP
-error = Target.values - persistence_pred
-error_mu = (Target.values - persistence_pred ).mean()
-error_std = (Target.values - persistence_pred ).std()
-error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
+# from torch_custom_layers import * 
 
-from torch_custom_layers import * 
+# error = Target.values - persistence_pred
+# error_mu = (Target.values - persistence_pred ).mean()
+# error_std = (Target.values - persistence_pred ).std()
+# error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
 
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-3
-patience = 25
+# batch_size = 500
+# num_epochs = 1000
+# learning_rate = 1e-3
+# patience = 25
 
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
+# # Standard MLPs (separate) forecasting wind production and dispatch decisions
+# n_valid_obs = int(0.1*len(trainY))
 
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
+# tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
+# tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
+# tensor_testY = torch.FloatTensor(testY)
 
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
+# tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
+# tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
+# tensor_testPred = torch.FloatTensor(testPred.values)
 
-#### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
+# #### MLP model to predict wind from features
+# train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
+# valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
 
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
+# n_features = tensor_trainPred.shape[1]
+# n_outputs = tensor_trainY.shape[1]
 
-res_mlp_model = resilient_MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = True)
+# res_mlp_model = resilient_MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
+#                           target_col = target_col, fix_col = fix_col, projection = True)
 
 
-optimizer = torch.optim.Adam(res_mlp_model.parameters(), lr = learning_rate)
-res_mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0)
+# optimizer = torch.optim.Adam(res_mlp_model.parameters(), lr = learning_rate)
+# res_mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+#                       patience = patience, verbose = 0)
 
-res_mlp_pred = res_mlp_model.predict(tensor_testPred)
+# res_mlp_pred = res_mlp_model.predict(tensor_testPred)
 
-print('MLP: ', eval_point_pred(res_mlp_pred, Target.values, digits=4))
+# print('MLP: ', eval_point_pred(res_mlp_pred, Target.values, digits=4))
 
 #%% Adjustable FDR
 
-from torch_custom_layers import * 
+#!!!!!! Need to fix the missing data code here
 
-batch_size = 500
-num_epochs = 1000
-learning_rate = 1e-2
-patience = 25
+# from torch_custom_layers import * 
 
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.1*len(trainY))
+# batch_size = 500
+# num_epochs = 1000
+# learning_rate = 1e-2
+# patience = 25
 
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
+# # Standard MLPs (separate) forecasting wind production and dispatch decisions
+# n_valid_obs = int(0.1*len(trainY))
 
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
+# tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
+# tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
+# tensor_testY = torch.FloatTensor(testY)
 
-#### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
+# tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
+# tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
+# tensor_testPred = torch.FloatTensor(testPred.values)
 
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
+# #### MLP model to predict wind from features
+# train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
+# valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
 
-adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = True, Gamma = 10)
+# n_features = tensor_trainPred.shape[1]
+# n_outputs = tensor_trainY.shape[1]
+
+# adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+#                           target_col = target_col, fix_col = fix_col, projection = True, Gamma = 10)
 
 
-optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = learning_rate)
-adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0)
+# optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = learning_rate)
+# adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+#                       patience = patience, verbose = 0)
 
-adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, torch.zeros_like(tensor_testPred))
+# adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, torch.zeros_like(tensor_testPred))
 
-print('Adj FDR: ', eval_point_pred(adj_fdr_pred, Target.values, digits=4))
-#%%
-for name, param in adj_fdr_model.named_parameters():
-    if param.requires_grad:
-        print( name, param.data)
+# print('Adj FDR: ', eval_point_pred(adj_fdr_pred, Target.values, digits=4))
+
+# for name, param in adj_fdr_model.named_parameters():
+#     if param.requires_grad:
+#         print( name, param.data)
 
 #%%%% FDDR-AAR: train one model per value of \Gamma
 
