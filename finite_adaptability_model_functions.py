@@ -1230,42 +1230,45 @@ class FiniteAdaptability_MLP(object):
     ### Train Nominal model (no missing data here)
     n_valid_obs = int(val_split*len(Y))
 
-    if val_split == 0:  
-        # use the same data to train and validate
+    if val_split == 0:    
         trainY = Y
         validY = Y
         
-        tensor_trainY = torch.FloatTensor(Y)
-        tensor_validY = tensor_trainY
-
-        tensor_train_missX = torch.FloatTensor(temp_miss_X)
-        tensor_valid_missX = tensor_train_missX
+        train_temp_miss_X = temp_miss_X
+        valid_temp_miss_X = temp_miss_X   
         
     else:
         trainY = Y[:-n_valid_obs]
         validY = Y[-n_valid_obs:]
 
-        tensor_trainY = torch.FloatTensor(Y[:-n_valid_obs])
-        tensor_validY = torch.FloatTensor(Y[-n_valid_obs:])
+        train_temp_miss_X = temp_miss_X[:-n_valid_obs]
+        valid_temp_miss_X = temp_miss_X[-n_valid_obs:]        
 
-        tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
-        tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+    tensor_trainY = torch.FloatTensor(trainY)
+    tensor_validY = torch.FloatTensor(validY)
         
+    tensor_train_missX = torch.FloatTensor(train_temp_miss_X)
+    tensor_valid_missX = torch.FloatTensor(valid_temp_miss_X)
+
     train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
     valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
         
     ####### Train nominal model
-    #!!!!!!!!!!!!!! Add optimizer here
-
     
-    mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
-                              target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
-                              train_adversarially = False, budget_constraint = self.gd_FDRR_params['budget_constraint'])
-    
-    optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
-    mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
-                          verbose = self.MLP_train_dict['verbose'])
+    if self.gd_FDRR_params['hidden_sizes'] == []:
+        # Train Linear Regression model
+        mlp_model = LinearRegression(fit_intercept = True)
+        mlp_model.fit(train_temp_miss_X, trainY)
+    else:
+        # Train Neural Network model
+        mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                                  target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
+                                  train_adversarially = False, budget_constraint = self.gd_FDRR_params['budget_constraint'])
+        
+        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+        mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+                              epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
+                              verbose = self.MLP_train_dict['verbose'])
         
     ######## Train Adversarially Robust model
     # budget of robustness
@@ -1286,8 +1289,8 @@ class FiniteAdaptability_MLP(object):
     
 
     # Nominal and WC loss
-    insample_loss = eval_predictions(mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
-    insample_wc_loss = eval_predictions(robust_mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
+    insample_loss = eval_predictions(mlp_model.predict(train_temp_miss_X), trainY, self.error_metric)
+    insample_wc_loss = eval_predictions(robust_mlp_model.predict(train_temp_miss_X), trainY, self.error_metric)
         
     print(insample_loss)
     print(insample_wc_loss)
@@ -1367,12 +1370,15 @@ class FiniteAdaptability_MLP(object):
             
             
             ####### Create train/validation data loaders for torch modules
-            if val_split == 0:    
-                tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
-                tensor_valid_missX = tensor_train_missX
+            if val_split == 0:                    
+                train_temp_miss_X = temp_miss_X
+                valid_temp_miss_X = temp_miss_X   
             else:
-                tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
-                tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+                train_temp_miss_X = temp_miss_X[:-n_valid_obs]
+                valid_temp_miss_X = temp_miss_X[-n_valid_obs:]        
+                
+            tensor_train_missX = torch.FloatTensor(train_temp_miss_X)
+            tensor_valid_missX = torch.FloatTensor(valid_temp_miss_X)
 
             train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
             valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
@@ -1387,18 +1393,25 @@ class FiniteAdaptability_MLP(object):
                 # Further check if a new model **improves** over the WC model enough (decrease loss)
 
                 ####### Train nominal model with missing data
-                new_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
-                                          target_col = self.target_features[node], fix_col = self.fixed_features[node], projection = self.gd_FDRR_params['projection'], 
-                                          train_adversarially = False)
-
-                optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
-
-                new_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                                      epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
-                                      verbose = self.MLP_train_dict['verbose'])
+                
+                if self.gd_FDRR_params['hidden_sizes'] == []:
+                    # Train Linear Regression model on missing data realization
+                    new_mlp_model = LinearRegression(fit_intercept = True)
+                    new_mlp_model.fit(train_temp_miss_X, trainY)
+                else:
+                    # Train Neural Network model on missing data realization
+                    new_mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
+                                              target_col = self.target_features[node], fix_col = self.fixed_features[node], projection = self.gd_FDRR_params['projection'], 
+                                              train_adversarially = False)
+    
+                    optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+    
+                    new_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+                                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
+                                          verbose = self.MLP_train_dict['verbose'])
 
                             
-                retrain_loss = eval_predictions(new_mlp_model.predict(tensor_train_missX), trainY, self.error_metric)
+                retrain_loss = eval_predictions(new_mlp_model.predict(train_temp_miss_X), trainY, self.error_metric)
                 wc_node_loss = eval_predictions(self.wc_node_model_[node].predict(tensor_train_missX), trainY, self.error_metric)
                 
                 if ((wc_node_loss-retrain_loss)/wc_node_loss > self.red_threshold):
@@ -1440,12 +1453,16 @@ class FiniteAdaptability_MLP(object):
                 
             temp_miss_X = (1-left_missing_pattern)*X
             
-            if val_split == 0:    
-                tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
-                tensor_valid_missX = tensor_train_missX
+            ####### Create train/validation data loaders for torch modules
+            if val_split == 0:                    
+                train_temp_miss_X = temp_miss_X
+                valid_temp_miss_X = temp_miss_X   
             else:
-                tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
-                tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+                train_temp_miss_X = temp_miss_X[:-n_valid_obs]
+                valid_temp_miss_X = temp_miss_X[-n_valid_obs:]        
+                
+            tensor_train_missX = torch.FloatTensor(train_temp_miss_X)
+            tensor_valid_missX = torch.FloatTensor(valid_temp_miss_X)
 
             left_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
             left_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
@@ -1494,12 +1511,16 @@ class FiniteAdaptability_MLP(object):
             gamma_temp = len(right_target_cols)
             
             temp_miss_X = (1-right_missing_pattern)*X
-            if val_split == 0:    
-                tensor_train_missX = torch.FloatTensor(temp_miss_X)                        
-                tensor_valid_missX = tensor_train_missX
+            ####### Create train/validation data loaders for torch modules
+            if val_split == 0:                    
+                train_temp_miss_X = temp_miss_X
+                valid_temp_miss_X = temp_miss_X   
             else:
-                tensor_train_missX = torch.FloatTensor(temp_miss_X[:-n_valid_obs])
-                tensor_valid_missX = torch.FloatTensor(temp_miss_X[-n_valid_obs:])
+                train_temp_miss_X = temp_miss_X[:-n_valid_obs]
+                valid_temp_miss_X = temp_miss_X[-n_valid_obs:]        
+                
+            tensor_train_missX = torch.FloatTensor(train_temp_miss_X)
+            tensor_valid_missX = torch.FloatTensor(valid_temp_miss_X)
                 
             right_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'])        
             right_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'])
@@ -1634,10 +1655,10 @@ class FiniteAdaptability_MLP(object):
          
          if (m0==self.missing_pattern[node]).all():
              # nominal model
-             Predictions.append( self.node_model_[node].predict(torch.FloatTensor(x0)).reshape(-1))
+             Predictions.append( self.node_model_[node].predict(x0).reshape(-1))
          else:
              # WC model
-             Predictions.append( self.wc_node_model_[node].predict(torch.FloatTensor(x0)).reshape(-1))
+             Predictions.append( self.wc_node_model_[node].predict(x0).reshape(-1))
 
      return np.array(Predictions).reshape(-1,1)
 
