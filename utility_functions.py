@@ -95,7 +95,7 @@ def eval_predictions(pred, target, metric = 'mae'):
 def mae(predictions, actual):
     ''' Evaluates determinstic forecasts
         Outputs: MAE'''
-    return np.abs(np.array(predictions) - actual).mean(0)
+    return np.abs(np.array(predictions).reshape(-1) - actual.reshape(-1)).mean(0)
 
 def rmse(predictions, actual):
     ''' Evaluates determinstic forecasts

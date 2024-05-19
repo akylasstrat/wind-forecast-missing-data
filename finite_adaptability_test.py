@@ -125,7 +125,7 @@ def create_feat_matrix(df, min_lag, max_lag):
     # Create supervised set
     pred_col = []
     for park in p_df.columns:
-        for lag in range(min_lag, max_lag):
+        for lag in np.arange(min_lag, max_lag):
             p_df[park+'_'+str(lag)] = p_df[park].shift(lag)
             pred_col.append(park+'_'+str(lag))
     
@@ -187,7 +187,7 @@ target_park = 'p_1257'
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 config['min_lag'] = 4
-config['max_lag'] = 4 + config['min_lag']
+config['max_lag'] = 2 + config['min_lag']
 
 min_lag = config['min_lag']
 max_lag = config['max_lag']
@@ -338,7 +338,7 @@ print('Base Model Performance, no missing data')
 from utility_functions import *
 base_mae = pd.DataFrame(data = [], columns = base_Predictions.columns)
 
-base_mae.loc[0] = mae(base_Predictions, Target.values)
+for c in base_mae.columns: base_mae[c] = [mae(base_Predictions[c].values, Target.values)]
 print((100*base_mae.mean()).round(2))
 
 # check forecasts visually
@@ -363,13 +363,25 @@ from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
 import pickle
 
-fin_lad_model = depth_Finite_FDRR(Max_models = 25, D = 20, red_threshold = 0.1, max_gap = 0.25)
-fin_lad_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
-                      budget = 'inequality', solution = 'reformulation')
+config['train'] = True
+config['save'] = True
 
-with open(f'{cd}\\trained-models\\{target_park}_fin_lad_model.pickle', 'wb') as handle:
-    pickle.dump(fin_lad_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+if config['train']:
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 10_000, D = 1_000, red_threshold = 1e-5, max_gap = 0.10)
+    fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
+                          budget = 'inequality', solution = 'reformulation')
+    
+    with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
+        pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+else:
+    with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
+            fin_LAD_model = pickle.load(handle)
+
+#%%
+plt.plot(np.array(fin_LAD_model.Loss))
+plt.plot(np.array(fin_LAD_model.WC_Loss))
+plt.show()
 #%% Finite adaptability with MLPs
 
 from FiniteRetrain import *
@@ -389,21 +401,27 @@ num_epochs = 1000
 learning_rate = 1e-2
 patience = 15
 
-fin_ls_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 20, red_threshold = 0.1, 
-                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-                                            train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
-                                            warm_start = False)
-
-fin_ls_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
-                      epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                      lr = learning_rate, batch_size = batch_size)
-
-with open(f'{cd}\\trained-models\\{target_park}fin_ls_model.pickle', 'wb') as handle:
-    pickle.dump(fin_lad_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+config['train'] = False
+if config['train']:
+    fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 20, red_threshold = 0.1, 
+                                                input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
+                                                warm_start = False)
+    
+    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                          lr = learning_rate, batch_size = batch_size)
+    
+    with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'wb') as handle:
+        pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
+            fin_LS_model = pickle.load(handle)
 
 #%% Adversarial training MLP
 # from torch_custom_layers import * 
+
+#!!!!!! Need to fix the missing data code here
 
 # error = Target.values - persistence_pred
 # error_mu = (Target.values - persistence_pred ).mean()
@@ -503,34 +521,47 @@ fix_col = []
 K_parameter = np.arange(0, len(target_pred)+1)
 
 FDRR_AAR_models = []
-config['train'] = False
+config['train'] = True
+
+# config['save'] = True
 if config['train']:
     for K in K_parameter:
         print('Gamma: ', K)
         
-        fdr = FDR_regressor(K = K)
-        fdr.fit(trainPred.values, trainY, target_col, fix_col, verbose=-1, solution = 'reformulation')  
+        # fdr = FDR_regressor(K = K)
+        # fdr.fit(trainPred.values, trainY, target_col, fix_col, verbose=-1, solution = 'reformulation')  
         
+        fdr = FDR_regressor_test(K = K)
+        fdr.fit(trainPred.values, trainY, target_col, fix_col, budget = 'inequality', solution = 'reformulation')              
+
         fdr_pred = fdr.predict(testPred).reshape(-1,1)
     
         print('FDR: ', eval_point_pred(fdr_pred, Target.values, digits=2))
         FDRR_AAR_models.append(fdr)
-    
+        
+        plt.plot(FDRR_AAR_models[K].coef_)
+        plt.show()
+        
     if config['save']:
-        with open(output_file_name, 'wb') as handle:
-            pickle.dump(FDRR_AAR_models, handle)
+        with open(f'{cd}\\trained-models\\{target_park}_FDRR_R_model.pickle', 'wb') as handle:
+            pickle.dump(FDRR_AAR_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 else:
-    with open(output_file_name, 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{target_park}_FDRR_R_model.pickle', 'rb') as handle:    
             FDRR_AAR_models = pickle.load(handle)
-#%%%% Gradient-based FDRR
+#% FDRR with gradient-based algorithm
 
 from torch_custom_layers import * 
 
-batch_size = 1000
+batch_size = 512
 num_epochs = 1000
-learning_rate = 1e-3
-patience = 25
-    
+learning_rate = 1e-2
+patience = 15
+
+gd_FDRR_R_models = []
+
+#!!!!! Fix validation set
+
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 tensor_trainY = torch.FloatTensor(trainY)
 tensor_validY = torch.FloatTensor(trainY)
@@ -540,66 +571,69 @@ tensor_trainPred = torch.FloatTensor(trainPred.values)
 tensor_validPred = torch.FloatTensor(trainPred.values)
 tensor_testPred = torch.FloatTensor(testPred.values)
 
-#### MLP model to predict wind from features
+### MLP model to predict wind from features
 train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
 valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
 
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-gd_FDR_models = []
-
-# nominal model (no missing data) to warm-start all future models
-nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = False, Gamma = 0, train_adversarially = False)
-
-optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
-nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0)
-#%%
-batch_size = 500
-
-for K in [20]:
+config['train'] = True
+if config['train']:
+    for K in K_parameter:
+        print(f'Budget: {K}')
+        
+        # sample missing data to check how predictions are formed
+        feat = np.random.choice(target_col, size = K, replace = False)
+        a = np.zeros((1,trainPred.shape[1]))
+        a[:,feat] = 1
+        test_alpha = torch.FloatTensor(a)
+        
+        gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                                  target_col = target_col, fix_col = fix_col, projection = False, 
+                                  Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+        
+        optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-2)
     
-    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = K)
-    
-    optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
-
-    # initialize weights with nominal model
-    gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
-
-    gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0, warm_start = False)
-
-    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
-    
-    gd_FDR_models.append(gd_fdr_model)
-    
-    print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
-    print('FDRR: ', eval_point_pred(projection(FDRR_AAR_models[K].predict(testPred).reshape(-1,1)), Target.values, digits=4))
-    
-    plt.plot(gd_fdr_model.predict(tensor_testPred)[:1000], label='GD')
-    plt.plot(projection(FDRR_AAR_models[K].predict(testPred)[:1000]), label='MinMax')
-    plt.legend()
-    plt.show()
-
-    for name, param in gd_fdr_model.named_parameters():
-        if param.requires_grad:
-            plt.plot(param.data.detach().numpy().T)
-    plt.plot(FDRR_AAR_models[K].coef_)
-    plt.show()
-
+        # initialize weights with nominal model (Does not affect solution much)
+        # gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
             
-#%%%%%%%%% Retrain without missing features (Tawn, Browell)
+        gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                              patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+    
+        gd_fdr_pred = gd_fdr_model.predict(testPred.values, project = True)
+        gd_FDRR_R_models.append(gd_fdr_model)
+        
+        print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
+        
+        plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
+        plt.plot(projection(gd_FDRR_R_models[K].predict(testPred.values*(1-a))[:1000]), label='Eq-MinMax')
+        plt.legend()
+        plt.show()
 
-if config['retrain']:
-    retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
-                                                           target_col, fix_col, max(K_parameter), base_loss='l2')
+        for layer in gd_fdr_model.model.children():
+            if isinstance(layer, nn.Linear):    
+                plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+        plt.legend()
+        plt.show()
+
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{target_park}_gd_FDRR_R_model.pickle', 'wb') as handle:
+            pickle.dump(gd_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+else:    
+    with open(f'{cd}\\trained-models\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
+            gd_FDRR_R_models = pickle.load(handle)
+
+#% Retrain without missing features (Tawn, Browell)
+
+# if config['retrain']:
+#     retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
+#                                                            target_col, fix_col, max(K_parameter), base_loss='l2')
 
 
 
-#%%%%%%%%% Testing: varying the number of missing observations/ persistence imputation
+#% Testing: varying the number of missing observations/ persistence imputation
 from utility_functions import *
 
 n_feat = len(target_col)
@@ -613,11 +647,11 @@ percentage = [0, .001, .005, .01, .05, .1]
 # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
-models = ['PERS', 'LS', 'LS-l2', 'LS-l1', 'LAD', 'LAD-l1','FDRR-R', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN', 'MLP', 
-          'resMLP']
-labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
-           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR-R}$', '$\mathtt{FDRR-AAR}$', 
-           '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
+models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
+models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
+                    'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
+                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$','FDRR-R':'$\mathtt{FDRR-R}$', 
+                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS':'$\mathtt{FinAd-LS}$'}
 
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -626,14 +660,14 @@ n_series = 4
 pd.options.mode.chained_assignment = None
 run_counter = 0
 
-
 #series_missing = [c + str('_1') for c in park_ids]
-series_missing = park_ids
 #series_missing_col = [pred_col.index(series) for series in series_missing]
+
+# Park IDs for series that could go missing
+series_missing = park_ids
 
 imputation = 'persistence'
 mean_imput_values = trainPred.mean(0)
-
 miss_ind = make_chain(np.array([[.95, .05], [0.05, 0.95]]), 0, len(testPred))
 
 s = pd.Series(miss_ind)
@@ -652,6 +686,15 @@ for perc in percentage:
 
     for iter_ in range(iterations):
         
+        # Dataframe to store predictions
+        # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
+        temp_Predictions = pd.DataFrame(data = [], columns = models)
+
+        # Initialize dataframe to store results
+        temp_df = pd.DataFrame()
+        temp_df['percentage'] = [perc]
+        temp_df['iteration'] = [iter_]
+        
         # generate missing data
         #miss_ind = np.array([make_chain(P, 0, len(testPred)) for i in range(len(target_col))]).T
         miss_ind = np.zeros((len(testPred), len(park_ids)))
@@ -662,7 +705,7 @@ for perc in percentage:
                 miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), power_df.copy()[series][split:end].values)
 
         else:
-            P = np.array([[1-perc, perc], [0.2, 0.8]])
+            P = np.array([[1-perc, perc], [0.05, 0.95]])
             for j in range(len(series_missing)):
                 miss_ind[:,j] = make_chain(P, 0, len(testPred))
                 #miss_ind[1:,j+1] = miss_ind[:-1,j]
@@ -691,7 +734,12 @@ for perc in percentage:
             # imputation with persistence or mean            
             if imputation == 'persistence':
                 imp_X = miss_X.copy()
-                imp_X = imp_X.fillna(method = 'ffill').fillna(method = 'bfill')
+                # forward fill == imputation with persistence
+                imp_X = imp_X.fillna(method = 'ffill')
+                # fill initial missing values with previous data
+                for c in imp_X.columns:
+                    imp_X[c].loc[imp_X[c].isna()] = trainPred[c].mean()
+                
                 #for j in series_missing:
                 #    imp_X[mask_ind[:,j],j] = imp_X[mask_ind[:,j],j+1]
                     
@@ -699,79 +747,78 @@ for perc in percentage:
                 for j in range(imp_X.shape[1]):
                     imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
         
-        # initialize empty dataframe
-        temp_df = pd.DataFrame()
-        temp_df['percentage'] = [perc]
-        temp_df['iteration'] = [iter_]
         
         #### Persistence
-        pers_pred = imp_X[f'{target_park}_1'].values.reshape(-1,1)
-
-        if config['scale']:
-            pers_pred = target_scaler.inverse_transform(pers_pred)            
-        pers_mae = eval_predictions(pers_pred.reshape(-1,1), Target.values, metric=error_metric)
+        pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
+        temp_Predictions['Pers'] = pers_pred.reshape(-1)
+        
+        # if config['scale']:
+        #     pers_pred = target_scaler.inverse_transform(pers_pred)            
+        # pers_mae = eval_predictions(pers_pred.reshape(-1,1), Target.values, metric=error_metric)
         
         #### LS model
         lr_pred = projection(lr.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lr_pred = target_scaler.inverse_transform(lr_pred)            
-        lr_mae = eval_predictions(lr_pred.reshape(-1,1), Target.values, metric=error_metric)
+        temp_Predictions['LS'] = lr_pred.reshape(-1)
+        
+        # if config['scale']:
+        #     lr_pred = target_scaler.inverse_transform(lr_pred)            
+        # lr_mae = eval_predictions(lr_pred.reshape(-1,1), Target.values, metric=error_metric)
         
         #### LASSO
         lasso_pred = projection(lasso.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lasso_pred = target_scaler.inverse_transform(lasso_pred)    
-        lasso_mae = eval_predictions(lasso_pred, Target.values, metric= error_metric)
+        temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
+
+        # if config['scale']:
+        #     lasso_pred = target_scaler.inverse_transform(lasso_pred)    
+        # lasso_mae = eval_predictions(lasso_pred, Target.values, metric= error_metric)
     
         #### RIDGE
         l2_pred = projection(ridge.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            l2_pred = target_scaler.inverse_transform(l2_pred)    
-        l2_mae = eval_predictions(l2_pred, Target.values, metric= error_metric)
+        temp_Predictions['Ridge'] = l2_pred.reshape(-1)
+        
+        # if config['scale']:
+        #     l2_pred = target_scaler.inverse_transform(l2_pred)    
+        # l2_mae = eval_predictions(l2_pred, Target.values, metric= error_metric)
     
         #### LAD model
         lad_pred = projection(lad.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lad_pred = target_scaler.inverse_transform(lad_pred)            
-        lad_mae = eval_predictions(lad_pred.reshape(-1,1), Target.values, metric=error_metric)
+        temp_Predictions['LAD'] = lad_pred.reshape(-1)
+
+        # if config['scale']:
+        #     lad_pred = target_scaler.inverse_transform(lad_pred)            
+        # lad_mae = eval_predictions(lad_pred.reshape(-1,1), Target.values, metric=error_metric)
 
         #### LAD-l1 model
-        lad_l1_pred = projection(lad_l1.predict(imp_X).reshape(-1,1))
-        if config['scale']:
-            lad_l1_pred = target_scaler.inverse_transform(lad_l1_pred)            
-        lad_l1_mae = eval_predictions(lad_l1_pred.reshape(-1,1), Target.values, metric=error_metric)
+        # lad_l1_pred = projection(lad_l1.predict(imp_X).reshape(-1,1))
+        # if config['scale']:
+        #     lad_l1_pred = target_scaler.inverse_transform(lad_l1_pred)            
+        # lad_l1_mae = eval_predictions(lad_l1_pred.reshape(-1,1), Target.values, metric=error_metric)
         
         #### MLPimp
         mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
-        if config['scale']:
-            mlp_pred = target_scaler.inverse_transform(mlp_pred)    
-        mlp_mae = eval_predictions(mlp_pred, Target.values, metric= error_metric)
+        temp_Predictions['NN'] = mlp_pred.reshape(-1)
+
+        # if config['scale']:
+        #     mlp_pred = target_scaler.inverse_transform(mlp_pred)    
+        # mlp_mae = eval_predictions(mlp_pred, Target.values, metric= error_metric)
 
         #### Adversarial MLP
         
-        res_mlp_pred = adj_fdr_model.predict(torch.FloatTensor(miss_X_zero.values), torch.FloatTensor(final_mask_ind)).reshape(-1,1)
-        if config['scale']:
-            res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
-        res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
+        # res_mlp_pred = adj_fdr_model.predict(torch.FloatTensor(miss_X_zero.values), torch.FloatTensor(final_mask_ind)).reshape(-1,1)
+        # if config['scale']:
+        #     res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
+        # res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
 
-        '''
-        res_mlp_pred = res_mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
-        if config['scale']:
-            res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
-        res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
-        '''
-        #### FDRR-AAR (select the appropriate model for each case)
+        #### FDRR-R (select the appropriate model for each case)
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
             
-            if i < 0:
-                fdr_pred = gd_FDR_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
-            else:
-                fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
-                fdr_pred = projection(fdr_pred)
+            fdr_pred = gd_FDRR_R_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
+            # fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
+            fdr_pred = projection(fdr_pred)
                 
             # Robust
-            if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
+            # if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
             fdr_aar_predictions.append(fdr_pred.reshape(-1))
         fdr_aar_predictions = np.array(fdr_aar_predictions).T
         
@@ -783,66 +830,79 @@ for perc in percentage:
                 final_fdr_aar_pred[j] = fdr_aar_predictions[j, n_miss_feat]
         final_fdr_aar_pred = final_fdr_aar_pred.reshape(-1,1)
         
-        fdr_aar_mae = eval_predictions(final_fdr_aar_pred, Target.values, metric= error_metric)
+        temp_Predictions['FDRR-R'] = final_fdr_aar_pred.reshape(-1)
+
+        # fdr_aar_mae = eval_predictions(final_fdr_aar_pred, Target.values, metric= error_metric)
 
         ##### RETRAIN model
-        if config['retrain']:
-            f_retrain_pred = retrain_pred[:,0:1].copy()
-            if perc > 0:
-                rows_w_missing_data = np.where(miss_X.isna().values.sum(1)==1)[0]
+        # if config['retrain']:
+        #     f_retrain_pred = retrain_pred[:,0:1].copy()
+        #     if perc > 0:
+        #         rows_w_missing_data = np.where(miss_X.isna().values.sum(1)==1)[0]
                 
-                for row in rows_w_missing_data:
+        #         for row in rows_w_missing_data:
                     
-                    temp_feat = np.sort(np.where(miss_X.isna().values[row]))[0]
-                    temp_feat = list(temp_feat)                    
-                    # find position in combinations list
-                    j_ind = retrain_comb.index(temp_feat)
-                    f_retrain_pred[row] = retrain_pred[row, j_ind]                
+        #             temp_feat = np.sort(np.where(miss_X.isna().values[row]))[0]
+        #             temp_feat = list(temp_feat)                    
+        #             # find position in combinations list
+        #             j_ind = retrain_comb.index(temp_feat)
+        #             f_retrain_pred[row] = retrain_pred[row, j_ind]                
     
-            retrain_mae = eval_predictions(f_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
-            temp_df['RETRAIN'] = retrain_mae
+        #     retrain_mae = eval_predictions(f_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+        #     temp_df['RETRAIN'] = retrain_mae
 
-        #### FINITE-RETRAIN
+        #### FINITE-RETRAIN-LAD and LS
         
-        fin_retrain_pred = fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        fin_retrain_pred = projection(fin_retrain_pred)
-        
-        abs_error = np.abs(fin_retrain_pred.reshape(-1,1)-Target.values)
-        leaf_ind_ = fin_retrain_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
+        fin_LAD_pred = fin_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        fin_LAD_pred = projection(fin_LAD_pred)
+        temp_Predictions['FinAd-LAD'] = fin_LAD_pred.reshape(-1)
 
-        if config['scale']:
-            fin_retrain_pred = target_scaler.inverse_transform(fin_retrain_pred)            
-        fin_retrain_mae = eval_predictions(fin_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+        fin_LS_pred = fin_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        fin_LS_pred = projection(fin_LS_pred)
+        temp_Predictions['FinAd-LS'] = fin_LS_pred.reshape(-1)
+
         
-        temp_df['PERS'] = [pers_mae]                        
-        temp_df['LS'] = [lr_mae]        
-        temp_df['LS-l2'] = [lasso_mae]
-        temp_df['LS-l1'] = [l2_mae]                
-        temp_df['LAD'] = [lad_mae]        
-        temp_df['LAD-l1'] = [lad_l1_mae]
-        temp_df['MLP'] = [mlp_mae]
-        temp_df['FDRR-AAR'] = fdr_aar_mae
-        temp_df['FIN-RETRAIN'] = fin_retrain_mae
-        temp_df['resMLP'] = res_mlp_mae
+        # fin_retrain_pred = fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        # fin_retrain_pred = projection(fin_retrain_pred)
+        # temp_scale_Predictions['FinAd-LAD'] = fin_retrain_pred.reshape(-1)
+
+        abs_error = np.abs(fin_LAD_pred.reshape(-1,1)-Target.values)
+        leaf_ind_ = fin_LAD_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
+
+        # if config['scale']:
+        #     temp_Predictions = 
+        #     fin_retrain_pred = target_scaler.inverse_transform(fin_retrain_pred)            
+        # fin_retrain_mae = eval_predictions(fin_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+        
+        for m in models:
+            temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
+        
+        # temp_df['PERS'] = [pers_mae]                        
+        # temp_df['LS'] = [lr_mae]        
+        # temp_df['LS-l2'] = [lasso_mae]
+        # temp_df['LS-l1'] = [l2_mae]                
+        # temp_df['LAD'] = [lad_mae]        
+        # temp_df['LAD-l1'] = [lad_l1_mae]
+        # temp_df['MLP'] = [mlp_mae]
+        # temp_df['FDRR-AAR'] = fdr_aar_mae
+        # temp_df['FIN-RETRAIN'] = fin_retrain_mae
+        # temp_df['resMLP'] = res_mlp_mae
 
         #temp_df['FDRR-CL'] = fdr_cl_mae
         
         mae_df = pd.concat([mae_df, temp_df])
         run_counter += 1
-    
+
+pattern = config['pattern']
 if config['save']:
-    mae_df.to_csv(f'{cd}\\{case_folder}\\results\\{target_park}_ID_results.csv')
+    mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_MAE_results.csv')
     
 # Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['PERS', 'LS', 'LS-l1', 'LAD', 'FDRR-AAR', 'RETRAIN', 'FIN-RETRAIN']
+models_to_plot = models
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
-labels = ['$\mathtt{PERS}$', '$\mathtt{LS}$', '$\mathtt{LS}_{\ell_2}$', '$\mathtt{LS}_{\ell_1}$',
-           '$\mathtt{LAD}$', '$\mathtt{LAD}_{\ell_1}$','$\mathtt{FDRR}$', '$\mathtt{FDRR-AAR}$', '$\mathtt{RETRAIN}$', '$\mathtt{FIN-RETRAIN}$', 
-           '$\mathtt{MLP}$', '$\mathtt{resMLP}$']
-
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))
 lad_colors = plt.cm.tab20( list(np.arange(10,12)))
@@ -862,7 +922,7 @@ for i, m in enumerate(models):
         x_val = temp_df['percentage'].unique().astype(float)
         #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
         plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
-                 label = labels[i], color = colors[i], marker = marker[i])
+                 label = models_to_labels[m], color = colors[i], marker = marker[i])
         #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
         #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
 
@@ -870,7 +930,7 @@ plt.legend()
 plt.ylabel('MAE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
-plt.legend(ncol=2)
+plt.legend(ncol=2, fontsize = 6)
 #ax.set_xscale('log')
 plt.show()
 
