@@ -155,17 +155,9 @@ class FDR_regressor_test(object):
         
             m.addConstrs( mu_down + ell_down[:,j] >= -X[:,target_col[j]]*coef[j] for j in range(len(target_col)))
             m.addConstr( t_down == K*mu_down + ell_down.sum(1))
-
-            # Dual Constraints-Old version
-            #m.addConstrs( np.ones((n_feat))*mu_up[i] + ell_up[i] >= X[i,target_col]*coef for i in range(n_train_obs))            
-            #m.addConstrs( t_up[i] == K*mu_up[i] + ell_up[i].sum() for i in range(n_train_obs))
-
-            #m.addConstrs( np.ones((n_feat))*mu_down[i] + ell_down[i] >= -sp.diags(X[i, target_col])@coef for i in range(n_train_obs))
-            #m.addConstrs( t_down[i] == K*mu_down[i] + ell_down[i].sum() for i in range(n_train_obs))    
                     
             print('Time to declare: ', time.time()-start)
-            m.addConstr( fitted == X[:,target_col]@coef + X[:,fix_col]@fix_coef + np.ones((n_train_obs,1))@bias)
-            
+            m.addConstr( fitted == X[:,target_col]@coef + X[:,fix_col]@fix_coef + np.ones((n_train_obs,1))@bias)            
             #m.addConstrs( loss[i] >= d[i]@d[i] for i in range(n_train_obs))
             
             print('Solving the problem...')
@@ -245,12 +237,6 @@ class FDR_regressor_test(object):
 
             m.addConstr( p >= self.quant*(Y.reshape(-1) - fitted + K*mu_up + ell_up.sum(1)) )
             m.addConstr( p >= (1-self.quant)*(-Y.reshape(-1) + fitted + K*mu_down + ell_down.sum(1)) )
-
-            # Dual Constraints/ old version
-            #m.addConstrs( np.ones((n_feat))*mu_up[i] + ell_up[i] >= sp.diags(X[i,target_col])@coef - (1/self.quant)*q[i] for i in range(n_train_obs))
-            #m.addConstrs( np.ones((n_feat))*mu_down[i] + ell_down[i] >= -sp.diags(X[i,target_col])@coef - (1/(1-self.quant))*q[i] for i in range(n_train_obs))
-            #m.addConstrs( p[i] >= self.quant*(Y[i] - fitted[i] + K*mu_up[i] + ell_up[i].sum()) for i in range(n_train_obs))
-            #m.addConstrs( p[i] >= (1-self.quant)*(-Y[i] + fitted[i] + K*mu_down[i] + ell_down[i].sum()) for i in range(n_train_obs))
     
             # Objective
             m.setObjective((1/n_train_obs)*d.sum(), gp.GRB.MINIMIZE)

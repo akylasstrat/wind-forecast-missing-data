@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -367,9 +367,9 @@ config['train'] = True
 config['save'] = False
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 100, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 5, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
-                          budget = 'inequality', solution = 'reformulation')
+                          budget = 'equality', solution = 'affine')
     
     with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
         pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -402,8 +402,9 @@ learning_rate = 1e-2
 patience = 15
 
 config['train'] = True
+config['save'] = False
 if config['train']:
-    fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 1_000, D = 1_000, red_threshold = 0.01, 
+    fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 5, D = 1_000, red_threshold = 0.01, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
                                                 warm_start = False)
@@ -411,13 +412,20 @@ if config['train']:
     fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                           lr = learning_rate, batch_size = batch_size)
-    
-    with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'wb') as handle:
-        pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'wb') as handle:
+            pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 else:
     fin_LS_model = fin_LAD_model
     # with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
     #         fin_LS_model = pickle.load(handle)
+#%%
+t = 4
+for layer in fin_LS_model.wc_node_model_[t].model.children():        
+    if isinstance(layer, nn.Linear):    
+        plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+    plt.plot(fin_LS_model.node_model_[t].coef_[0], '--')
+    plt.show()
 
 #%% Adversarial training MLP
 # from torch_custom_layers import * 
@@ -579,7 +587,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
+config['train'] = False
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
@@ -646,7 +654,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
+config['train'] = False
 if config['train']:
     
     # nominal model (no missing data) to warm-start all future models

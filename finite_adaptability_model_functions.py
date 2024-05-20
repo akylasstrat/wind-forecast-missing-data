@@ -1013,9 +1013,11 @@ class depth_Finite_FDRR(object):
                 K_temp = len(right_target_cols)
             
             temp_miss_X = (1-right_missing_pattern)*X
+            # Copy previous model
+            # right_fdr = FDR_regressor_test(K = K_temp)
+            # right_fdr.fit(temp_miss_X, Y, right_target_cols, right_fix_cols, **self.inner_FDR_kwargs)              
 
-            right_fdr = FDR_regressor_test(K = K_temp)
-            right_fdr.fit(temp_miss_X, Y, right_target_cols, right_fix_cols, **self.inner_FDR_kwargs)              
+            right_fdr = self.wc_node_model_[node]
             
             # Estimate WC loss and nominal loss
             right_insample_wcloss = 2*right_fdr.objval

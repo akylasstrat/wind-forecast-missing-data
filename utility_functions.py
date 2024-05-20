@@ -51,11 +51,11 @@ def make_MNAR_chain(t_m, start_term, n, series):
         t_m_vary = t_m.copy()
         # the probability of going missing (first row) depends on the actual value of the series
         # first row varies with the values of the series
-        # if (series[i]<=.85) and ((series[i]>=0.15)):
-        #     t_m_vary[0] = [.8, .2]
-        # else:
-        #     t_m_vary[0] = [.999, .001]
-        t_m_vary[0] = [1-series[i]**2, series[i]**2]
+        if (series[i]<=.85) and ((series[i]>=0.15)):
+            t_m_vary[0] = [.8, .2]
+        else:
+            t_m_vary[0] = [.999, .001]
+        # t_m_vary[0] = [1-series[i]**2, series[i]**2]
         #t_m_vary[0] = [0.9, 0.1]
         chain.append(get_next_term(t_m_vary[chain[-1]]))
     return np.array(chain)

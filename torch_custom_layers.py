@@ -1161,7 +1161,7 @@ class adjustable_FDR(nn.Module):
                 average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
                 val_loss = self.adversarial_epoch_train(val_loader)
     
-                if (verbose != -1)and(epoch%25 == 0):
+                if (verbose != -1)and(epoch%10 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
                 
                 if val_loss < best_val_loss:

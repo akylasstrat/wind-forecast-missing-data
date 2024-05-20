@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -193,7 +193,7 @@ target_park = 'p_1257'
 
 # number of lags back to consider
 min_lag = config['min_lag']
-config['max_lag'] = 2
+config['max_lag'] = 3
 max_lag = config['max_lag']
 
 power_df = power_df
@@ -384,7 +384,7 @@ gd_FDR_models = []
 
 from torch_custom_layers import *
 
-for K in [4]:
+for K in [10]:
     
     feat = np.random.choice(target_col, size = K, replace = False)
     a = np.zeros((1,trainPred.shape[1]))
@@ -413,10 +413,10 @@ for K in [4]:
                               target_col = target_col, fix_col = fix_col, projection = False, 
                               Gamma = K, train_adversarially = True, budget_constraint = 'equality')
     
-    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-2)
+    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
 
     # initialize weights with nominal model (Does not affect solution much)
-    adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+    # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
         
     adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                           patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
@@ -433,7 +433,7 @@ for K in [4]:
     # for layer in adj_fdr_model.model.children():
     #     if isinstance(layer, nn.Linear):    
     #         plt.plot(layer.weight.data.detach().numpy().T, label = 'v2')
-    plt.plot(adj_fdr_model.w.detach().numpy())
+    plt.plot(adj_fdr_model.w.detach().numpy(), label = 'Linear')
     plt.legend()
     plt.show()
     #%%
