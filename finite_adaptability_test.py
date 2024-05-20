@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -186,7 +186,7 @@ target_park = 'p_1088'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 4
+config['min_lag'] = 1
 config['max_lag'] = 2 + config['min_lag']
 
 min_lag = config['min_lag']
@@ -199,7 +199,7 @@ target_scaler = MinMaxScaler()
 pred_scaler = MinMaxScaler()
 
 start = '2019-01-01'
-split = '2019-04-01'
+split = '2019-06-01'
 end = '2020-01-01'
 
 if config['scale']:
@@ -364,10 +364,10 @@ from finite_adaptability_model_functions import *
 import pickle
 
 config['train'] = True
-config['save'] = True
+config['save'] = False
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 10_000, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 100, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                           budget = 'inequality', solution = 'reformulation')
     
@@ -401,9 +401,9 @@ num_epochs = 1000
 learning_rate = 1e-2
 patience = 15
 
-config['train'] = False
+config['train'] = True
 if config['train']:
-    fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 20, red_threshold = 0.1, 
+    fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 1_000, D = 1_000, red_threshold = 0.01, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
                                                 warm_start = False)
@@ -981,11 +981,13 @@ pattern = config['pattern']
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_MAE_results.csv')
     
+    
 # Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = models
+models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
+# models_to_plot = models
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))

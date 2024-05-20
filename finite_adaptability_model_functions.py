@@ -1089,15 +1089,6 @@ class depth_Finite_FDRR(object):
             else:
                 list_to_check = list_nodes_candidates
 
-        # order current non-leaf nodes in descending order in terms of WC loss
-
-        # self.node_cand_id_ordered.extend([nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]])
-        # temp_node_order = [nodes_ids_candidates[i] for i in np.argsort(np.array(self.Loss_gap)[nodes_ids_candidates])[::-1]]
-        #self.node_cand_id_ordered.remove(1)    
-        # keep_node_aux = False        
-        #print(self.node_cand_id_ordered)
-        #asfd
-
   def apply(self, X, missing_mask):
      ''' Function that returns the Leaf id for each point. Similar to sklearn's implementation.
      '''

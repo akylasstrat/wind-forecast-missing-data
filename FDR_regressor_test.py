@@ -457,16 +457,20 @@ class FDR_regressor_test(object):
             # sample missing observations
             
             random_missing_ind = np.random.choice(np.arange(len(target_col)), (X.shape[0], K))
-            alpha_ave = np.zeros(X.shape)
-            for  i in range(X.shape[0]): alpha_ave[i,random_missing_ind[i]] = 1
+            alpha_ave = np.zeros((X.shape[0], len(target_col)))
+            for  i in range(X.shape[0]): 
+                alpha_ave[i,random_missing_ind[i]] = 1
 
             ave_loss = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = 0, name = 'ave_loss')
-            
-            # add constraint on wc-loss
+            new_fitted = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = fit_lower_bound, name = 'fitted')
+
+            # !!! add constraint on wc-loss
             m.addConstr((1/n_train_obs)*loss.sum() <= self.wc_loss)                    
             # define average loss
-            m.addConstr( ave_loss >= self.quant*(Y.reshape(-1) -  (X*(1-alpha_ave))@coef ))
-            m.addConstr( ave_loss >= (1-self.quant)*(-Y.reshape(-1) + (X*(1-alpha_ave))@coef ))
+            
+            m.addConstr( new_fitted == (X[:,target_col]*(1-alpha_ave))@coef + X[:,fix_col]@fix_coef + np.ones((n_train_obs,1))@bias)
+            m.addConstr( ave_loss >= self.quant*(Y.reshape(-1) -  new_fitted ))
+            m.addConstr( ave_loss >= (1-self.quant)*(-Y.reshape(-1) + new_fitted ))
 
             # Set objective to the average loss
             m.setObjective((1/n_train_obs)*ave_loss.sum(), gp.GRB.MINIMIZE)                    
@@ -664,3 +668,87 @@ class FDR_regressor_test(object):
   def predict(self, X):
     predictions = X@self.coef_ + self.bias_
     return np.array(predictions)
+
+  def return_model(self, X, Y, target_col, fix_col, fit_lb = False, verbose = -1, solution = 'reformulation', 
+          budget = 'equality'):
+
+    total_n_feat = X.shape[1]
+    n_train_obs = len(Y)
+    if fit_lb == True:
+        fit_lower_bound = 0
+    else:
+        fit_lower_bound = -gp.GRB.INFINITY
+    #target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
+    #fix_col = [np.where(Predictors.columns == c)[0][0] for c in fixed_pred]
+    n_feat = len(target_col)
+
+    # loss quantile and robustness budget
+    target_quant = self.quant
+    K = self.K
+    
+    ### Create GUROBI model
+    m = gp.Model()
+    
+    m._vars = {}
+    
+    if verbose == -1:
+        m.setParam('OutputFlag', 0)
+    else:
+        m.setParam('OutputFlag', 1)
+        
+    print('Setting up GUROBI model...')
+
+    # Different features can be deleted at different samples
+    # variables
+    fitted = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = fit_lower_bound, name = 'fitted')
+    bias = m.addMVar(1, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'bias')
+    cost = m.addMVar(1 , vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'cost')
+    d = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'residual')
+    loss = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = 0, name = 'loss')
+            
+    # Dual variables
+    ell_up = m.addMVar((n_train_obs, n_feat), vtype = gp.GRB.CONTINUOUS, lb = 0)
+    if budget == 'equality':
+        mu_up = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY)
+    elif budget == 'inequality':
+        mu_up = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = 0)
+    t_up = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'epigraph_aux')
+
+    ell_down = m.addMVar((n_train_obs, n_feat), vtype = gp.GRB.CONTINUOUS, lb = 0)
+    if budget == 'equality':
+        mu_down = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY)
+    elif budget == 'inequality':
+        mu_down = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = 0)
+    t_down = m.addMVar(n_train_obs, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'epigraph_aux')
+        
+    # Linear Decision Rules: different set of coefficients for each group
+    coef = m.addMVar(total_n_feat, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'LDR')
+    # coef = m.addMVar(n_feat, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'LDR')
+    # fix_coef = m.addMVar(len(fix_col), vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'fixed_coef')
+    
+    # check to avoid degenerate solutions
+    start = time.time()
+    
+    # Dual Constraints-New version
+    m.addConstrs( mu_up + ell_up[:,j] >= X[:,col]*coef[col] for j,col in enumerate(target_col) )            
+    m.addConstr( t_up == K*mu_up + ell_up.sum(1))
+
+    m.addConstrs( mu_down + ell_down[:,j] >= -X[:,col]*coef[col] for j,col in enumerate(target_col) )
+    m.addConstr( t_down == K*mu_down + ell_down.sum(1))
+            
+    print('Time to declare: ', time.time()-start)
+    m.addConstr( fitted == X@coef + np.ones((n_train_obs,1))@bias)
+        
+    print('Solving the problem...')
+    m.addConstr( loss >= self.quant*(Y.reshape(-1) - fitted + t_up))
+    m.addConstr( loss >= (1-self.quant)*(-Y.reshape(-1) + fitted + t_down))
+
+    # Objective
+    m.setObjective((1/n_train_obs)*loss.sum(), gp.GRB.MINIMIZE)                    
+    m.optimize()
+    
+    #coef_fdr = np.append(coef.X, fix_coef.X)
+    m._vars['coef'] = coef
+    m._vars['bias'] = bias
+
+    return m
