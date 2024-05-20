@@ -367,7 +367,7 @@ config['train'] = True
 config['save'] = True
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 10_000, D = 1_000, red_threshold = 1e-5, max_gap = 0.50)
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 10_000, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                           budget = 'inequality', solution = 'reformulation')
     
