@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -299,7 +299,7 @@ K_parameter = np.arange(0, len(target_pred)+1)
 FDRR_AAR_models = []
 ineq_FDRR_AAR_models = []
 
-config['train'] = True
+config['train'] = False
 if config['train']:
     for K in K_parameter:
         print('Gamma: ', K)
@@ -347,6 +347,109 @@ for K in np.arange(K_select + 1):
     print('FDR: ', eval_point_pred(FDRR_AAR_models[K_select].predict(testPred*(1-a)).reshape(-1,1), Target.values, digits=2)[1])
     print('ineq_FDR: ', eval_point_pred(ineq_FDRR_AAR_models[K_select].predict(testPred*(1-a)).reshape(-1,1), Target.values, digits=2)[1])
 
+#%%%% Gradient-based FDRR vs linearly adaptive model
+
+from torch_custom_layers import * 
+
+batch_size = 500
+num_epochs = 1000
+learning_rate = 1e-2
+patience = 15
+    
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+tensor_trainY = torch.FloatTensor(trainY)
+tensor_validY = torch.FloatTensor(trainY)
+tensor_testY = torch.FloatTensor(testY)
+
+tensor_trainPred = torch.FloatTensor(trainPred.values)
+tensor_validPred = torch.FloatTensor(trainPred.values)
+tensor_testPred = torch.FloatTensor(testPred.values)
+
+#### MLP model to predict wind from features
+train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
+valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
+
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+# nominal model (no missing data) to warm-start all future models
+nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                          target_col = target_col, fix_col = fix_col, projection = False, Gamma = 0, train_adversarially = False)
+
+optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
+nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                      patience = patience, verbose = 0)
+
+gd_FDR_models = []
+
+from torch_custom_layers import *
+
+for K in [4]:
+    
+    feat = np.random.choice(target_col, size = K, replace = False)
+    a = np.zeros((1,trainPred.shape[1]))
+    a[:,feat] = 1
+    test_alpha = torch.FloatTensor(a)
+    
+    gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                              target_col = target_col, fix_col = fix_col, projection = False, 
+                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+    
+    optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-2)
+
+    # initialize weights with nominal model (Does not affect solution much)
+    # gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+        
+    gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                          patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+
+    gd_fdr_pred = gd_fdr_model.predict(tensor_testPred, project = True)
+    
+    gd_FDR_models.append(gd_fdr_model)
+    
+    
+    #%%
+    adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                              target_col = target_col, fix_col = fix_col, projection = False, 
+                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+    
+    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-2)
+
+    # initialize weights with nominal model (Does not affect solution much)
+    adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+        
+    adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                          patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+
+    adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, test_alpha, project = True)
+    
+    #%%    
+    for layer in nominal_model.model.children():
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, label = 'Nominal')
+    for layer in gd_fdr_model.model.children():        
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+    # for layer in adj_fdr_model.model.children():
+    #     if isinstance(layer, nn.Linear):    
+    #         plt.plot(layer.weight.data.detach().numpy().T, label = 'v2')
+    plt.plot(adj_fdr_model.w.detach().numpy())
+    plt.legend()
+    plt.show()
+    #%%
+    feat = np.random.choice(target_col, size = K, replace = False)
+    a = np.zeros((1,trainPred.shape[1]))
+    a[:,feat] = 1
+    test_alpha = torch.FloatTensor(a)
+
+    plt.plot(nominal_model.predict(tensor_testPred[:1000]), label='Nominal')
+    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
+    plt.plot(adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha)[:1000], label='Linearly Adaptive')
+    plt.plot(testY[:1000], label='Actual', color = 'black', linestyle = '--')
+    plt.legend(fontsize = 6)
+    plt.show()
+
+    
 #%%%% Gradient-based FDRR
 
 from torch_custom_layers import * 
@@ -379,13 +482,13 @@ nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size 
 optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
 nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                       patience = patience, verbose = 0)
-#%%
+
 batch_size = 250
 gd_FDR_models = []
 
 from torch_custom_layers import *
 
-for K in K_parameter:
+for K in [10]:
     
     feat = np.random.choice(target_col, size = K, replace = False)
     a = np.zeros((1,trainPred.shape[1]))

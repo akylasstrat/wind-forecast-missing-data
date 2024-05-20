@@ -878,10 +878,10 @@ class gd_FDRR(nn.Module):
                         return    
         else:
             return
-
+        
 class adjustable_FDR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
-                 projection = False, UB = 1, LB = 0, Gamma = 1):
+                 projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
         super(adjustable_FDR, self).__init__()
         """
         Standard MLP for regression
@@ -901,6 +901,9 @@ class adjustable_FDR(nn.Module):
         self.LB = torch.FloatTensor([LB])
         self.target_col = torch.tensor(target_col, dtype=torch.int32)
         self.fix_col = torch.tensor(fix_col, dtype=torch.int32)
+        self.train_adversarially = train_adversarially
+        self.gamma = Gamma
+        self.budget_constraint = budget_constraint
         
         # create sequential model
         layer_sizes = [input_size] + hidden_sizes + [output_size]
@@ -916,53 +919,86 @@ class adjustable_FDR(nn.Module):
             
         # correction coefficients
         self.W = nn.Parameter(torch.FloatTensor(np.zeros((input_size, input_size))).requires_grad_())
+        self.w = nn.Parameter(torch.FloatTensor(np.zeros(input_size)).requires_grad_())
+        self.b = nn.Parameter(torch.FloatTensor(np.zeros((1))).requires_grad_())
                 
+
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
         """ Construct adversarial missing data examples on X, returns a vector of x*(1-a)
             if a_j == 1: x_j is missing"""
         
         # estimate nominal loss (no missing data)
-        y_hat = self.forward(X)
+        # y_hat = self.forward(X)
+        y_hat = self.correction_forward(X, torch.zeros_like(X, requires_grad=False))
         
         current_loss = self.estimate_loss(y_hat, y).mean()
         # initialize wc loss and adversarial example
-        wc_loss = current_loss
+        wc_loss = current_loss.data
         best_alpha =  torch.zeros_like(X)
         current_target_col = self.target_col
         
-        # Randomly sample number of missing features for specific batch 
-        gamma_temp = torch.randint(low = 0, high = gamma, size = (1,1))
-        
-        for g in range(1, gamma_temp+1):
-            
+        # Iterate over gamma, greedily add one feature per iteration
+        for g in range(gamma):    
+            # store losses for all features
+            local_loss = []
             # placeholders for splitting a column
             best_col = None
             apply_split = False  
-            alpha_init = best_alpha     
+            # !!!!! Important to use clone/copy here, else we update both
+            alpha_init = torch.clone(best_alpha)   
+            
+            y_hat = self.correction_forward(X, alpha_init)
+            # y_hat = self.w@(X*(1-alpha)) + self.b + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)                              
+
+            # Nominal loss for this iteration using previous alpha values            
+            temp_nominal_loss = self.estimate_loss(y_hat, y).mean().data
+            wc_loss = temp_nominal_loss
+            
             # loop over target columns (for current node), find worst-case loss:
             for col in current_target_col:
                 # create adversarial example
                 alpha_temp = torch.clone(alpha_init)
+                
+                # set feature to missing
                 alpha_temp[:,col] = 1
                 
+                # print('Temporary adversarial example')
+                # print(alpha_temp[0])
+                
                 # predict using adversarial example
-                y_hat = self.forward(X*(1-alpha_temp))
-                temp_loss = self.estimate_loss(y_hat, y).mean()
+                with torch.no_grad():
+                    y_adv_hat = self.correction_forward(X, alpha_temp)
+                    
+                temp_loss = self.estimate_loss(y_adv_hat, y).mean().data
+                local_loss.append(temp_loss.data)
+            
+            
+            
+            best_col_ind = np.argsort(local_loss)[-1]                
+            wc_loss = np.max(local_loss)
+            best_col = current_target_col[best_col_ind]
+            
+            # !!!!! This approximates an equality constraint on the total budget
+            if self.budget_constraint == 'equality':
+                best_alpha[:,best_col] = 1
+                apply_split = True
+            elif self.budget_constraint == 'inequality':
                 
                 # check if performance degrades enough, apply split
-                if temp_loss > wc_loss:
+                if wc_loss > temp_nominal_loss:
                     # update
-                    wc_loss = temp_loss
-                    best_alpha = alpha_temp
-                    best_col = col
+                    best_alpha[:,best_col] = 1
                     apply_split = True
-            # update list of eligible columns
+                
+            
+            #update list of eligible columns
             if apply_split:
-                current_target_col = torch.cat([current_target_col[0:best_col], current_target_col[best_col+1:]])   
+                current_target_col = torch.cat([current_target_col[0:best_col_ind], current_target_col[best_col_ind+1:]])   
             else:
                 break
-        return best_alpha
         
+        return best_alpha
+    
     def forward(self, x):
         """
         Forward pass
@@ -971,6 +1007,16 @@ class adjustable_FDR(nn.Module):
         """
         
         return self.model(x)
+
+    def correction_forward(self, x, a):
+        """
+        Forward pass
+        Args:
+            x: input tensors/ features
+        """
+        x_imp = x*(1-a)
+        
+        return ((self.w@x_imp.T).T + self.b).reshape(-1,1) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                              
         
     
     def epoch_train(self, loader, opt=None):
@@ -993,43 +1039,66 @@ class adjustable_FDR(nn.Module):
             
         return total_loss / len(loader.dataset)
     
-    def adversarial_epoch_train(self, loader, opt=None):
+
+    def adversarial_epoch_train(self, loader, opt=None, attack_type = 'greedy'):
         """Adversarial training/evaluation epoch over the dataset"""
         total_loss = 0.
-        
-        for X,y in loader:
-            # find attack
-            alpha = self.missing_data_attack(X, y, gamma = 1)
-            
+                            
+        for X,y in loader:            
+            #### Find adversarial example
+
+            if attack_type == 'greedy':
+                # Greedy top-down heuristic
+                # Works best when budget_constraint == 'inequality'
+                alpha = self.missing_data_attack(X, y, gamma = self.gamma)
+            elif attack_type == 'random_sample':
+                # sample random features            
+                # Approximates well the FDR-reformulation with budget equality constraint
+                feat_col = np.random.choice(np.arange(len(self.target_col)), replace = False, size = (self.gamma))
+                alpha = torch.zeros_like(X)
+                for c in feat_col: alpha[:,c] = 1
+            elif attack_type == 'l1_norm':                
+                # L1 attack with projected gradient descent            
+                alpha = self.l1_norm_attack(X,y) 
+                
             # forward pass plus correction
-          
-            y_hat = self.forward(X*(1-alpha)) + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)
             
-            y_hat_proj = (torch.maximum(torch.minimum(y_hat, self.UB), self.LB))
+            # y_hat = self.forward(X*(1-alpha)) + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)
             
-            y_nom = self.forward(X)
-            #delta = self.pgd_linf(X, y)
-            #y_hat = self.forward(X + delta)
+            # y_hat = self.w@(X*(1-alpha)) + self.b + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)                              
+            y_hat = self.correction_forward(X, 1-alpha)
+
+            loss_i = self.estimate_loss(y_hat, y)   
             
-            #loss = nn.MSELoss()(yp,y)
-            loss_i = self.estimate_loss(y_hat_proj, y)                
+            
             loss = torch.mean(loss_i)
-            
+
             if opt:
                 opt.zero_grad()
                 loss.backward()
                 opt.step()
             total_loss += loss.item() * X.shape[0]
+
             
         return total_loss / len(loader.dataset)
     
-    def predict(self, zero_imp_X, alpha):
+    def predict(self, X, alpha, project = True):
         # used for inference only
+        #!!!!!! X is zero-imputed 
+        if torch.is_tensor(X):
+            temp_X = X
+        else:
+            temp_X = torch.FloatTensor(X.copy())
+
+        if torch.is_tensor(alpha):
+            temp_alpha = alpha
+        else:
+            temp_alpha = torch.FloatTensor(alpha.copy())
+
         with torch.no_grad():     
-
-            y_hat = self.forward(zero_imp_X) + torch.sum((self.W@alpha.T).T*(zero_imp_X), dim = 1).reshape(-1,1)
-
-            if self.projection:
+            y_hat = self.correction_forward(temp_X, temp_alpha)
+            
+            if self.projection or project:
                 return (torch.maximum(torch.minimum(y_hat, self.UB), self.LB)).detach().numpy()
             else:
                 return y_hat
@@ -1041,61 +1110,74 @@ class adjustable_FDR(nn.Module):
         loss_i = torch.sum(mse_i, 1)
         
         return loss_i
-            
-    def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0):
+
+    def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False, 
+                    attack_type = 'greedy'):
         
         best_train_loss = float('inf')
         best_val_loss = float('inf')
         early_stopping_counter = 0
         best_weights = copy.deepcopy(self.state_dict())
         
-        print('Train model normally to warm-start the adversarial training')
-        for epoch in range(epochs):
+        if (self.train_adversarially == False) or (warm_start):
+            print('Train model for nominal case or warm-start the adversarial training')
+            for epoch in range(epochs):
+                
+                average_train_loss = self.epoch_train(train_loader, optimizer)
+                val_loss = self.epoch_train(val_loader)
+    
+                if (verbose != -1) and (epoch%25 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+    
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        break
+                
+        if self.train_adversarially:
+            print('Start adversarial training')
+            # initialize everthing
+            best_train_loss = float('inf')
+            best_val_loss = float('inf')
+            early_stopping_counter = 0
             
-            average_train_loss = self.epoch_train(train_loader, optimizer)
-            val_loss = self.epoch_train(val_loader)
-
-            if (verbose != -1)and(epoch%25==0):
-                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_weights = copy.deepcopy(self.state_dict())
-                early_stopping_counter = 0
-            else:
-                early_stopping_counter += 1
-                if early_stopping_counter >= patience:
-                    print("Early stopping triggered.")
-                    # recover best weights
-                    self.load_state_dict(best_weights)
-                    break
-
-        print('Start adversarial training')
-        # re-initialize losses and epoch counter
-        best_train_loss = float('inf')
-        best_val_loss = float('inf')
-        early_stopping_counter = 0
+            # Find worst_case alpha
+            
+            alpha_tensor_list = []
+            for X,y in train_loader:
+                alpha_adv = self.missing_data_attack(X, y, gamma = self.gamma)
+                alpha_tensor_list.append(alpha_adv)
+                
+            alpha_tensor = torch.cat(alpha_tensor_list, dim = 0)
+            
+            for epoch in range(epochs):
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
+                val_loss = self.adversarial_epoch_train(val_loader)
+    
+                if (verbose != -1)and(epoch%25 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        return    
+        else:
+            return
         
-        for epoch in range(epochs):
-
-            average_train_loss = self.adversarial_epoch_train(train_loader, optimizer)
-            val_loss = self.adversarial_epoch_train(val_loader)
-
-            if (verbose != -1)and(epoch%25==0):
-                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
-
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_weights = copy.deepcopy(self.state_dict())
-                early_stopping_counter = 0
-            else:
-                early_stopping_counter += 1
-                if early_stopping_counter >= patience:
-                    print("Early stopping triggered.")
-                    # recover best weights
-                    self.load_state_dict(best_weights)
-                    return    
-
 #% GANs
 
 # Define the Generator          
