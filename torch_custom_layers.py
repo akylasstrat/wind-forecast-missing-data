@@ -1065,10 +1065,10 @@ class adjustable_FDR(nn.Module):
             
             # y_hat = self.forward(X*(1-alpha)) + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)
             
-            # y_hat = self.w@(X*(1-alpha)) + self.b + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)                              
-            y_hat = self.correction_forward(X, 1-alpha)
+            # y_base = ((self.w@(X*(1-alpha)).T).T + self.b).reshape(-1,1)
+            y_hat = self.correction_forward(X, alpha)
 
-            loss_i = self.estimate_loss(y_hat, y)   
+            loss_i = self.estimate_loss(y_hat, y)
             
             
             loss = torch.mean(loss_i)

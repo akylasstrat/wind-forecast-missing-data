@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -367,9 +367,9 @@ config['train'] = True
 config['save'] = False
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 5, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 25, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
-                          budget = 'equality', solution = 'affine')
+                          budget = 'inequality', solution = 'reformulation')
     
     with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
         pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -402,16 +402,21 @@ learning_rate = 1e-2
 patience = 15
 
 config['train'] = True
-config['save'] = False
+config['save'] = True
 if config['train']:
-    fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 5, D = 1_000, red_threshold = 0.01, 
+    # fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
+    #                                             input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+    #                                             train_adversarially = True, budget_constraint = 'equality', attack_type = 'random', 
+    #                                             warm_start = False)
+
+    fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 5, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
+                                                train_adversarially = True, budget_constraint = 'equality', attack_type = 'greedy', 
                                                 warm_start = False)
     
-    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.25, 
+    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.10, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                          lr = learning_rate, batch_size = batch_size)
+                          lr = 1e-3, batch_size = batch_size)
     if config['save']:
         with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'wb') as handle:
             pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -420,11 +425,21 @@ else:
     # with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
     #         fin_LS_model = pickle.load(handle)
 #%%
-t = 4
+t = -1
+print(fin_LS_model.missing_pattern[t])
+print(fin_LS_model.fixed_features[t])
+print('Coef')
+print(fin_LS_model.node_model_[t].coef_[0].round(2))
+
 for layer in fin_LS_model.wc_node_model_[t].model.children():        
     if isinstance(layer, nn.Linear):    
         plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+        
+        print('WC Coeff')
+        print(layer.weight.data.detach().numpy().round(2))
+
     plt.plot(fin_LS_model.node_model_[t].coef_[0], '--')
+    # plt.plot(lr.coef_.T)
     plt.show()
 
 #%% Adversarial training MLP
@@ -587,7 +602,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
+config['train'] = True
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
@@ -654,16 +669,16 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
+config['train'] = True
 if config['train']:
     
     # nominal model (no missing data) to warm-start all future models
-    nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                              target_col = target_col, fix_col = fix_col, projection = False, Gamma = 0, train_adversarially = False)
+    # nominal_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+    #                           target_col = target_col, fix_col = fix_col, projection = False, Gamma = 0, train_adversarially = False)
     
-    optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
-    nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0)
+    # optimizer = torch.optim.Adam(nominal_model.parameters(), lr = 1e-2)
+    # nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+    #                       patience = patience, verbose = 0)
 
     for K in K_parameter:
         print(f'Budget: {K}')
@@ -676,15 +691,15 @@ if config['train']:
         
         adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                           target_col = target_col, fix_col = fix_col, projection = False, 
-                          Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+                          Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
 
-        optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-2)
+        optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
         
         # initialize weights with nominal model (Does not affect solution much)
-        adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+        # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
             
         adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+                              patience = patience, verbose = 0, warm_start = False, attack_type = 'greedy')
                     
         ladj_FDRR_R_models.append(adj_fdr_model)
 
@@ -710,6 +725,7 @@ n_test_obs = len(testY)
 iterations = 2
 error_metric = 'mae'
 park_ids = list(power_df.columns.values)
+K_parameter = np.arange(0, len(target_pred)+1)
 
 #percentage = [0, .001, .005, .01, .05, .1]
 percentage = [0, .001, .005, .01, .05, .1]
@@ -989,13 +1005,13 @@ pattern = config['pattern']
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_MAE_results.csv')
     
-    
-# Plotting 
+#%%
+#% Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
 models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
-# models_to_plot = models
+models_to_plot = models
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))

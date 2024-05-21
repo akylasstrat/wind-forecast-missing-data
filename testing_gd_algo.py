@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -354,7 +354,7 @@ from torch_custom_layers import *
 batch_size = 500
 num_epochs = 1000
 learning_rate = 1e-2
-patience = 15
+patience = 25
     
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 tensor_trainY = torch.FloatTensor(trainY)
@@ -381,7 +381,13 @@ nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimi
                       patience = patience, verbose = 0)
 
 gd_FDR_models = []
+#%%
+error = Target.values - persistence_pred
+error_mu = (Target.values - persistence_pred ).mean()
+error_std = (Target.values - persistence_pred ).std()
+error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
 
+#%%
 from torch_custom_layers import *
 
 for K in [10]:
@@ -398,7 +404,7 @@ for K in [10]:
     optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-2)
 
     # initialize weights with nominal model (Does not affect solution much)
-    # gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+    gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
         
     gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                           patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
@@ -407,11 +413,15 @@ for K in [10]:
     
     gd_FDR_models.append(gd_fdr_model)
     
-    
+    #%%
+    ineq_fdr = FDR_regressor_test(K = K)
+    ineq_fdr.fit(trainPred.values, trainY, target_col, fix_col, solution = 'reformulation', budget = 'inequality')              
+    ineq_FDRR_AAR_models.append(ineq_fdr)
+
     #%%
     adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                               target_col = target_col, fix_col = fix_col, projection = False, 
-                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+                              Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
     
     optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
 
@@ -419,7 +429,7 @@ for K in [10]:
     # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
         
     adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+                          patience = patience, verbose = 0, warm_start = False, attack_type = 'greedy')
 
     adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, test_alpha, project = True)
     
@@ -434,21 +444,34 @@ for K in [10]:
     #     if isinstance(layer, nn.Linear):    
     #         plt.plot(layer.weight.data.detach().numpy().T, label = 'v2')
     plt.plot(adj_fdr_model.w.detach().numpy(), label = 'Linear')
+    plt.plot(ineq_fdr.coef_, label = 'Minimax')
     plt.legend()
     plt.show()
-    #%%
-    feat = np.random.choice(target_col, size = K, replace = False)
-    a = np.zeros((1,trainPred.shape[1]))
-    a[:,feat] = 1
-    test_alpha = torch.FloatTensor(a)
-
-    plt.plot(nominal_model.predict(tensor_testPred[:1000]), label='Nominal')
-    plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
-    plt.plot(adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha)[:1000], label='Linearly Adaptive')
-    plt.plot(testY[:1000], label='Actual', color = 'black', linestyle = '--')
-    plt.legend(fontsize = 6)
+    
+    iter_ = 100
+    ave_loss = np.zeros((iter_, 2))
+    
+    for i in range(iter_):
+        feat = np.random.choice(target_col, size = K, replace = False)
+        a = np.zeros((1,trainPred.shape[1]))
+        a[:,feat] = 1
+        test_alpha = torch.FloatTensor(a)
+        
+        ave_loss[i,0] = eval_predictions(gd_fdr_model.predict(tensor_testPred*(1-test_alpha)), Target.values)
+        ave_loss[i,1] = eval_predictions(adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha), Target.values)
+        
+        if i%25 == 0:
+            plt.plot(nominal_model.predict(tensor_testPred[:250]), label='Nominal')
+            plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:250], label='GD')
+            plt.plot(adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha)[:250], label='Linearly Adaptive')
+            plt.plot(testY[:250], label='Actual', color = 'black', linestyle = '--')
+            plt.legend(fontsize = 6)
+            plt.show()
+    
+    print(ave_loss.mean(0))
+    
+    plt.hist(ave_loss, bins = 20)
     plt.show()
-
     
 #%%%% Gradient-based FDRR
 
