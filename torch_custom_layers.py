@@ -919,8 +919,8 @@ class adjustable_FDR(nn.Module):
             
         # correction coefficients
         self.W = nn.Parameter(torch.FloatTensor(np.zeros((input_size, input_size))).requires_grad_())
-        self.w = nn.Parameter(torch.FloatTensor(np.zeros(input_size)).requires_grad_())
-        self.b = nn.Parameter(torch.FloatTensor(np.zeros((1))).requires_grad_())
+        # self.w = nn.Parameter(torch.FloatTensor(np.zeros(input_size)).requires_grad_())
+        # self.b = nn.Parameter(torch.FloatTensor(np.zeros((1))).requires_grad_())
                 
 
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
@@ -1015,8 +1015,8 @@ class adjustable_FDR(nn.Module):
             x: input tensors/ features
         """
         x_imp = x*(1-a)
-        
-        return ((self.w@x_imp.T).T + self.b).reshape(-1,1) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                              
+        # return ((self.w@x_imp.T).T + self.b).reshape(-1,1) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                                      
+        return self.model(x_imp) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                              
         
     
     def epoch_train(self, loader, opt=None):
@@ -1062,12 +1062,7 @@ class adjustable_FDR(nn.Module):
                 alpha = self.l1_norm_attack(X,y) 
                 
             # forward pass plus correction
-            
-            # y_hat = self.forward(X*(1-alpha)) + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)
-            
-            # y_base = ((self.w@(X*(1-alpha)).T).T + self.b).reshape(-1,1)
             y_hat = self.correction_forward(X, alpha)
-
             loss_i = self.estimate_loss(y_hat, y)
             
             
@@ -1181,7 +1176,7 @@ class adjustable_FDR(nn.Module):
 class v2_adjustable_FDR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
                  projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
-        super(adjustable_FDR, self).__init__()
+        super(v2_adjustable_FDR, self).__init__()
         """
         Standard MLP for regression
         Args:
@@ -1477,90 +1472,3 @@ class v2_adjustable_FDR(nn.Module):
         else:
             return
         
-#% GANs
-
-# Define the Generator          
-class Generator(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size, activation=nn.ReLU(), latent_dim = 10, sigmoid_activation = True):
-        super(Generator, self).__init__()
-
-        # Initialize learnable weight parameters
-        self.num_features = input_size
-        self.output_size = output_size
-        self.sigmoid_activation = sigmoid_activation
-        
-        # create sequential model
-        layer_sizes = [input_size + latent_dim] + hidden_sizes + [output_size]
-        layers = []
-        for i in range(len(layer_sizes) - 1):
-            layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
-            if i < len(layer_sizes) - 2:
-                layers.append(activation)
-                    
-        self.model = nn.Sequential(*layers)
-
-
-    def forward(self, x, noise):
-        return self.model(torch.cat((x, noise), dim=1))
-
-    def predict(self, x, noise):
-        # used for inference only
-        with torch.no_grad():            
-            return self.model(torch.cat((x, noise), dim=1)).detach().numpy()
-        
-# Define the Discriminator (Critic)
-class Critic(nn.Module):
-    def __init__(self, input_size):
-        super(Critic, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_size, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1)
-        )
-
-    def forward(self, x):
-        return self.model(x)
-
-# Define Wasserstein distance (critic loss)
-def wasserstein_distance(real_output, fake_output):
-    return - (torch.mean(real_output) - torch.mean(fake_output))
-
-# Define the training procedure
-def train_cwgan(generator, critic, optimizer_g, optimizer_c, train_features, train_targets, num_epochs, batch_size, lr):
-    criterion = nn.MSELoss()
-    #optimizer_g = optim.Adam(generator.parameters(), lr=lr)
-    #optimizer_c = optim.Adam(critic.parameters(), lr=lr)
-
-    for epoch in range(num_epochs):
-        for i in range(0, len(train_features), batch_size):
-            # Sample batch of real data
-            batch_features = train_features[i:i+batch_size]
-            batch_targets = train_targets[i:i+batch_size]
-
-            # Generate fake data
-            noise = torch.randn(len(batch_features), latent_dim)
-            fake_targets = generator(noise)
-
-            # Train critic
-            critic_real = critic(torch.cat((batch_features, batch_targets), dim=1))
-            critic_fake = critic(torch.cat((batch_features, fake_targets), dim=1))
-            critic_loss = wasserstein_distance(critic_real, critic_fake)
-            optimizer_c.zero_grad()
-            critic_loss.backward()
-            optimizer_c.step()
-
-            # Clip critic parameters
-            for p in critic.parameters():
-                p.data.clamp_(-0.01, 0.01)
-
-            # Train generator
-            fake_targets = generator(noise)
-            critic_fake = critic(torch.cat((batch_features, fake_targets), dim=1))
-            generator_loss = -torch.mean(critic_fake)
-            optimizer_g.zero_grad()
-            generator_loss.backward()
-            optimizer_g.step()
-
-        print(f"Epoch [{epoch}/{num_epochs}], Generator Loss: {generator_loss.item()}, Critic Loss: {critic_loss.item()}")
-
-

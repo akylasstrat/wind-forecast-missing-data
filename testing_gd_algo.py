@@ -381,16 +381,11 @@ nominal_model.train_model(train_base_data_loader, valid_base_data_loader, optimi
                       patience = patience, verbose = 0)
 
 gd_FDR_models = []
-#%%
-error = Target.values - persistence_pred
-error_mu = (Target.values - persistence_pred ).mean()
-error_std = (Target.values - persistence_pred ).std()
-error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
 
 #%%
 from torch_custom_layers import *
 
-for K in [1]:
+for K in [2]:
     
     feat = np.random.choice(target_col, size = K, replace = False)
     a = np.zeros((1,trainPred.shape[1]))
@@ -413,7 +408,7 @@ for K in [1]:
     
     gd_FDR_models.append(gd_fdr_model)
     
-    #%%
+    
     ineq_fdr = FDR_regressor_test(K = K)
     ineq_fdr.fit(trainPred.values, trainY, target_col, fix_col, solution = 'reformulation', budget = 'inequality')              
     ineq_FDRR_AAR_models.append(ineq_fdr)
@@ -421,9 +416,13 @@ for K in [1]:
     #%%
     adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                               target_col = target_col, fix_col = fix_col, projection = False, 
-                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+                              Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
+
+    # adj_fdr_model = v2_adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+    #                           target_col = target_col, fix_col = fix_col, projection = False, 
+    #                           Gamma = K, train_adversarially = True, budget_constraint = 'equality')
     
-    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-2)
+    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
 
     # initialize weights with nominal model (Does not affect solution much)
     # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
@@ -440,10 +439,10 @@ for K in [1]:
     for layer in gd_fdr_model.model.children():        
         if isinstance(layer, nn.Linear):    
             plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
-    # for layer in adj_fdr_model.model.children():
-    #     if isinstance(layer, nn.Linear):    
-    #         plt.plot(layer.weight.data.detach().numpy().T, label = 'v2')
-    plt.plot(adj_fdr_model.w.detach().numpy(), label = 'Linear')
+    for layer in adj_fdr_model.model.children():
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, label = 'v2')
+    # plt.plot(adj_fdr_model.w.detach().numpy(), label = 'Linear')
     plt.plot(ineq_fdr.coef_, label = 'Minimax')
     plt.legend()
     plt.show()
