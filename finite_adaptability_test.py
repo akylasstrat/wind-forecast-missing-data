@@ -363,7 +363,7 @@ from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
 import pickle
 
-config['train'] = True
+config['train'] = False
 config['save'] = False
 
 if config['train']:
@@ -411,10 +411,10 @@ if config['train']:
 
     fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 5, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-                                                train_adversarially = True, budget_constraint = 'equality', attack_type = 'greedy', 
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
                                                 warm_start = False)
     
-    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.10, 
+    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.01, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                           lr = 1e-3, batch_size = batch_size)
     if config['save']:
@@ -602,7 +602,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
+config['train'] = False
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
@@ -669,7 +669,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
+config['train'] = False
 if config['train']:
     
     # nominal model (no missing data) to warm-start all future models

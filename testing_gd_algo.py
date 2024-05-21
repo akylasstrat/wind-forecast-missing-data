@@ -390,7 +390,7 @@ error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
 #%%
 from torch_custom_layers import *
 
-for K in [10]:
+for K in [1]:
     
     feat = np.random.choice(target_col, size = K, replace = False)
     a = np.zeros((1,trainPred.shape[1]))
@@ -421,9 +421,9 @@ for K in [10]:
     #%%
     adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                               target_col = target_col, fix_col = fix_col, projection = False, 
-                              Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
+                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
     
-    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
+    optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-2)
 
     # initialize weights with nominal model (Does not affect solution much)
     # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
@@ -448,7 +448,7 @@ for K in [10]:
     plt.legend()
     plt.show()
     
-    iter_ = 100
+    iter_ = 200
     ave_loss = np.zeros((iter_, 2))
     
     for i in range(iter_):
