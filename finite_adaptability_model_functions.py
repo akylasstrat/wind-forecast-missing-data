@@ -1986,7 +1986,7 @@ class FiniteLinear_MLP(object):
             left_robust_mlp_model = adjustable_FDR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = left_target_cols, fix_col = left_fix_cols, projection = self.gd_FDRR_params['projection'], 
                                       train_adversarially = True, Gamma = gamma_temp, 
-                                      budget_constraint = self.gd_FDRR_params['budget_constraint'])
+                                      budget_constraint = 'inequality')
 
             optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
@@ -2047,7 +2047,7 @@ class FiniteLinear_MLP(object):
             right_robust_mlp_model = adjustable_FDR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = right_target_cols, fix_col = right_fix_cols, projection = self.gd_FDRR_params['projection'], 
                                       train_adversarially = True, 
-                                      Gamma = gamma_temp, budget_constraint = self.gd_FDRR_params['budget_constraint'])
+                                      Gamma = gamma_temp, budget_constraint = 'inequality')
 
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             

@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -364,10 +364,10 @@ from finite_adaptability_model_functions import *
 import pickle
 
 config['train'] = False
-config['save'] = False
+config['save'] = True
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 25, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.20)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                           budget = 'inequality', solution = 'reformulation')
     
@@ -403,15 +403,16 @@ patience = 15
 
 config['train'] = True
 config['save'] = True
+
 if config['train']:
     # fin_LS_model = FiniteAdaptability_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
     #                                             input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
     #                                             train_adversarially = True, budget_constraint = 'equality', attack_type = 'random', 
     #                                             warm_start = False)
 
-    fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 5, D = 1_000, red_threshold = 1e-5, 
+    fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 25, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
+                                                train_adversarially = True, budget_constraint = 'equality', attack_type = 'greedy', 
                                                 warm_start = False)
     
     fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.01, 
