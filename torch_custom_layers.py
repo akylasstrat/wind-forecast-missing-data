@@ -484,15 +484,15 @@ class gd_FDRR(nn.Module):
                  projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
         super(gd_FDRR, self).__init__()
         """
-        Standard MLP for regression
+        Feature deletion robust regression with gradient-based algorithm
         Args:
-            input_size, hidden_sizes, output_size: standard arguments for declaring an MLP
-            
-            output_size: equal to the number of combination weights, i.e., number of experts we want to combine
+            input_size, hidden_sizes, output_size: standard arguments for declaring an MLP 
             sigmoid_activation: enable sigmoid function as a final layer, to ensure output is in [0,1]
-            budget_constraint: {'inequality', 'equality'}. If 'equality', solution approximates FDRR-reformulation with tight budget constraint.
-            If 'equality', solution approximates FDRR-reformulation with inequality in the budget constraint (Gamma is upper bound). This relaxes the inner max problem, 
-            which makes the robust formulation more pessimistic.
+            budget_constraint: {'inequality', 'equality'}. If 'equality', then total number of missing features == Gamma.
+                            If 'inequality', then total number of missing features <= Gamma (this is more pessimistic)
+                            If 'equality', solution approximates FDRR-reformulation with inequality in the budget constraint (Gamma is upper bound).
+                            This relaxes the inner max problem, which makes the robust formulation more pessimistic.
+                            
         """
         # Initialize learnable weight parameters
         self.num_features = input_size
@@ -552,17 +552,15 @@ class gd_FDRR(nn.Module):
         l1_norm_projection = cp.Problem(objective_funct, Constraints)         
         self.projection_layer = CvxpyLayer(l1_norm_projection, parameters=[alpha_hat], variables = [alpha_proj])
     
-    def l1_norm_attack(self, X, y, num_iter = 1000, randomize=False):
+    def l1_norm_attack(self, X, y, num_iter = 10, randomize=False):
             # initialize with greedy heuristic search 
-            # alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)
-            
+            alpha_init = self.missing_data_attack(X, y, gamma = self.gamma)            
             alpha = torch.zeros_like(X[0:1], requires_grad=True)           
-            #alpha = torch.rand((1, X.shape[1]), requires_grad=True)
             
-            #alpha.data = alpha_init
+            alpha.data = alpha_init
             # proj_simplex = nn.Softmax()
 
-            optimizer = torch.optim.SGD([alpha], lr=1e-1)
+            optimizer = torch.optim.SGD([alpha], lr=1e-2)
             # print(alpha)
             for t in range(num_iter):
 
@@ -586,7 +584,7 @@ class gd_FDRR(nn.Module):
                 # alpha_proj = project_onto_l1_ball(delta, epsilon)
             alpha_proj = self.projection_layer(alpha)[0]
             alpha.data = alpha_proj
-            # print(alpha)
+            print(alpha)
 
             return alpha.detach()
         
@@ -1043,7 +1041,7 @@ class adjustable_FDR(nn.Module):
     def adversarial_epoch_train(self, loader, opt=None, attack_type = 'greedy'):
         """Adversarial training/evaluation epoch over the dataset"""
         total_loss = 0.
-                            
+
         for X,y in loader:            
             #### Find adversarial example
 
