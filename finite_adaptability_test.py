@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -182,7 +182,7 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1088'
+target_park = 'p_1257'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -199,7 +199,7 @@ target_scaler = MinMaxScaler()
 pred_scaler = MinMaxScaler()
 
 start = '2019-01-01'
-split = '2019-06-01'
+split = '2019-04-01'
 end = '2020-01-01'
 
 if config['scale']:
@@ -336,10 +336,16 @@ base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
 #%% Estimate MAE for base models
 print('Base Model Performance, no missing data')
 from utility_functions import *
-base_mae = pd.DataFrame(data = [], columns = base_Predictions.columns)
 
-for c in base_mae.columns: base_mae[c] = [mae(base_Predictions[c].values, Target.values)]
+base_mae = pd.DataFrame(data = [], columns = base_Predictions.columns)
+base_rmse = pd.DataFrame(data = [], columns = base_Predictions.columns)
+
+for c in base_mae.columns: 
+    base_mae[c] = [mae(base_Predictions[c].values, Target.values)]
+    base_rmse[c] = [rmse(base_Predictions[c].values, Target.values)]
+
 print((100*base_mae.mean()).round(2))
+print((100*base_rmse.mean()).round(2))
 
 # check forecasts visually
 plt.plot(Target[:60].values)
@@ -363,12 +369,13 @@ from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
 import pickle
 
-config['train'] = False
-config['save'] = False
+config['train'] = True
+config['save'] = True
 
 if config['train']:
-    fin_LAD_model = newversion_depth_Finite_FDRR(Max_models = 25, D = 1_000, red_threshold = 1e-5, max_gap = 0.10)
-    fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', solution = 'reformulation')
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 10, D = 1_000, red_threshold = 1e-5, max_gap = 0.10)
+    fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
+                      budget = 'inequality', solution = 'reformulation')
     
     with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
         pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -396,16 +403,16 @@ n_outputs = tensor_trainY.shape[1]
 
 #optimizer = torch.optim.Adam(res_mlp_model.parameters())
 
-batch_size = 256
+batch_size = 512
 num_epochs = 1000
 learning_rate = 1e-2
-patience = 25
+patience = 15
 
 config['train'] = True
 config['save'] = False
 
 if config['train']:
-    fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 2, D = 1_000, red_threshold = 1e-5, 
+    fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
                                                 warm_start = False)
@@ -415,7 +422,7 @@ if config['train']:
     #                                             train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
     #                                             warm_start = False)
     
-    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.01, 
+    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.00001, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                           lr = 1e-3, batch_size = batch_size)
     if config['save']:
@@ -434,13 +441,15 @@ print(fin_LS_model.node_model_[t].coef_[0].round(2))
 for layer in fin_LS_model.wc_node_model_[t].model.children():        
     if isinstance(layer, nn.Linear):    
         plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
-        
+        w = layer.weight.data.detach().numpy()
         print('WC Coeff')
         print(layer.weight.data.detach().numpy().round(2))
 
     plt.plot(fin_LS_model.node_model_[t].coef_[0], '--')
     # plt.plot(lr.coef_.T)
     plt.show()
+
+W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
 
 #%% Adversarial training MLP
 # from torch_custom_layers import * 
@@ -602,7 +611,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
+config['train'] = True
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
@@ -655,7 +664,7 @@ from torch_custom_layers import *
 
 batch_size = 512
 num_epochs = 1000
-learning_rate = 1e-2
+learning_rate = 1e-3
 patience = 15
 
 ladj_FDRR_R_models = []
@@ -716,7 +725,7 @@ from utility_functions import *
 n_feat = len(target_col)
 n_test_obs = len(testY)
 iterations = 2
-error_metric = 'mae'
+error_metric = 'rmse'
 park_ids = list(power_df.columns.values)
 K_parameter = np.arange(0, len(target_pred)+1)
 
@@ -734,6 +743,7 @@ models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$',
 
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
+rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
 n_series = 4
 # supress warning
 pd.options.mode.chained_assignment = None
@@ -967,8 +977,8 @@ for perc in percentage:
         # fin_retrain_pred = projection(fin_retrain_pred)
         # temp_scale_Predictions['FinAd-LAD'] = fin_retrain_pred.reshape(-1)
 
-        abs_error = np.abs(fin_LAD_pred.reshape(-1,1)-Target.values)
-        leaf_ind_ = fin_LAD_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
+        abs_error = np.abs(fin_LS_pred.reshape(-1,1)-Target.values)
+        leaf_ind_ = fin_LS_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
 
         # if config['scale']:
         #     temp_Predictions = 
@@ -977,33 +987,25 @@ for perc in percentage:
         
         for m in models:
             temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
-        
-        # temp_df['PERS'] = [pers_mae]                        
-        # temp_df['LS'] = [lr_mae]        
-        # temp_df['LS-l2'] = [lasso_mae]
-        # temp_df['LS-l1'] = [l2_mae]                
-        # temp_df['LAD'] = [lad_mae]        
-        # temp_df['LAD-l1'] = [lad_l1_mae]
-        # temp_df['MLP'] = [mlp_mae]
-        # temp_df['FDRR-AAR'] = fdr_aar_mae
-        # temp_df['FIN-RETRAIN'] = fin_retrain_mae
-        # temp_df['resMLP'] = res_mlp_mae
-
-        #temp_df['FDRR-CL'] = fdr_cl_mae
-        
         mae_df = pd.concat([mae_df, temp_df])
+        
+        for m in models:
+            temp_df[m] = [rmse(temp_Predictions[m].values, Target.values)]
+        rmse_df = pd.concat([rmse_df, temp_df])
+        
         run_counter += 1
 
 pattern = config['pattern']
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_MAE_results.csv')
     
-#% Plotting 
+#%% Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
 models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
 models_to_plot = models
+models_to_plot = ['LS', 'LAD','NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD', 'FinAd-LS']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))
@@ -1027,9 +1029,30 @@ for i, m in enumerate(models):
                  label = models_to_labels[m], color = colors[i], marker = marker[i])
         #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
         #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
-
 plt.legend()
 plt.ylabel('MAE (%)')
+plt.xlabel('Probability of failure $P_{0,1}$')
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.legend(ncol=2, fontsize = 6)
+#ax.set_xscale('log')
+plt.show()
+
+
+temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
+
+for i, m in enumerate(models):    
+    if m not in models_to_plot: continue
+    else:
+        y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+        x_val = temp_df['percentage'].unique().astype(float)
+        #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+        plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+                 label = models_to_labels[m], color = colors[i], marker = marker[i])
+        #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
+        #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
+plt.legend()
+plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)

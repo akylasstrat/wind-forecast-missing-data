@@ -100,7 +100,7 @@ def mae(predictions, actual):
 def rmse(predictions, actual):
     ''' Evaluates determinstic forecasts
         Outputs: MAE'''
-    return np.sqrt(np.square(np.array(predictions) - actual).mean(0))
+    return np.sqrt(np.square(np.array(predictions).copy().reshape(-1) - actual.copy().reshape(-1)).mean(0))
 
 def eval_point_pred(predictions, actual, digits = None):
     ''' Evaluates determinstic forecasts

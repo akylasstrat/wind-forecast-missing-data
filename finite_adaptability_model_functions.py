@@ -2226,8 +2226,10 @@ class FiniteLinear_MLP(object):
 
     optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
     
-    # robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
-
+    # warm start base coeff
+    robust_mlp_model.model[0].weight.data = torch.FloatTensor(mlp_model.coef_[0].reshape(1,-1))
+    robust_mlp_model.model[0].weight.requires_grad = False
+    
     robust_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
                           warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
@@ -2421,6 +2423,9 @@ class FiniteLinear_MLP(object):
                                       train_adversarially = True, Gamma = gamma_temp, 
                                       budget_constraint = 'inequality')
 
+            left_robust_mlp_model.model[0].weight.data = torch.FloatTensor(self.node_model_[node].coef_[0].reshape(1,-1))
+            left_robust_mlp_model.model[0].weight.requires_grad = False
+
             optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
             # left_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
@@ -2481,6 +2486,9 @@ class FiniteLinear_MLP(object):
                                       target_col = right_target_cols, fix_col = right_fix_cols, projection = self.gd_FDRR_params['projection'], 
                                       train_adversarially = True, 
                                       Gamma = gamma_temp, budget_constraint = 'inequality')
+
+            right_robust_mlp_model.model[0].weight.data = torch.FloatTensor(best_new_model.coef_[0].reshape(1,-1))
+            right_robust_mlp_model.model[0].weight.requires_grad = False
 
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
