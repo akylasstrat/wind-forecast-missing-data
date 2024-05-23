@@ -876,7 +876,7 @@ class gd_FDRR(nn.Module):
                         return    
         else:
             return
-        
+
 class adjustable_FDR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
                  projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
@@ -1103,6 +1103,71 @@ class adjustable_FDR(nn.Module):
         loss_i = torch.sum(mse_i, 1)
         
         return loss_i
+
+    def sequential_train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, attack_type = 'greedy'):
+        
+        best_train_loss = float('inf')
+        best_val_loss = float('inf')
+        early_stopping_counter = 0
+        best_weights = copy.deepcopy(self.state_dict())
+        
+        print('Train model for nominal case')
+        
+        for epoch in range(epochs):
+            
+            average_train_loss = self.epoch_train(train_loader, optimizer)
+            val_loss = self.epoch_train(val_loader)
+
+            if (verbose != -1) and (epoch%25 == 0):
+                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_weights = copy.deepcopy(self.state_dict())
+                early_stopping_counter = 0
+            else:
+                early_stopping_counter += 1
+                if early_stopping_counter >= patience:
+                    print("Early stopping triggered.")
+                    # recover best weights
+                    self.load_state_dict(best_weights)
+                    break
+                
+        if self.train_adversarially:
+            
+            print('Froze layer weights, start adversarial training')
+            
+            self.model[0].weight.requires_grad = False
+            self.model[0].bias.requires_grad = False
+
+            # initialize everthing
+            best_train_loss = float('inf')
+            best_val_loss = float('inf')
+            early_stopping_counter = 0
+            
+            # Find worst_case alpha
+            for epoch in range(epochs):
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
+                val_loss = self.adversarial_epoch_train(val_loader)
+    
+                if (verbose != -1)and(epoch%10 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        self.best_val_loss = best_val_loss
+                        return    
+        else:
+            return
+
 
     def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False, 
                     attack_type = 'greedy'):

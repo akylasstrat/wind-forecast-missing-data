@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -322,7 +322,7 @@ ineq_FDRR_AAR_models = []
 
 from torch_custom_layers import *
 
-for K in [6]:
+for K in [13]:
     
     feat = np.random.choice(target_col, size = K, replace = False)
     a = np.zeros((1,trainPred.shape[1]))
@@ -367,6 +367,19 @@ for K in [6]:
                           patience = patience, verbose = 0, warm_start = False, attack_type = 'greedy')
 
     adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, test_alpha, project = True)
+#%%
+    v2_adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                              target_col = target_col, fix_col = fix_col, projection = False, 
+                              Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
+    
+    optimizer = torch.optim.Adam(v2_adj_fdr_model.parameters(), lr = 1e-3)
+    # initialize weights with nominal model (Does not affect solution much)
+    v2_adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+        
+    v2_adj_fdr_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                          patience = patience, verbose = 0, attack_type = 'greedy')
+
+    v2_adj_fdr_pred = v2_adj_fdr_model.predict(tensor_testPred, test_alpha, project = True)
     
     #%%
     for layer in nominal_model.model.children():
@@ -378,17 +391,20 @@ for K in [6]:
     for layer in adj_fdr_model.model.children():
         if isinstance(layer, nn.Linear):    
             plt.plot(layer.weight.data.detach().numpy().T, label = 'linear')
+    for layer in v2_adj_fdr_model.model.children():
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, '--', label = 'v2-linear')
     # plt.plot(adj_fdr_model.w.detach().numpy(), label = 'Linear')
     plt.plot(ineq_fdr.coef_, label = 'Minimax')
     plt.legend()
     plt.show()
     
     iter_ = 200
-    ave_loss = np.zeros((iter_, 3))
+    ave_loss = np.zeros((iter_, 4))
     
     for i in range(iter_):
         K_temp = np.random.choice(np.arange(1, K+1))
-        K_temp = K
+        # K_temp = K
         feat = np.random.choice(target_col, size = K_temp, replace = False)
         a = np.zeros((testPred.shape))
         a[:,feat] = 1
@@ -397,12 +413,14 @@ for K in [6]:
         ave_loss[i,0] = eval_predictions(gd_fdr_model.predict(tensor_testPred*(1-test_alpha)), Target.values, metric = 'rmse')
         ave_loss[i,1] = eval_predictions(adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha), Target.values, metric = 'rmse')
         ave_loss[i,2] = eval_predictions(ineq_fdr.predict(testPred*(1-a)).reshape(-1,1), Target.values, metric = 'rmse')
+        ave_loss[i,3] = eval_predictions(v2_adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha), Target.values, metric = 'rmse')
         
         if i%25 == 0:
             # plt.plot(nominal_model.predict(tensor_testPred[:250]), label='Nominal', color = 'tab')
             plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:250], label='GD')
             plt.plot(adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha)[:250], label='Linearly Adaptive')
             plt.plot(ineq_fdr.predict(testPred*(1-a))[:250], label='MiniMax')
+            plt.plot(v2_adj_fdr_model.predict(tensor_testPred*(1-test_alpha), test_alpha)[:250], label='v2-Linearly Adaptive')
             plt.plot(testY[:250], label='Actual', color = 'black', linestyle = '--')
             plt.legend(fontsize = 6)
             plt.show()

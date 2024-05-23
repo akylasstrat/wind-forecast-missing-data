@@ -2218,7 +2218,7 @@ class FiniteLinear_MLP(object):
         gamma_temp = 1
     elif self.gd_FDRR_params['budget_constraint'] == 'inequality':
         gamma_temp = len(self.target_features[0])
-    print(self.target_features[0])
+        
     robust_mlp_model = adjustable_FDR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                               target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
                               train_adversarially = True, 
@@ -2227,12 +2227,15 @@ class FiniteLinear_MLP(object):
     optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
     
     # warm start base coeff
-    robust_mlp_model.model[0].weight.data = torch.FloatTensor(mlp_model.coef_[0].reshape(1,-1))
-    robust_mlp_model.model[0].weight.requires_grad = False
-    
-    robust_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
-                          warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
+    if self.gd_FDRR_params['hidden_sizes'] == []:
+        robust_mlp_model.model[0].weight.data = torch.FloatTensor(mlp_model.coef_[0].reshape(1,-1))
+        robust_mlp_model.model[0].bias.data = torch.FloatTensor(mlp_model.intercept_.reshape(1,-1))
+    else:
+        robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
+
+    robust_mlp_model.sequential_train_model(train_data_loader, valid_data_loader, optimizer, 
+                          epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
+                          attack_type = self.gd_FDRR_params['attack_type'])
     
 
     # Nominal and WC loss
@@ -2240,11 +2243,11 @@ class FiniteLinear_MLP(object):
     insample_wc_loss = eval_predictions(robust_mlp_model.predict(train_temp_miss_X, self.missing_pattern[0]), trainY, self.error_metric)
         
     print(insample_loss)
-    print(insample_wc_loss)
+    print(robust_mlp_model.best_val_loss)
     
     # Nominal, WC loss, and loss gap
     self.Loss = [insample_loss]
-    self.WC_Loss = [insample_wc_loss]
+    self.WC_Loss = [robust_mlp_model.best_val_loss]
     self.Loss_gap = [self.WC_Loss[0] - self.Loss[0]]
     self.Loss_gap_perc = [(self.WC_Loss[0] - self.Loss[0])/self.Loss[0]]
     
@@ -2423,20 +2426,22 @@ class FiniteLinear_MLP(object):
                                       train_adversarially = True, Gamma = gamma_temp, 
                                       budget_constraint = 'inequality')
 
-            left_robust_mlp_model.model[0].weight.data = torch.FloatTensor(self.node_model_[node].coef_[0].reshape(1,-1))
-            left_robust_mlp_model.model[0].weight.requires_grad = False
+            # warm start base coeff
+            if self.gd_FDRR_params['hidden_sizes'] == []:
+                left_robust_mlp_model.model[0].weight.data = torch.FloatTensor(self.node_model_[node].coef_[0].reshape(1,-1))
+                left_robust_mlp_model.model[0].bias.data = torch.FloatTensor(self.node_model_[node].intercept_.reshape(1,-1))
+            else:
+                left_robust_mlp_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
 
             optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
-            # left_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
-
-            left_robust_mlp_model.train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
-                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
-                                  warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
+            left_robust_mlp_model.sequential_train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
+                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
+                                  attack_type = self.gd_FDRR_params['attack_type'])
 
             
             # Estimate WC loss and nominal loss
-            left_insample_wcloss = eval_predictions(left_robust_mlp_model.predict(tensor_train_missX, left_missing_pattern), trainY, self.error_metric)
+            left_insample_wcloss = left_robust_mlp_model.best_val_loss
 
             # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
             self.Loss.append(self.Loss[node])
@@ -2487,19 +2492,24 @@ class FiniteLinear_MLP(object):
                                       train_adversarially = True, 
                                       Gamma = gamma_temp, budget_constraint = 'inequality')
 
-            right_robust_mlp_model.model[0].weight.data = torch.FloatTensor(best_new_model.coef_[0].reshape(1,-1))
-            right_robust_mlp_model.model[0].weight.requires_grad = False
+            # warm start base coeff
+            if self.gd_FDRR_params['hidden_sizes'] == []:
+                right_robust_mlp_model.model[0].weight.data = torch.FloatTensor(best_new_model.coef_[0].reshape(1,-1))
+                right_robust_mlp_model.model[0].bias.data = torch.FloatTensor(best_new_model.intercept_.reshape(1,-1))
+            else:
+                right_robust_mlp_model.load_state_dict(best_new_model.state_dict(), strict=False)
 
+            # right_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
+            right_robust_mlp_model.W.data = self.wc_node_model_[node].W.data
+            
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
-            # right_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
-
-            right_robust_mlp_model.train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
-                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'], 
-                                  warm_start = False, attack_type = self.gd_FDRR_params['attack_type'])
+            right_robust_mlp_model.sequential_train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
+                                  epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
+                                  attack_type = self.gd_FDRR_params['attack_type'])
 
             # Estimate WC loss and nominal loss
-            right_insample_wcloss = eval_predictions(right_robust_mlp_model.predict(tensor_train_missX, right_missing_pattern), trainY, self.error_metric)
+            right_insample_wcloss = right_robust_mlp_model.best_val_loss
             
             self.Loss.append(Best_insample_loss)
             self.WC_Loss.append(right_insample_wcloss)

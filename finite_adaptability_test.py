@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -182,11 +182,11 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1257'
+target_park = 'p_1003'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 1
+config['min_lag'] = 2
 config['max_lag'] = 2 + config['min_lag']
 
 min_lag = config['min_lag']
@@ -199,7 +199,7 @@ target_scaler = MinMaxScaler()
 pred_scaler = MinMaxScaler()
 
 start = '2019-01-01'
-split = '2019-04-01'
+split = '2019-06-01'
 end = '2020-01-01'
 
 if config['scale']:
@@ -308,7 +308,7 @@ learning_rate = 1e-3
 patience = 25
 
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.2*len(trainY))
+n_valid_obs = int(0.15*len(trainY))
 
 tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
 tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
@@ -325,7 +325,7 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-mlp_model = MLP(input_size = n_features, hidden_sizes = [50, 50, 50, 50], output_size = n_outputs, 
+mlp_model = MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
                 projection = True)
 
 optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_decay = 1e-5)
@@ -373,7 +373,7 @@ config['train'] = True
 config['save'] = True
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 10, D = 1_000, red_threshold = 1e-5, max_gap = 0.10)
+    fin_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.05)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                       budget = 'inequality', solution = 'reformulation')
     
@@ -384,11 +384,10 @@ else:
     with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
             fin_LAD_model = pickle.load(handle)
 
-#%%
-plt.plot(np.array(fin_LAD_model.Loss))
-plt.plot(np.array(fin_LAD_model.ineq_wc_Loss))
-plt.plot(np.array(fin_LAD_model.eq_wc_Loss))
-plt.show()
+# plt.plot(np.array(fin_LAD_model.Loss))
+# plt.plot(np.array(fin_LAD_model.ineq_wc_Loss))
+# plt.plot(np.array(fin_LAD_model.eq_wc_Loss))
+# plt.show()
 #%% Finite adaptability with MLPs
 
 from FiniteRetrain import *
@@ -409,20 +408,14 @@ learning_rate = 1e-2
 patience = 15
 
 config['train'] = True
-config['save'] = False
+config['save'] = True
 
 if config['train']:
     fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
-                                                warm_start = False)
-
-    # fin_LS_model = newversion_FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
-    #                                             input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-    #                                             train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy', 
-    #                                             warm_start = False)
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
-    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.00001, 
+    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.05, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                           lr = 1e-3, batch_size = batch_size)
     if config['save']:
@@ -431,8 +424,8 @@ if config['train']:
 else:
     with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
             fin_LS_model = pickle.load(handle)
-#%%
-t = 0
+#
+t = -7
 print(fin_LS_model.missing_pattern[t])
 print(fin_LS_model.fixed_features[t])
 print('Coef')
@@ -440,18 +433,19 @@ print(fin_LS_model.node_model_[t].coef_[0].round(2))
 
 for layer in fin_LS_model.wc_node_model_[t].model.children():        
     if isinstance(layer, nn.Linear):    
-        plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+        plt.plot(layer.weight.data.detach().numpy().T, label = 'wc coeff')
         w = layer.weight.data.detach().numpy()
         print('WC Coeff')
         print(layer.weight.data.detach().numpy().round(2))
 
-    plt.plot(fin_LS_model.node_model_[t].coef_[0], '--')
+    plt.plot(fin_LS_model.node_model_[t].coef_[0],'--' , label = 'nominal case')
     # plt.plot(lr.coef_.T)
+    plt.legend()
     plt.show()
 
 W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
 
-#%% Adversarial training MLP
+# Adversarial training MLP
 # from torch_custom_layers import * 
 
 #!!!!!! Need to fix the missing data code here
@@ -697,11 +691,14 @@ if config['train']:
 
         optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
         
-        # initialize weights with nominal model (Does not affect solution much)
+        # Warm-start using nominal model
+        adj_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
+        adj_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
+
         # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
             
-        adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, verbose = 0, warm_start = False, attack_type = 'greedy')
+        adj_fdr_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                              patience = patience, verbose = 0, attack_type = 'greedy')
                     
         ladj_FDRR_R_models.append(adj_fdr_model)
 
@@ -724,13 +721,13 @@ from utility_functions import *
 
 n_feat = len(target_col)
 n_test_obs = len(testY)
-iterations = 2
+iterations = 5
 error_metric = 'rmse'
 park_ids = list(power_df.columns.values)
 K_parameter = np.arange(0, len(target_pred)+1)
 
-#percentage = [0, .001, .005, .01, .05, .1]
 percentage = [0, .001, .005, .01, .05, .1]
+# percentage = [0, .01, .05, .1]
 # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
@@ -997,9 +994,10 @@ for perc in percentage:
 
 pattern = config['pattern']
 if config['save']:
-    mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_MAE_results.csv')
+    mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv')
+    rmse_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv')
     
-#%% Plotting 
+# Plotting 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
@@ -1037,6 +1035,8 @@ plt.legend(ncol=2, fontsize = 6)
 #ax.set_xscale('log')
 plt.show()
 
+
+fig, ax = plt.subplots(constrained_layout = True)
 
 temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
 std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
