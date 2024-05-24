@@ -182,7 +182,7 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1003'
+target_park = 'p_1257'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -369,7 +369,7 @@ from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
 import pickle
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -407,7 +407,7 @@ num_epochs = 1000
 learning_rate = 1e-2
 patience = 15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -581,7 +581,7 @@ config['train'] = False
 from torch_custom_layers import * 
 
 batch_size = 512
-num_epochs = 1000
+num_epochs = 250
 learning_rate = 1e-2
 patience = 15
 
@@ -606,6 +606,8 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 config['train'] = True
+config['save'] = True
+
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
@@ -620,10 +622,14 @@ if config['train']:
                                   target_col = target_col, fix_col = fix_col, projection = False, 
                                   Gamma = K, train_adversarially = True, budget_constraint = 'equality')
         
-        optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-2)
+        optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
     
-        # initialize weights with nominal model (Does not affect solution much)
-        # gd_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
+        # Warm-start: use nominal model or previous iteration
+        if K == 0:
+            gd_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
+            gd_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_)
+        else:
+            gd_fdr_model.load_state_dict(gd_FDRR_R_models[-1].state_dict(), strict=False)
             
         gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                               patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
@@ -633,10 +639,10 @@ if config['train']:
         
         print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
         
-        plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
-        plt.plot(projection(gd_FDRR_R_models[K].predict(testPred.values*(1-a))[:1000]), label='Eq-MinMax')
-        plt.legend()
-        plt.show()
+        # plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
+        # plt.plot(projection(gd_FDRR_R_models[K].predict(testPred.values*(1-a))[:1000]), label='Eq-MinMax')
+        # plt.legend()
+        # plt.show()
 
         for layer in gd_fdr_model.model.children():
             if isinstance(layer, nn.Linear):    
@@ -651,13 +657,21 @@ if config['train']:
 else:    
     with open(f'{cd}\\trained-models\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
             gd_FDRR_R_models = pickle.load(handle)
+#%%
+for j in [0, 1, 2, 3, 4]:
+    for layer in gd_FDRR_R_models[j].model.children():
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+# plt.legend()
+plt.show()
+
 
 #%% Linearly adaptive with equality constraint
 
 from torch_custom_layers import * 
 
 batch_size = 512
-num_epochs = 1000
+num_epochs = 250
 learning_rate = 1e-3
 patience = 15
 
@@ -687,7 +701,7 @@ if config['train']:
         
         adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                           target_col = target_col, fix_col = fix_col, projection = False, 
-                          Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
+                          Gamma = K, train_adversarially = True, budget_constraint = 'equality')
 
         optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
         
@@ -698,7 +712,7 @@ if config['train']:
         # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
             
         adj_fdr_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, verbose = 0, attack_type = 'greedy')
+                              patience = patience, freeze_weights = True, attack_type = 'random_sample')
                     
         ladj_FDRR_R_models.append(adj_fdr_model)
 
@@ -997,7 +1011,15 @@ if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv')
     rmse_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv')
     
-# Plotting 
+#%% Plotting
+
+models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
+                    'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
+                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$','FDRR-R':'$\mathtt{FDR-LS}$',
+                    'LinAdj-FDR':'$\mathtt{FDR-Lin-LS}$',
+                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS':'$\mathtt{FinAd-LS}$'}
+
+ 
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
@@ -1032,7 +1054,7 @@ plt.ylabel('MAE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-#ax.set_xscale('log')
+plt.savefig(f'{cd}//plots//{target_park}_MAE.pdf')
 plt.show()
 
 
@@ -1056,6 +1078,50 @@ plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-#ax.set_xscale('log')
+plt.savefig(f'{cd}//plots//{target_park}_RMSE.pdf')
+plt.show()
+
+#%% Plot for a single method
+
+
+ 
+color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
+         'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
+
+models_to_plot = ['LS', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LS']
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
+                    'FDRR-R':'$\mathtt{FinAd(static, fixed)}$',
+                    'LinAdj-FDR':'$\mathtt{FinAd(linear, fixed)}$',
+                    'FinAd-LS':'$\mathtt{FinAd(linear, greedy)}$'}
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+
+ls_colors = plt.cm.tab20c( list(np.arange(3)))
+lad_colors = plt.cm.tab20( list(np.arange(10,12)))
+fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
+
+colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
+
+for i, m in enumerate(models):    
+    if m not in models_to_plot: continue
+    else:
+        y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+        x_val = temp_df['percentage'].unique().astype(float)
+        #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+        plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+                 label = models_to_labels[m], color = colors[i], marker = marker[i])
+        #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
+        #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
+plt.legend()
+plt.ylabel('RMSE (%)')
+plt.xlabel('Probability of failure $P_{0,1}$')
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.legend(ncol=2, fontsize = 6)
+plt.savefig(f'{cd}//plots//{target_park}_LS_RMSE.pdf')
 plt.show()
 

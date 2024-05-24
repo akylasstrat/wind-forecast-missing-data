@@ -175,8 +175,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -289,9 +289,9 @@ from torch_custom_layers import *
 from FDR_regressor_test import *
 
 batch_size = 500
-num_epochs = 1000
+num_epochs = 250
 learning_rate = 1e-2
-patience = 25
+patience = 15
     
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 tensor_trainY = torch.FloatTensor(trainY)
@@ -322,7 +322,7 @@ ineq_FDRR_AAR_models = []
 
 from torch_custom_layers import *
 
-for K in [13]:
+for K in [6]:
     
     feat = np.random.choice(target_col, size = K, replace = False)
     a = np.zeros((1,trainPred.shape[1]))
@@ -370,7 +370,7 @@ for K in [13]:
 #%%
     v2_adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                               target_col = target_col, fix_col = fix_col, projection = False, 
-                              Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
+                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
     
     optimizer = torch.optim.Adam(v2_adj_fdr_model.parameters(), lr = 1e-3)
     # initialize weights with nominal model (Does not affect solution much)
@@ -428,7 +428,7 @@ for K in [13]:
     print(ave_loss.mean(0))
     
     plt.hist(ave_loss, bins = 20)
-    plt.legend(['Static', 'Linear', 'MiniMax'])
+    plt.legend(['Static', 'Linear', 'MiniMax', 'v2-Linear'])
     plt.show()
 
 #%%

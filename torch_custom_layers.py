@@ -1104,7 +1104,9 @@ class adjustable_FDR(nn.Module):
         
         return loss_i
 
-    def sequential_train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, attack_type = 'greedy'):
+    def sequential_train_model(self, train_loader, val_loader, 
+                               optimizer, epochs = 20, patience=5, verbose = 0, 
+                               freeze_weights = True, attack_type = 'greedy'):
         
         best_train_loss = float('inf')
         best_val_loss = float('inf')
@@ -1136,9 +1138,9 @@ class adjustable_FDR(nn.Module):
         if self.train_adversarially:
             
             print('Froze layer weights, start adversarial training')
-            
-            self.model[0].weight.requires_grad = False
-            self.model[0].bias.requires_grad = False
+            if freeze_weights:
+                self.model[0].weight.requires_grad = False
+                self.model[0].bias.requires_grad = False
 
             # initialize everthing
             best_train_loss = float('inf')
