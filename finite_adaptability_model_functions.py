@@ -2622,7 +2622,8 @@ class FiniteLinear_MLP(object):
              elif m0[:,self.feature[node]] == 1:
                  # if feature is missing, go right
                 node = self.children_right_dict[node]
-             #print('New Node: ', node)
+             # print('New Node: ', node)
+             # print(m0)
          
          if (m0==self.missing_pattern[node]).all():
              # nominal model

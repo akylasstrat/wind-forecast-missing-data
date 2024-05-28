@@ -182,7 +182,7 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1257'
+target_park = 'p_1088'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -408,7 +408,7 @@ learning_rate = 1e-2
 patience = 15
 
 config['train'] = False
-config['save'] = True
+config['save'] = False
 
 if config['train']:
     fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
