@@ -2110,10 +2110,10 @@ class FiniteLinear_MLP(object):
       max_features: Maximum number of features to consider at each split (used for ensembles). If False, then all features are used
       **kwargs: keyword arguments to solve the optimization problem prescribed
       '''
-  def __init__(self, target_col, fix_col, D = 10, Max_models = 5, red_threshold = .01, error_metric = 'mse', **kwargs):
+  def __init__(self, target_col, fix_col, D = 10, Max_splits = 5, red_threshold = .01, error_metric = 'mse', **kwargs):
       
     self.D = D
-    self.Max_models = Max_models
+    self.Max_splits = Max_splits
     self.red_threshold = red_threshold
     self.error_metric = error_metric
     
@@ -2201,12 +2201,14 @@ class FiniteLinear_MLP(object):
         mlp_model = LinearRegression(fit_intercept = True)
         mlp_model.fit(train_temp_miss_X, trainY)
     else:
+        torch.manual_seed(0)
+
         # Train Neural Network model
         mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                   target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
                                   train_adversarially = False, budget_constraint = self.gd_FDRR_params['budget_constraint'])
         
-        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
         mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                               epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
                               verbose = self.MLP_train_dict['verbose'])
@@ -2224,7 +2226,7 @@ class FiniteLinear_MLP(object):
                               train_adversarially = True, 
                               Gamma = gamma_temp, budget_constraint = 'inequality')
 
-    optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+    optimizer = torch.optim.Adam(robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
     
     # warm start base coeff
     if self.gd_FDRR_params['hidden_sizes'] == []:
@@ -2278,7 +2280,7 @@ class FiniteLinear_MLP(object):
         
         # Depth-first: grow the leaf with the highest WC loss        
         print(f'Node = {node}')
-        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_models) or (self.Loss_gap_perc[node] <= self.max_gap):
+        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_splits) or (self.Loss_gap_perc[node] <= self.max_gap):
             # remove node from list to check (only used for best-first growth)
             
             list_nodes_candidates.remove(node)

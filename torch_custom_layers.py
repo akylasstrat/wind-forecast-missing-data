@@ -1137,13 +1137,16 @@ class adjustable_FDR(nn.Module):
                 
         if self.train_adversarially:
             
-            print('Froze layer weights, start adversarial training')
+            print('Freeze layer weights, start adversarial training')
             if freeze_weights:
-                for layer in self.children():
+                for layer in self.model.children():
                     if isinstance(layer, nn.Linear):
                         layer.weight.requires_grad = False
                         layer.bias.requires_grad = False
-
+            
+            # print(self.model[0].weight)
+            # print(self.model[0].bias)
+                        
             # initialize everthing
             best_train_loss = float('inf')
             best_val_loss = float('inf')

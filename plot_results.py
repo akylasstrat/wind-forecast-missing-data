@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -182,7 +182,7 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1003'
+target_park = 'p_1088'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -216,38 +216,203 @@ else:
     
     trainPred = Predictors[start:split]
     testPred = Predictors[split:end]
-
+#%%
 
 
 target_park = 'p_1088'
 pattern = 'MCAR'
+config['save'] = False
 
 mae_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv', index_col = 0)
 
 #%%
-models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD', 'FinAd-LS']
+models = rmse_df.columns[:-2]
 
 # Base performance without missing data
 
 print((100*rmse_df.query('percentage == 0.00')[models].mean()).round(2))
 print((100*mae_df.query('percentage == 0.00')[models].mean()).round(2))
 
+#%% LS performance degradation
+ 
+# color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
+#          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
+
+models_to_plot = ['LS', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LS-10']
+
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
+                    'FDRR-R':'$\mathtt{FA(const, fixed)-LS}$',
+                    'LinAdj-FDR':'$\mathtt{FA(lin, fixed)-LS}$',
+                    'FinAd-LS-10':'$\mathtt{FA(lin, greedy)-LS}$'}
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+
+ls_colors = plt.cm.tab20c( list(np.arange(3)))
+lad_colors = plt.cm.tab20( list(np.arange(10,12)))
+fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
+
+# colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
+
+colors = ['black', 'tab:blue', 'tab:orange', 'tab:green']
+line_style = ['--' '-', '-', '-']
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+x_val = temp_df['percentage'].unique().astype(float)
+
+
+temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
+
+# plt.fill_between(x_val, y1, y2=0, where=None, interpolate=False, step=None, *, data=None, **kwargs)
+
+# plt.plot(temp_df['percentage'].unique().astype(float), 100*temp_df.groupby(['percentage'])['LS'].mean().values, 
+#          linestyle = '--', color = 'black', label = models_to_labels['LS'])
+
+for i, m in enumerate(models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+
+    #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+             label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
+    plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    
+plt.legend()
+plt.ylabel('RMSE (%)')
+plt.xlabel('Probability of failure $p_{0,1}$')
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.ylim([9.9, 12.75])
+plt.legend(ncol=1, fontsize = 6)
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_LS_RMSE.pdf')
+plt.show()
+
+
+#%% LS - sensitivity
+ 
+
+models_to_plot = ['LS', 'FinAd-LS-1', 'FinAd-LS-5', 'FinAd-LS-10', 'FinAd-LS-25']
+
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'FinAd-LS-1':'$Q=1$', 'FinAd-LS-5':'$Q=5$', 'FinAd-LS-10':'$Q=10$',
+                    'FinAd-LS-25':'$Q=25$'}
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+
+ls_colors = plt.cm.tab20c( list(np.arange(3)))
+lad_colors = plt.cm.tab20( list(np.arange(10,12)))
+fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
+
+# colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
+
+colors = ['black', 'tab:blue', 'tab:orange', 'tab:green', 'tab:brown']
+line_style = ['--' '-', '-', '-']
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+x_val = temp_df['percentage'].unique().astype(float)
+
+
+temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
+
+# plt.fill_between(x_val, y1, y2=0, where=None, interpolate=False, step=None, *, data=None, **kwargs)
+
+# plt.plot(temp_df['percentage'].unique().astype(float), 100*temp_df.groupby(['percentage'])['LS'].mean().values, 
+#          linestyle = '--', color = 'black', label = models_to_labels['LS'])
+
+for i, m in enumerate(models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+
+    #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+             label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
+    plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    
+plt.legend()
+plt.ylabel('RMSE (%)')
+plt.xlabel('Probability of failure $p_{0,1}$')
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.ylim([9.9, 12.75])
+plt.legend(ncol=1, fontsize = 6)
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_sensitivity_RMSE.pdf')
+plt.show()
+
+#%% NN performance degradation
+
+models_to_plot = ['NN', 'FDR-NN', 'FDR-Lin-NN', 'FinAd-NN']
+
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'NN':'$\mathtt{Imp-NN}$', 
+                    'FDRR-R':'$\mathtt{FA(const, fixed)-LS}$',
+                    'LinAdj-FDR':'$\mathtt{FA(lin, fixed)-LS}$',
+                    'FinAd-LS-10':'$\mathtt{FA(lin, greedy)-LS}$', 
+                    'FinAd-NN':'$\mathtt{FA(lin, greedy)-NN}$', 
+                    'FDR-NN':'$\mathtt{FA(const, fixed)-NN}$', 
+                    'FDR-Lin-NN':'$\mathtt{FA(lin, fixed)-NN}$'}
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+
+ls_colors = plt.cm.tab20c( list(np.arange(3)))
+lad_colors = plt.cm.tab20( list(np.arange(10,12)))
+fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
+
+# colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
+
+colors = ['black', 'tab:blue', 'tab:orange', 'tab:green']
+line_style = ['--' '-', '-', '-']
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+x_val = temp_df['percentage'].unique().astype(float)
+
+
+temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
+
+# plt.fill_between(x_val, y1, y2=0, where=None, interpolate=False, step=None, *, data=None, **kwargs)
+
+# plt.plot(temp_df['percentage'].unique().astype(float), 100*temp_df.groupby(['percentage'])['LS'].mean().values, 
+#          linestyle = '--', color = 'black', label = models_to_labels['LS'])
+
+for i, m in enumerate(models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+
+    #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+             label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
+    plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    
+plt.legend()
+plt.ylabel('RMSE (%)')
+plt.xlabel('Probability of failure $p_{0,1}$')
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.ylim([9.9, 12.75])
+plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_NN_RMSE.pdf')
+plt.show()
+
+print(100*temp_df.groupby(['percentage'])[['NN', 'FinAd-NN']].mean())
+#%%
+# percentage improvement
+print(100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[['FinAd-NN']].mean().values)/ temp_df.groupby(['percentage'])[['NN']].mean())
+
+
 #%% Plotting
+
+models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD'] + [f'FinAd-LS-{n_splits}' for n_splits in Max_number_splits] + ['FinAd-NN']
 
 models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
                     'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
-                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$','FDRR-R':'$\mathtt{FDR-LS}$',
-                    'LinAdj-FDR':'$\mathtt{FDR-Lin-LS}$',
-                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS':'$\mathtt{FinAd-LS}$'}
-
+                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$',
+                    'FDRR-R':'$\mathtt{FA(const, fixed)}$',
+                    'LinAdj-FDR':'$\mathtt{FA(linear, fixed)}$',
+                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 
+                    'FinAd-LS-10':'$\mathtt{FA(linear, greedy)}$', 'FinAd-LS-1':'$\mathtt{FA(linear, greedy)}$', 
+                    'FinAd-NN':'$\mathtt{FinAd-NN}$'}
  
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
 models_to_plot = models
-models_to_plot = ['LS', 'LAD','NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD', 'FinAd-LS']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))
@@ -276,7 +441,7 @@ plt.ylabel('MAE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-plt.savefig(f'{cd}//plots//{target_park}_MAE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_MAE.pdf')
 plt.show()
 
 
@@ -300,7 +465,7 @@ plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-plt.savefig(f'{cd}//plots//{target_park}_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_RMSE.pdf')
 plt.show()
 
 #%% Plot for a single method

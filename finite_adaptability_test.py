@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -307,6 +307,8 @@ num_epochs = 1000
 learning_rate = 1e-3
 patience = 25
 
+torch.manual_seed(0)
+
 # Standard MLPs (separate) forecasting wind production and dispatch decisions
 n_valid_obs = int(0.15*len(trainY))
 
@@ -333,7 +335,7 @@ mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer,
                       patience = patience, verbose = 0)
 base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
 
-#%% Estimate MAE for base models
+# Estimate MAE for base models
 print('Base Model Performance, no missing data')
 from utility_functions import *
 
@@ -388,7 +390,7 @@ else:
 # plt.plot(np.array(fin_LAD_model.ineq_wc_Loss))
 # plt.plot(np.array(fin_LAD_model.eq_wc_Loss))
 # plt.show()
-#%% Finite adaptability with MLPs
+#%% Finite Adaptability - Linear - LS base model
 
 from FiniteRetrain import *
 from FiniteRobustRetrain import *
@@ -410,132 +412,105 @@ patience = 15
 config['train'] = False
 config['save'] = False
 
+Max_number_splits = [1, 2, 5, 10, 25]
+fin_LS_models_dict = {}
+
 if config['train']:
-    fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
-                                                input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
-                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
-    fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 0.05, 
-                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                          lr = 1e-3, batch_size = batch_size)
-    if config['save']:
-        with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'wb') as handle:
-            pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    for number_splits in Max_number_splits:
+        fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, D = 1_000, red_threshold = 1e-5, 
+                                                    input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+                                                    train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
+        
+        fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+                              epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                              lr = 1e-3, batch_size = batch_size, weight_decay = 0)
+    
+        fin_LS_models_dict[number_splits] = fin_LS_model
+    
+        if config['save']:
+            with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model_{number_splits}.pickle', 'wb') as handle:
+                pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            with open(f'{cd}\\trained-models\\{target_park}_fin_LS_models_dict.pickle', 'wb') as handle:
+                pickle.dump(fin_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
 else:
     with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
             fin_LS_model = pickle.load(handle)
-#
-t = -7
+
+    with open(f'{cd}\\trained-models\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:
+            fin_LS_models_dict = pickle.load(handle)
+
+#%%
+t = -4
 print(fin_LS_model.missing_pattern[t])
 print(fin_LS_model.fixed_features[t])
 print('Coef')
 print(fin_LS_model.node_model_[t].coef_[0].round(2))
 
-for layer in fin_LS_model.wc_node_model_[t].model.children():        
+for layer in fin_LS_models_dict[5].wc_node_model_[t].model.children():        
     if isinstance(layer, nn.Linear):    
         plt.plot(layer.weight.data.detach().numpy().T, label = 'wc coeff')
         w = layer.weight.data.detach().numpy()
         print('WC Coeff')
         print(layer.weight.data.detach().numpy().round(2))
 
-    plt.plot(fin_LS_model.node_model_[t].coef_[0],'--' , label = 'nominal case')
+    plt.plot(fin_LS_models_dict[5].node_model_[t].coef_[0],'--' , label = 'nominal case')
     # plt.plot(lr.coef_.T)
     plt.legend()
     plt.show()
 
 W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
 
-# Adversarial training MLP
-# from torch_custom_layers import * 
+#%% Finitely Adaptive - Linear - NN
 
-#!!!!!! Need to fix the missing data code here
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+from torch_custom_layers import *
+import pickle
 
-# error = Target.values - persistence_pred
-# error_mu = (Target.values - persistence_pred ).mean()
-# error_std = (Target.values - persistence_pred ).std()
-# error_intervals = np.quantile((Target.values - persistence_pred ), [0.05, 0.95])
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
 
-# batch_size = 500
-# num_epochs = 1000
-# learning_rate = 1e-3
-# patience = 25
+#optimizer = torch.optim.Adam(res_mlp_model.parameters())
+target_pred = Predictors.columns
+fixed_pred = []
+target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
+fix_col = []
 
-# # Standard MLPs (separate) forecasting wind production and dispatch decisions
-# n_valid_obs = int(0.1*len(trainY))
+batch_size = 512
+num_epochs = 1000
+learning_rate = 1e-3
+patience = 25
 
-# tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-# tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-# tensor_testY = torch.FloatTensor(testY)
+config['train'] = True
+config['save'] = True
 
-# tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-# tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-# tensor_testPred = torch.FloatTensor(testPred.values)
-
-# #### MLP model to predict wind from features
-# train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-# valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
-
-# n_features = tensor_trainPred.shape[1]
-# n_outputs = tensor_trainY.shape[1]
-
-# res_mlp_model = resilient_MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
-#                           target_col = target_col, fix_col = fix_col, projection = True)
-
-
-# optimizer = torch.optim.Adam(res_mlp_model.parameters(), lr = learning_rate)
-# res_mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-#                       patience = patience, verbose = 0)
-
-# res_mlp_pred = res_mlp_model.predict(tensor_testPred)
-
-# print('MLP: ', eval_point_pred(res_mlp_pred, Target.values, digits=4))
-
-#%% Adjustable FDR
-
-#!!!!!! Need to fix the missing data code here
-
-# from torch_custom_layers import * 
-
-# batch_size = 500
-# num_epochs = 1000
-# learning_rate = 1e-2
-# patience = 25
-
-# # Standard MLPs (separate) forecasting wind production and dispatch decisions
-# n_valid_obs = int(0.1*len(trainY))
-
-# tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-# tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-# tensor_testY = torch.FloatTensor(testY)
-
-# tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-# tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-# tensor_testPred = torch.FloatTensor(testPred.values)
-
-# #### MLP model to predict wind from features
-# train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size)
-# valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size)
-
-# n_features = tensor_trainPred.shape[1]
-# n_outputs = tensor_trainY.shape[1]
-
-# adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-#                           target_col = target_col, fix_col = fix_col, projection = True, Gamma = 10)
+if config['train']:
+            
+    fin_NN_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
+                                                input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
+    
+    fin_NN_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
+        
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{target_park}_fin_NN_model.pickle', 'wb') as handle:
+            pickle.dump(fin_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    with open(f'{cd}\\trained-models\\{target_park}_fin_NN_model.pickle', 'rb') as handle:    
+            fin_NN_model = pickle.load(handle)
 
 
-# optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = learning_rate)
-# adj_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-#                       patience = patience, verbose = 0)
-
-# adj_fdr_pred = adj_fdr_model.predict(tensor_testPred, torch.zeros_like(tensor_testPred))
-
-# print('Adj FDR: ', eval_point_pred(adj_fdr_pred, Target.values, digits=4))
-
-# for name, param in adj_fdr_model.named_parameters():
-#     if param.requires_grad:
-#         print( name, param.data)
-
-#%%%% FDDR-AAR: train one model per value of \Gamma
+#%% FDR - gradient-based, linear model
+# Finetely adaptive - Constant - fixed partitions -  LS model (approximates FDR from previous work)
+# Train one model per each integer value in range [0, gamma]
+from torch_custom_layers import * 
 
 case_folder = config['store_folder']
 output_file_name = f'{cd}\\{case_folder}\\trained-models\\{target_park}_fdrr-aar_{max_lag}.pickle'
@@ -576,9 +551,7 @@ config['train'] = False
 # else:
 #     with open(f'{cd}\\trained-models\\{target_park}_FDRR_R_model.pickle', 'rb') as handle:    
 #             FDRR_AAR_models = pickle.load(handle)
-#%% FDRR with gradient-based algorithm
 
-from torch_custom_layers import * 
 
 batch_size = 512
 num_epochs = 250
@@ -605,8 +578,8 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:
     for K in K_parameter:
@@ -657,7 +630,8 @@ if config['train']:
 else:    
     with open(f'{cd}\\trained-models\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
             gd_FDRR_R_models = pickle.load(handle)
-#%%
+
+
 for j in [0, 1, 2, 3, 4]:
     for layer in gd_FDRR_R_models[j].model.children():
         if isinstance(layer, nn.Linear):    
@@ -667,6 +641,7 @@ plt.show()
 
 
 #%% Linearly adaptive with equality constraint
+# Finetely adaptive - Linear - fixed partitions -  LS model (extends FDR from previous work)
 
 from torch_custom_layers import * 
 
@@ -686,8 +661,8 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:
     for K in K_parameter:
@@ -730,8 +705,135 @@ else:
 #     retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
 #                                                            target_col, fix_col, max(K_parameter), base_loss='l2')
 
+#%% FDR - gradient-based, **NN** model
+# Finetely adaptive - Constant - fixed partitions -  NN model (extends previous FDR to non-linear models)
+# Train one model per each integer value in range [0, gamma]
+from torch_custom_layers import * 
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 25
+
+
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_valid_obs = int(0.15*len(trainY))
+
+tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
+tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
+tensor_testY = torch.FloatTensor(testY)
+
+tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
+tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
+tensor_testPred = torch.FloatTensor(testPred.values)
+
+### MLP model to predict wind from features
+train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
+valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
+
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+config['train'] = True
+config['save'] = True
+
+FDR_NN_models = []
+
+torch.manual_seed(0)
+
+if config['train']:
+    for K in K_parameter:
+        print(f'Budget: {K}')
+        
+        # sample missing data to check how predictions are formed
+        feat = np.random.choice(target_col, size = K, replace = False)
+        a = np.zeros((1,trainPred.shape[1]))
+        a[:,feat] = 1
+        test_alpha = torch.FloatTensor(a)
+
+        
+        fdr_nn_model = gd_FDRR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
+                                  target_col = target_col, fix_col = fix_col, projection = False, 
+                                  Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+        
+        optimizer = torch.optim.Adam(fdr_nn_model.parameters(), lr = 1e-3, weight_decay = 1e-5)
+
+        # Warm-start: use nominal model or previous iteration
+        if K == 0:
+            fdr_nn_model.load_state_dict(mlp_model.state_dict(), strict = False)
+        else:
+            fdr_nn_model.load_state_dict(FDR_NN_models[-1].state_dict(), strict=False)
+        
+        fdr_nn_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                              patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+    
+        fdr_nn_pred = fdr_nn_model.predict(testPred.values, project = True)
+        FDR_NN_models.append(fdr_nn_model)
+        
+        print('GD FDRR: ', eval_point_pred(fdr_nn_pred, Target.values, digits=4))
+        
+
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{target_park}_FDR_NN_models.pickle', 'wb') as handle:
+            pickle.dump(FDR_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+else:    
+    with open(f'{cd}\\trained-models\\{target_park}_FDR_NN_models.pickle', 'rb') as handle:    
+            FDR_NN_models = pickle.load(handle)
+
+
+#%% Finetely adaptive - Linearly Adaptive - fixed partitions -  **NN** model
+# Train one model for each integer in range [0, gamma]
+
+from torch_custom_layers import * 
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 25
+
+FDR_Lin_NN_models = []
+
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+    for K in K_parameter:
+        print(f'Budget: {K}')
+        # sample missing data to check how predictions are formed        
+        fdr_lin_NN_model = adjustable_FDR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
+                          target_col = target_col, fix_col = fix_col, projection = False, 
+                          Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+
+        optimizer = torch.optim.Adam(fdr_lin_NN_model.parameters(), lr = 1e-3, weight_decay = 1e-5)
+        
+        # Warm-start using nominal model
+        fdr_lin_NN_model.load_state_dict(mlp_model.state_dict(), strict = False)
+            
+        fdr_lin_NN_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                              patience = patience, freeze_weights = True, attack_type = 'random_sample')
+                    
+        FDR_Lin_NN_models.append(fdr_lin_NN_model)
+
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{target_park}_FDR_Lin_NN_models.pickle', 'wb') as handle:
+            pickle.dump(FDR_Lin_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+else:    
+    with open(f'{cd}\\trained-models\\{target_park}_FDR_Lin_NN_models.pickle', 'rb') as handle:    
+            FDR_Lin_NN_models = pickle.load(handle)
+            
+#% Retrain without missing features (Tawn, Browell)
+
+# if config['retrain']:
+#     retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
+#                                                            target_col, fix_col, max(K_parameter), base_loss='l2')
 #%% Testing: varying the number of missing observations/ persistence imputation
 from utility_functions import *
+
 
 n_feat = len(target_col)
 n_test_obs = len(testY)
@@ -745,12 +847,16 @@ percentage = [0, .001, .005, .01, .05, .1]
 # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
-models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD', 'FinAd-LS']
+models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD'] + [f'FinAd-LS-{n_splits}' for n_splits in Max_number_splits] \
++ ['FinAd-NN', 'FDR-NN', 'FDR-Lin-NN']
+
 models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
                     'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
-                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$','FDRR-R':'$\mathtt{FDRR-R}$',
-                    'LinAdj-FDR':'$\mathtt{LinAdj-FDR}$',
-                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS':'$\mathtt{FinAd-LS}$'}
+                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$',
+                    'FDRR-R':'$\mathtt{FA(const, fixed)}$',
+                    'LinAdj-FDR':'$\mathtt{FA(linear, fixed)}$',
+                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS-10':'$\mathtt{FA(linear, greedy)}$', 
+                    'FinAd-NN':'$\mathtt{FinAd-NN}$'}
 
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -779,6 +885,7 @@ check_length.groupby('Missing').mean()
 
 config['pattern'] = 'MCAR'
 
+config['save'] = True
 
 for perc in percentage:
     if (config['pattern'] == 'MNAR')and(run_counter>1):
@@ -903,12 +1010,18 @@ for perc in percentage:
         # mlp_mae = eval_predictions(mlp_pred, Target.values, metric= error_metric)
 
         #### Adversarial MLP
-        
         # res_mlp_pred = adj_fdr_model.predict(torch.FloatTensor(miss_X_zero.values), torch.FloatTensor(final_mask_ind)).reshape(-1,1)
         # if config['scale']:
         #     res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
         # res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
-
+        
+        #### Finite Adaptability - Fixed Partition models: find which model to use
+        # col_index = np.zeros(len(Target))
+        # if (perc>0)or(config['pattern']=='MNAR'):
+        #     for j, ind in enumerate(mask_ind):
+        #         n_miss_feat = miss_X.isna().values[j].sum()
+        #         col_index[j] = n_miss_feat
+                            
         #### FDRR-R (select the appropriate model for each case)
         fdr_aar_predictions = []
         for i, k in enumerate(K_parameter):
@@ -929,7 +1042,7 @@ for perc in percentage:
                 n_miss_feat = miss_X.isna().values[j].sum()
                 final_fdr_aar_pred[j] = fdr_aar_predictions[j, n_miss_feat]
         final_fdr_aar_pred = final_fdr_aar_pred.reshape(-1,1)
-        
+                
         temp_Predictions['FDRR-R'] = final_fdr_aar_pred.reshape(-1)
 
         #### Linearly Adjustable FDR (select the appropriate model for each case)
@@ -953,48 +1066,67 @@ for perc in percentage:
         final_ladj_fdr_pred = final_ladj_fdr_pred.reshape(-1,1)
         
         temp_Predictions['LinAdj-FDR'] = final_ladj_fdr_pred.reshape(-1)
-        
-        # fdr_aar_mae = eval_predictions(final_fdr_aar_pred, Target.values, metric= error_metric)
 
-        ##### RETRAIN model
-        # if config['retrain']:
-        #     f_retrain_pred = retrain_pred[:,0:1].copy()
-        #     if perc > 0:
-        #         rows_w_missing_data = np.where(miss_X.isna().values.sum(1)==1)[0]
+        #### FDR-NN
+        fdr_nn_pred_list = []
+        for i, k in enumerate(K_parameter):
+            
+            fdr_nn_pred = FDR_NN_models[i].predict(miss_X_zero.values).reshape(-1,1)
+            fdr_nn_pred = projection(fdr_nn_pred)
                 
-        #         for row in rows_w_missing_data:
-                    
-        #             temp_feat = np.sort(np.where(miss_X.isna().values[row]))[0]
-        #             temp_feat = list(temp_feat)                    
-        #             # find position in combinations list
-        #             j_ind = retrain_comb.index(temp_feat)
-        #             f_retrain_pred[row] = retrain_pred[row, j_ind]                
-    
-        #     retrain_mae = eval_predictions(f_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
-        #     temp_df['RETRAIN'] = retrain_mae
+            fdr_nn_pred_list.append(fdr_nn_pred.reshape(-1))
+
+        fdr_nn_pred_list = np.array(fdr_nn_pred_list).T
+        
+        # Use only the model with the appropriate K
+        final_fdr_nn_pred = fdr_nn_pred_list[:,0]
+        if (perc>0)or(config['pattern']=='MNAR'):
+            for j, ind in enumerate(mask_ind):
+                n_miss_feat = miss_X.isna().values[j].sum()
+                final_fdr_nn_pred[j] = fdr_nn_pred_list[j, n_miss_feat]
+        final_fdr_nn_pred = final_fdr_nn_pred.reshape(-1,1)
+        temp_Predictions['FDR-NN'] = final_fdr_nn_pred.reshape(-1)
+
+        #### FDR-Lin-NN
+        fdr_lin_nn_pred_list = []
+        for i, k in enumerate(K_parameter):
+            
+            fdr_lin_nn_pred = FDR_Lin_NN_models[i].predict(miss_X_zero.values, final_mask_ind).reshape(-1,1)
+            fdr_lin_nn_pred = projection(fdr_lin_nn_pred)
+                
+            fdr_lin_nn_pred_list.append(fdr_lin_nn_pred.reshape(-1))
+
+        fdr_lin_nn_pred_list = np.array(fdr_lin_nn_pred_list).T
+        
+        # Use only the model with the appropriate K
+        final_fdr_lin_nn_pred = fdr_lin_nn_pred_list[:,0]
+        if (perc>0)or(config['pattern']=='MNAR'):
+            for j, ind in enumerate(mask_ind):
+                n_miss_feat = miss_X.isna().values[j].sum()
+                final_fdr_lin_nn_pred[j] = fdr_lin_nn_pred_list[j, n_miss_feat]
+        final_fdr_lin_nn_pred = final_fdr_lin_nn_pred.reshape(-1,1)
+        temp_Predictions['FDR-Lin-NN'] = final_fdr_lin_nn_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS
-        
         fin_LAD_pred = fin_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
         fin_LAD_pred = projection(fin_LAD_pred)
         temp_Predictions['FinAd-LAD'] = fin_LAD_pred.reshape(-1)
 
-        fin_LS_pred = fin_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        fin_LS_pred = projection(fin_LS_pred)
-        temp_Predictions['FinAd-LS'] = fin_LS_pred.reshape(-1)
-        
-        
-        # fin_retrain_pred = fin_retrain_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # fin_retrain_pred = projection(fin_retrain_pred)
-        # temp_scale_Predictions['FinAd-LAD'] = fin_retrain_pred.reshape(-1)
+        #### FINITE-RETRAIN-LAD and LS
+        fin_NN_pred = fin_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        fin_NN_pred = projection(fin_NN_pred)
+        temp_Predictions['FinAd-NN'] = fin_NN_pred.reshape(-1)
 
-        abs_error = np.abs(fin_LS_pred.reshape(-1,1)-Target.values)
-        leaf_ind_ = fin_LS_model.apply(miss_X_zero.values, miss_X.isna().values.astype(int))
+        #### FINITE-RETRAIN-LAD and LS
+        for number_splits in Max_number_splits:
+            
+            fin_LS_pred = fin_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            fin_LS_pred = projection(fin_LS_pred)
+            temp_Predictions[f'FinAd-LS-{number_splits}'] = fin_LS_pred.reshape(-1)
 
-        # if config['scale']:
-        #     temp_Predictions = 
-        #     fin_retrain_pred = target_scaler.inverse_transform(fin_retrain_pred)            
-        # fin_retrain_mae = eval_predictions(fin_retrain_pred.reshape(-1,1), Target.values, metric=error_metric)
+        # fin_LS_pred = fin_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        # fin_LS_pred = projection(fin_LS_pred)
+        # temp_Predictions['FinAd-LS'] = fin_LS_pred.reshape(-1)
         
         for m in models:
             temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
@@ -1017,15 +1149,16 @@ models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$',
                     'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
                     'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$','FDRR-R':'$\mathtt{FDR-LS}$',
                     'LinAdj-FDR':'$\mathtt{FDR-Lin-LS}$',
-                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS':'$\mathtt{FinAd-LS}$'}
+                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS-10':'$\mathtt{FinAd-LS}$', 
+                    'FinAd-LS-25':'$\mathtt{FinAd-LS}$', 'FinAd-LS-5':'$\mathtt{FinAd-LS}$', 
+                    'FDR-NN':'FDR-NN'}
 
  
 color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
-models_to_plot = models
-models_to_plot = ['LS', 'LAD','NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD', 'FinAd-LS']
+# models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
+models_to_plot = ['LS', 'LAD','NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD', 'FinAd-LS-10', 'FinAd-NN', 'FDR-NN', 'FDR-Lin-NN']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))
@@ -1039,46 +1172,43 @@ fig, ax = plt.subplots(constrained_layout = True)
 temp_df = mae_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
 std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
 
-for i, m in enumerate(models):    
-    if m not in models_to_plot: continue
-    else:
-        y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
-        x_val = temp_df['percentage'].unique().astype(float)
-        #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
-        plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
-                 label = models_to_labels[m], color = colors[i], marker = marker[i])
-        #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
-        #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
+for i, m in enumerate(models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+    x_val = temp_df['percentage'].unique().astype(float)
+    #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+             label = m, color = colors[i], marker = marker[i])
+    #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
+    #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
 plt.legend()
 plt.ylabel('MAE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-plt.savefig(f'{cd}//plots//{target_park}_MAE.pdf')
+# plt.savefig(f'{cd}//plots//{target_park}_MAE.pdf')
 plt.show()
-
+#%%
 
 fig, ax = plt.subplots(constrained_layout = True)
 
 temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
 std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
 
-for i, m in enumerate(models):    
-    if m not in models_to_plot: continue
-    else:
-        y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
-        x_val = temp_df['percentage'].unique().astype(float)
-        #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
-        plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
-                 label = models_to_labels[m], color = colors[i], marker = marker[i])
-        #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
-        #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
+for i, m in enumerate(models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+    x_val = temp_df['percentage'].unique().astype(float)
+    #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+             label = m, color = colors[i], marker = marker[i])
+    #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
+    #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
+    
 plt.legend()
 plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-plt.savefig(f'{cd}//plots//{target_park}_RMSE.pdf')
+# plt.savefig(f'{cd}//plots//{target_park}_RMSE.pdf')
 plt.show()
 
 #%% Plot for a single method
