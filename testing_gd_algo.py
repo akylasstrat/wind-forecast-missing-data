@@ -189,7 +189,7 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1257'
+target_park = 'p_1088'
 
 # number of lags back to consider
 min_lag = config['min_lag']
@@ -370,14 +370,14 @@ for K in [6]:
 #%%
     v2_adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                               target_col = target_col, fix_col = fix_col, projection = False, 
-                              Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+                              Gamma = K, train_adversarially = True, budget_constraint = 'inequality')
     
     optimizer = torch.optim.Adam(v2_adj_fdr_model.parameters(), lr = 1e-3)
     # initialize weights with nominal model (Does not affect solution much)
     v2_adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
         
     v2_adj_fdr_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                          patience = patience, verbose = 0, attack_type = 'greedy')
+                          patience = patience, verbose = 0, attack_type = 'greedy', freeze_weights = True)
 
     v2_adj_fdr_pred = v2_adj_fdr_model.predict(tensor_testPred, test_alpha, project = True)
     
@@ -398,13 +398,13 @@ for K in [6]:
     plt.plot(ineq_fdr.coef_, label = 'Minimax')
     plt.legend()
     plt.show()
-    
+    #%%
     iter_ = 200
     ave_loss = np.zeros((iter_, 4))
     
     for i in range(iter_):
         K_temp = np.random.choice(np.arange(1, K+1))
-        # K_temp = K
+        K_temp = K
         feat = np.random.choice(target_col, size = K_temp, replace = False)
         a = np.zeros((testPred.shape))
         a[:,feat] = 1
@@ -427,7 +427,7 @@ for K in [6]:
     
     print(ave_loss.mean(0))
     
-    plt.hist(ave_loss, bins = 20)
+    plt.hist(ave_loss, bins = 10)
     plt.legend(['Static', 'Linear', 'MiniMax', 'v2-Linear'])
     plt.show()
 

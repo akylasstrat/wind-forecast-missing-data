@@ -484,7 +484,7 @@ class gd_FDRR(nn.Module):
                  projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
         super(gd_FDRR, self).__init__()
         """
-        Feature deletion robust regression with gradient-based algorithm
+        Feature deletion robust regression, gradient-based training algorithm
         Args:
             input_size, hidden_sizes, output_size: standard arguments for declaring an MLP 
             sigmoid_activation: enable sigmoid function as a final layer, to ensure output is in [0,1]
@@ -589,8 +589,15 @@ class gd_FDRR(nn.Module):
             return alpha.detach()
         
     def missing_data_attack(self, X, y, gamma = 1, perc = 0.1):
-        """ Construct adversarial missing data examples on X, returns a vector of x*(1-a)
-            if a_j == 1: x_j is missing"""
+        """ Heuristic for fast adversarial examples of missing data on X. 
+            Missing data is modeled as X*(1-alpha), if if alpha_j == 1, then x_j is missing.
+            Finds binary vector alpha with greedy search.
+            Args:
+                X: features
+                y: target
+                gamma: budget of uncertainty
+                self: model
+            Returns: alpha which has same shape as X"""
         
         # estimate nominal loss (no missing data)
         y_hat = self.forward(X)
