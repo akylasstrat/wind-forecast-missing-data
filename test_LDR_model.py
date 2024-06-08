@@ -418,7 +418,7 @@ config['save'] = False
 
 if config['train']:
     
-    LDR_model = Piecewise_LDR_Adaptation(target_col = target_col, fix_col = fix_col, Max_splits = 5, D = 1_000, red_threshold = 1e-5, 
+    LDR_model = Piecewise_LDR_Adaptation(target_col = target_col, fix_col = fix_col, Max_splits = 10, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
