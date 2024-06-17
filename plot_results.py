@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -221,7 +221,8 @@ else:
 
 target_park = 'p_1088'
 pattern = 'MCAR'
-config['save'] = False
+config['save'] = True
+min_lag = 4
 
 mae_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv', index_col = 0)
@@ -242,9 +243,9 @@ print((100*mae_df.query('percentage == 0.00')[models].mean()).round(2))
 models_to_plot = ['LS', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LS-10']
 
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
-                    'FDRR-R':'$\mathtt{FA(const, fixed)-LS}$',
-                    'LinAdj-FDR':'$\mathtt{FA(lin, fixed)-LS}$',
-                    'FinAd-LS-10':'$\mathtt{FA(lin, greedy)-LS}$'}
+                    'FDRR-R':'$\mathtt{FA(fixed)-LS}$',
+                    'LinAdj-FDR':'$\mathtt{FA(fixed)-LS}$',
+                    'FinAd-LS-10':'$\mathtt{FLA(greedy)-LS}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -259,11 +260,11 @@ line_style = ['--' '-', '-', '-']
 
 fig, ax = plt.subplots(constrained_layout = True)
 
-x_val = temp_df['percentage'].unique().astype(float)
 
 
 temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
 std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
+x_val = temp_df['percentage'].unique().astype(float)
 
 # plt.fill_between(x_val, y1, y2=0, where=None, interpolate=False, step=None, *, data=None, **kwargs)
 
@@ -282,9 +283,9 @@ plt.legend()
 plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $p_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
-plt.ylim([9.9, 12.75])
+# plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{target_park}_LS_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_LS_RMSE.pdf')
 plt.show()
 
 
@@ -332,9 +333,9 @@ plt.legend()
 plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $p_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
-plt.ylim([9.9, 12.75])
+# plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{target_park}_sensitivity_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_sensitivity_RMSE.pdf')
 plt.show()
 
 #%% NN performance degradation
@@ -343,11 +344,11 @@ models_to_plot = ['NN', 'FDR-NN', 'FDR-Lin-NN', 'FinAd-NN']
 
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'NN':'$\mathtt{Imp-NN}$', 
                     'FDRR-R':'$\mathtt{FA(const, fixed)-LS}$',
-                    'LinAdj-FDR':'$\mathtt{FA(lin, fixed)-LS}$',
-                    'FinAd-LS-10':'$\mathtt{FA(lin, greedy)-LS}$', 
-                    'FinAd-NN':'$\mathtt{FA(lin, greedy)-NN}$', 
-                    'FDR-NN':'$\mathtt{FA(const, fixed)-NN}$', 
-                    'FDR-Lin-NN':'$\mathtt{FA(lin, fixed)-NN}$'}
+                    'LinAdj-FDR':'$\mathtt{FA(fixed)-LS}$',
+                    'FinAd-LS-10':'$\mathtt{FLA(lgreedy)-LS}$', 
+                    'FinAd-NN':'$\mathtt{FLA(greedy)-NN}$', 
+                    'FDR-NN':'$\mathtt{FA(fixed)-NN}$', 
+                    'FDR-Lin-NN':'$\mathtt{FLA(fixed)-NN}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -385,9 +386,9 @@ plt.legend()
 plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $p_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
-plt.ylim([9.9, 12.75])
+# plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
-if config['save']: plt.savefig(f'{cd}//plots//{target_park}_NN_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_NN_RMSE.pdf')
 plt.show()
 
 print(100*temp_df.groupby(['percentage'])[['NN', 'FinAd-NN']].mean())

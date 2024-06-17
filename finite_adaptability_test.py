@@ -136,8 +136,6 @@ def params():
     ''' Set up the experiment parameters'''
     params = {}
     params['scale'] = False
-    params['train'] = False # If True, then train models, else tries to load previous runs
-    params['save'] = False # If True, then saves models and results
     params['K value'] = 5 #Define budget of uncertainty value
     params['impute'] = True # If True, apply mean imputation for missing features
     params['cap'] = False # If True, apply dual constraints for capacity (NOT YET IMPLEMENTED)
@@ -163,6 +161,11 @@ def params():
     params['pattern'] = 'MCAR'
     params['retrain'] = False
     
+    params['min_lag'] = 1
+    # last known measure value, defined lookahed horizon (min_lag == 2, 1-hour ahead predictions with 30min data)
+    params['train'] = True # If True, then train models, else tries to load previous runs
+    params['save'] = True # If True, then saves models and results
+    
     return params
 
 #%% Load data at turbine level, aggregate to park level
@@ -186,7 +189,7 @@ target_park = 'p_1088'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 2
+# config['min_lag'] = 4
 config['max_lag'] = 2 + config['min_lag']
 
 min_lag = config['min_lag']
@@ -357,6 +360,23 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show()
 
+
+if config['save']:
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
+        pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_LAD.pickle', 'wb') as handle:
+        pickle.dump(lad, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_Ridge.pickle', 'wb') as handle:
+        pickle.dump(ridge, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_Lasso.pickle', 'wb') as handle:
+        pickle.dump(lasso, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_MLP.pickle', 'wb') as handle:
+        pickle.dump(mlp_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 #%%%%%%%%% Adversarial Models
 
 target_pred = Predictors.columns
@@ -371,19 +391,20 @@ from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
 import pickle
 
-config['train'] = False
-config['save'] = False
+# config['train'] = False
+# config['save'] = False
 
 if config['train']:
     fin_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.05)
     fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                       budget = 'inequality', solution = 'reformulation')
     
-    with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
-        pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
+            pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 else:
-    with open(f'{cd}\\trained-models\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
             fin_LAD_model = pickle.load(handle)
 
 # plt.plot(np.array(fin_LAD_model.Loss))
@@ -409,8 +430,8 @@ num_epochs = 1000
 learning_rate = 1e-2
 patience = 15
 
-config['train'] = False
-config['save'] = False
+# config['train'] = True
+# config['save'] = True
 
 Max_number_splits = [1, 2, 5, 10, 25]
 fin_LS_models_dict = {}
@@ -429,17 +450,17 @@ if config['train']:
         fin_LS_models_dict[number_splits] = fin_LS_model
     
         if config['save']:
-            with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model_{number_splits}.pickle', 'wb') as handle:
+            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_model_{number_splits}.pickle', 'wb') as handle:
                 pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(f'{cd}\\trained-models\\{target_park}_fin_LS_models_dict.pickle', 'wb') as handle:
+            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'wb') as handle:
                 pickle.dump(fin_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
 else:
-    with open(f'{cd}\\trained-models\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
             fin_LS_model = pickle.load(handle)
 
-    with open(f'{cd}\\trained-models\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:
             fin_LS_models_dict = pickle.load(handle)
 
 #%%
@@ -486,8 +507,8 @@ num_epochs = 1000
 learning_rate = 1e-3
 patience = 25
 
-config['train'] = False
-config['save'] = False
+# config['train'] = True
+# config['save'] = True
 
 if config['train']:
             
@@ -500,10 +521,10 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{target_park}_fin_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_NN_model.pickle', 'wb') as handle:
             pickle.dump(fin_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 else:
-    with open(f'{cd}\\trained-models\\{target_park}_fin_NN_model.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_NN_model.pickle', 'rb') as handle:    
             fin_NN_model = pickle.load(handle)
 
 
@@ -523,7 +544,6 @@ fix_col = []
 K_parameter = np.arange(0, len(target_pred)+1)
 
 FDRR_AAR_models = []
-config['train'] = False
 
 # # config['save'] = True
 # if config['train']:
@@ -578,8 +598,8 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
-config['save'] = False
+# config['train'] = True
+# config['save'] = False
 
 if config['train']:
     for K in K_parameter:
@@ -624,11 +644,11 @@ if config['train']:
         plt.show()
 
     if config['save']:
-        with open(f'{cd}\\trained-models\\{target_park}_gd_FDRR_R_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_gd_FDRR_R_model.pickle', 'wb') as handle:
             pickle.dump(gd_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 else:    
-    with open(f'{cd}\\trained-models\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
             gd_FDRR_R_models = pickle.load(handle)
 
 
@@ -661,8 +681,8 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
-config['save'] = False
+# config['train'] = True
+# config['save'] = False
 
 if config['train']:
     for K in K_parameter:
@@ -692,11 +712,11 @@ if config['train']:
         ladj_FDRR_R_models.append(adj_fdr_model)
 
     if config['save']:
-        with open(f'{cd}\\trained-models\\{target_park}_ladj_FDRR_R_models.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_ladj_FDRR_R_models.pickle', 'wb') as handle:
             pickle.dump(ladj_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 else:    
-    with open(f'{cd}\\trained-models\\{target_park}_ladj_FDRR_R_models.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_ladj_FDRR_R_models.pickle', 'rb') as handle:    
             ladj_FDRR_R_models = pickle.load(handle)
             
 #% Retrain without missing features (Tawn, Browell)
@@ -734,8 +754,8 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
-config['save'] = False
+# config['train'] = False
+# config['save'] = False
 
 FDR_NN_models = []
 
@@ -774,11 +794,11 @@ if config['train']:
         
 
     if config['save']:
-        with open(f'{cd}\\trained-models\\{target_park}_FDR_NN_models.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_NN_models.pickle', 'wb') as handle:
             pickle.dump(FDR_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 else:    
-    with open(f'{cd}\\trained-models\\{target_park}_FDR_NN_models.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_NN_models.pickle', 'rb') as handle:    
             FDR_NN_models = pickle.load(handle)
 
 
@@ -797,8 +817,8 @@ FDR_Lin_NN_models = []
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = False
-config['save'] = False
+# config['train'] = True
+# config['save'] = False
 
 if config['train']:
     for K in K_parameter:
@@ -819,11 +839,11 @@ if config['train']:
         FDR_Lin_NN_models.append(fdr_lin_NN_model)
 
     if config['save']:
-        with open(f'{cd}\\trained-models\\{target_park}_FDR_Lin_NN_models.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'wb') as handle:
             pickle.dump(FDR_Lin_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 else:    
-    with open(f'{cd}\\trained-models\\{target_park}_FDR_Lin_NN_models.pickle', 'rb') as handle:    
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'rb') as handle:    
             FDR_Lin_NN_models = pickle.load(handle)
             
 #% Retrain without missing features (Tawn, Browell)
@@ -885,7 +905,7 @@ check_length.groupby('Missing').mean()
 
 config['pattern'] = 'MCAR'
 
-config['save'] = True
+# config['save'] = True
 
 for perc in percentage:
     if (config['pattern'] == 'MNAR')and(run_counter>1):
@@ -1140,7 +1160,6 @@ for perc in percentage:
 
 pattern = config['pattern']
 
-stop_here
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv')
     rmse_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv')
@@ -1192,6 +1211,7 @@ plt.show()
 #%%
 
 fig, ax = plt.subplots(constrained_layout = True)
+models_to_plot = ['LS','NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LS-10', 'FDR-NN', 'FDR-Lin-NN']
 
 temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
 std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
@@ -1254,6 +1274,6 @@ plt.ylabel('RMSE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
-plt.savefig(f'{cd}//plots//{target_park}_LS_RMSE.pdf')
+# plt.savefig(f'{cd}//plots//{target_park}_LS_RMSE.pdf')
 plt.show()
 
