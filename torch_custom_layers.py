@@ -44,6 +44,49 @@ def create_data_loader(inputs, batch_size, num_workers=0, shuffle=True):
     )
     return data_loader
 
+class Linear_Correction_Layer(nn.Module):
+    """ Custom Linear layer but mimics a standard linear layer """
+    def __init__(self, size_in, size_out):
+        super().__init__()
+        self.size_in, self.size_out = size_in, size_out
+        # Nominal weights
+        weight = torch.Tensor(size_out, size_in)
+        self.weight = torch.nn.Parameter(weight)  # nn.Parameter is a Tensor that's a module parameter.
+        bias = torch.Tensor(size_out)
+        self.bias = torch.nn.Parameter(bias)
+
+        # Linear Decision Rules
+        W = torch.zeros(size_in, size_in)
+        self.W = torch.nn.Parameter(W)  # nn.Parameter is a Tensor that's a module parameter.
+        
+        # initialize weights and biases
+        torch.nn.init.kaiming_uniform_(self.weight, a=torch.math.sqrt(5)) # weight init
+        fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
+        bound = 1 / torch.math.sqrt(fan_in)
+        nn.init.uniform_(self.bias, -bound, bound)  # bias init
+
+        torch.nn.init.kaiming_uniform_(self.W, a=torch.math.sqrt(5)) # weight init
+
+    def forward(self, x):
+        w_times_x= torch.mm(x, self.weight.t())
+        return torch.add(w_times_x, self.bias)  # w times x + b
+    
+    def correction_forward(self, x, a):
+        """
+        Forward pass
+        Args:
+            x: input tensors/ features
+            a: binaries for missing data
+        """        
+        # w_times_x= torch.mm(x*a, self.weights.t())
+        x_imp = x*(1-a)
+        # print( ((self.weights@x_imp.T).T + self.bias).shape )
+        # print( torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1).shape )
+        # print( (((self.weights@x_imp.T).T + self.bias) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1) ).shape)
+        
+        return ((self.weight@x_imp.T).T + self.bias) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)
+
+        # return ((self.weights@x_imp.T).T + self.bias).reshape(-1,1) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1).tile((self.weights.shape[0],)).reshape(-1,1)
 
 
 class MLP(nn.Module):        
@@ -1295,7 +1338,7 @@ class adjustable_FDR(nn.Module):
                         return    
         else:
             return
-
+        
 class v2_adjustable_FDR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
                  projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
@@ -1325,7 +1368,14 @@ class v2_adjustable_FDR(nn.Module):
         # create sequential model
         layer_sizes = [input_size] + hidden_sizes + [output_size]
         layers = []
+        
+        self.linear_correction_layer = Linear_Correction_Layer(layer_sizes[0], layer_sizes[1])
+        
+        if len(hidden_sizes) >0 :
+            layers.append(activation)
+            
         for i in range(len(layer_sizes) - 1):
+            if i == 0: continue
             layers.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
             if i < len(layer_sizes) - 2:
                 layers.append(activation)
@@ -1335,7 +1385,7 @@ class v2_adjustable_FDR(nn.Module):
             self.model.add_module('sigmoid', nn.Sigmoid())
             
         # correction coefficients
-        self.W = nn.Parameter(torch.FloatTensor(np.zeros((input_size, input_size))).requires_grad_())
+        # self.W = nn.Parameter(torch.FloatTensor(np.zeros((input_size, input_size))).requires_grad_())
         # self.w = nn.Parameter(torch.FloatTensor(np.zeros(input_size)).requires_grad_())
         # self.b = nn.Parameter(torch.FloatTensor(np.zeros((1))).requires_grad_())
                 
@@ -1422,19 +1472,24 @@ class v2_adjustable_FDR(nn.Module):
         Args:
             x: input tensors/ features
         """
-        
-        return self.model(x)
+        x_inter = self.linear_correction_layer.forward(x) 
+        return self.model(x_inter)
 
     def correction_forward(self, x, a):
         """
         Forward pass
         Args:
             x: input tensors/ features
+            a: binaries for missing data
         """
-        x_imp = x*(1-a)
-        self.model(x_imp)
-        return self.model(x_imp) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                              
-        
+        # x_imp = x*(1-a)
+        # return self.model(x_imp) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                              
+        x_inter = self.linear_correction_layer.correction_forward(x, a)  
+        # print('check')
+        # print(x_inter.shape)
+
+        return self.model(x_inter)
+
     
     def epoch_train(self, loader, opt=None):
         """Standard training/evaluation epoch over the dataset"""
@@ -1460,7 +1515,7 @@ class v2_adjustable_FDR(nn.Module):
     def adversarial_epoch_train(self, loader, opt=None, attack_type = 'greedy'):
         """Adversarial training/evaluation epoch over the dataset"""
         total_loss = 0.
-                            
+
         for X,y in loader:            
             #### Find adversarial example
 
@@ -1479,15 +1534,14 @@ class v2_adjustable_FDR(nn.Module):
                 alpha = self.l1_norm_attack(X,y) 
                 
             # forward pass plus correction
-            
-            # y_hat = self.forward(X*(1-alpha)) + torch.sum((self.W@alpha.T).T*(X*(1-alpha)), dim = 1).reshape(-1,1)
-            
-            # y_base = ((self.w@(X*(1-alpha)).T).T + self.b).reshape(-1,1)
             y_hat = self.correction_forward(X, alpha)
-
             loss_i = self.estimate_loss(y_hat, y)
             
-            
+            # Minimizing distance from nominal model (weights **must** be frozen, else it's degenerate)
+            # y_hat = self.correction_forward(X, alpha)
+            # y_nom = self.forward(X)
+            # loss_i = self.estimate_loss(y_hat, y_nom)
+
             loss = torch.mean(loss_i)
 
             if opt:
@@ -1501,7 +1555,7 @@ class v2_adjustable_FDR(nn.Module):
     
     def predict(self, X, alpha, project = True):
         # used for inference only
-        #!!!!!! X is zero-imputed 
+        #!!!!!! X is zero-imputed already but X*a = X, so there is no error (hopefully)
         if torch.is_tensor(X):
             temp_X = X
         else:
@@ -1527,6 +1581,122 @@ class v2_adjustable_FDR(nn.Module):
         loss_i = torch.sum(mse_i, 1)
         
         return loss_i
+
+    def sequential_train_model(self, train_loader, val_loader, 
+                               optimizer, epochs = 20, patience=5, verbose = 0, 
+                               freeze_weights = True, attack_type = 'greedy'):
+        """Sequential model training:
+            1. Train a nominal model.
+            2. Fix model parameters, adversarial training to learn linear decision rules."""
+
+        best_train_loss = float('inf')
+        best_val_loss = float('inf')
+        early_stopping_counter = 0
+        best_weights = copy.deepcopy(self.state_dict())
+        
+        print('Train model for nominal case')
+        
+        for epoch in range(epochs):
+            
+            average_train_loss = self.epoch_train(train_loader, optimizer)
+            val_loss = self.epoch_train(val_loader)
+
+            if (verbose != -1) and (epoch%25 == 0):
+                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_weights = copy.deepcopy(self.state_dict())
+                early_stopping_counter = 0
+            else:
+                early_stopping_counter += 1
+                if early_stopping_counter >= patience:
+                    print("Early stopping triggered.")
+                    # recover best weights
+                    self.load_state_dict(best_weights)
+                    break
+                
+        if self.train_adversarially:
+            
+            print('Freeze layer weights, start adversarial training')
+            if freeze_weights:
+                for layer in self.model.children():
+                    if isinstance(layer, nn.Linear):
+                        layer.weight.requires_grad = False
+                        layer.bias.requires_grad = False
+            
+            # print(self.model[0].weight)
+            # print(self.model[0].bias)
+                        
+            # initialize everthing
+            best_train_loss = float('inf')
+            best_val_loss = float('inf')
+            early_stopping_counter = 0
+            
+            # Find worst_case alpha
+            for epoch in range(epochs):
+                average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
+                val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
+    
+                if (verbose != -1)and(epoch%10 == 0):
+                    print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+                
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_weights = copy.deepcopy(self.state_dict())
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= patience:
+                        print("Early stopping triggered.")
+                        # recover best weights
+                        self.load_state_dict(best_weights)
+                        self.best_val_loss = best_val_loss
+                        return    
+        else:
+            return
+
+    def adversarial_train_model(self, train_loader, val_loader, 
+                               optimizer, epochs = 20, patience=5, verbose = 0, 
+                               freeze_weights = True, attack_type = 'greedy'):
+        ''' Adversarial training to learn linear decision rules.
+            Assumes pre-trained weights are passed to the nominal model, only used for speed-up'''
+        best_train_loss = float('inf')
+        best_val_loss = float('inf')
+        early_stopping_counter = 0
+        best_weights = copy.deepcopy(self.state_dict())
+                    
+        print('Freeze layer weights, start adversarial training')
+        if freeze_weights:
+            self.linear_correction_layer.weight.requires_grad = False
+            self.linear_correction_layer.bias.requires_grad = False
+            
+            for layer in self.model.children():
+                if isinstance(layer, nn.Linear):
+                    layer.weight.requires_grad = False
+                    layer.bias.requires_grad = False
+                                    
+        # Find worst_case alpha
+        for epoch in range(epochs):
+            average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)      
+            val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
+
+            if (verbose != -1)and(epoch%10 == 0):
+                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+            
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_weights = copy.deepcopy(self.state_dict())
+                early_stopping_counter = 0
+            else:
+                early_stopping_counter += 1
+                if early_stopping_counter >= patience:
+                    print("Early stopping triggered.")
+                    # recover best weights
+                    self.load_state_dict(best_weights)
+                    self.best_val_loss = best_val_loss
+                    return    
+
 
     def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False, 
                     attack_type = 'greedy'):
@@ -1576,7 +1746,7 @@ class v2_adjustable_FDR(nn.Module):
             
             for epoch in range(epochs):
                 average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
-                val_loss = self.adversarial_epoch_train(val_loader)
+                val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
     
                 if (verbose != -1)and(epoch%10 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
@@ -1594,4 +1764,3 @@ class v2_adjustable_FDR(nn.Module):
                         return    
         else:
             return
-        

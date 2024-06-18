@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Tue Jun 18 14:49:51 2024
+
+@author: astratig
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Finite adaptability
 
 @author: a.stratigakos
@@ -360,7 +367,6 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show()
 
-#%%
 if config['save']:
     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
         pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -407,10 +413,7 @@ else:
     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
             fin_LAD_model = pickle.load(handle)
 
-# plt.plot(np.array(fin_LAD_model.Loss))
-# plt.plot(np.array(fin_LAD_model.ineq_wc_Loss))
-# plt.plot(np.array(fin_LAD_model.eq_wc_Loss))
-# plt.show()
+
 #%% Finite Adaptability - Linear - LS base model
 
 from FiniteRetrain import *
@@ -463,26 +466,26 @@ else:
     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:
             fin_LS_models_dict = pickle.load(handle)
 
-#%%
-t = -4
-print(fin_LS_model.missing_pattern[t])
-print(fin_LS_model.fixed_features[t])
-print('Coef')
-print(fin_LS_model.node_model_[t].coef_[0].round(2))
 
-for layer in fin_LS_models_dict[5].wc_node_model_[t].model.children():        
-    if isinstance(layer, nn.Linear):    
-        plt.plot(layer.weight.data.detach().numpy().T, label = 'wc coeff')
-        w = layer.weight.data.detach().numpy()
-        print('WC Coeff')
-        print(layer.weight.data.detach().numpy().round(2))
+# t = -4
+# print(fin_LS_model.missing_pattern[t])
+# print(fin_LS_model.fixed_features[t])
+# print('Coef')
+# print(fin_LS_model.node_model_[t].coef_[0].round(2))
 
-    plt.plot(fin_LS_models_dict[5].node_model_[t].coef_[0],'--' , label = 'nominal case')
-    # plt.plot(lr.coef_.T)
-    plt.legend()
-    plt.show()
+# for layer in fin_LS_models_dict[5].wc_node_model_[t].model.children():        
+#     if isinstance(layer, nn.Linear):    
+#         plt.plot(layer.weight.data.detach().numpy().T, label = 'wc coeff')
+#         w = layer.weight.data.detach().numpy()
+#         print('WC Coeff')
+#         print(layer.weight.data.detach().numpy().round(2))
 
-W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
+#     plt.plot(fin_LS_models_dict[5].node_model_[t].coef_[0],'--' , label = 'nominal case')
+#     # plt.plot(lr.coef_.T)
+#     plt.legend()
+#     plt.show()
+
+# W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
 
 #%% Finitely Adaptive - Linear - NN
 
@@ -681,8 +684,8 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
-config['save'] = False
+# config['train'] = True
+# config['save'] = False
 
 if config['train']:
     for K in K_parameter:
@@ -701,14 +704,13 @@ if config['train']:
         optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
         
         # Warm-start using nominal model
-        # adj_fdr_model.linear_correction_layer.weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
-        # adj_fdr_model.linear_correction_layer.bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
-
         adj_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
         adj_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
+
+        # adj_fdr_model.load_state_dict(nominal_model.state_dict(), strict=False)
             
-        adj_fdr_model.adversarial_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, freeze_weights = False, attack_type = 'random_sample')
+        adj_fdr_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                              patience = patience, freeze_weights = True, attack_type = 'random_sample')
                     
         ladj_FDRR_R_models.append(adj_fdr_model)
 
@@ -825,8 +827,7 @@ if config['train']:
         print(f'Budget: {K}')
         # sample missing data to check how predictions are formed   
         torch.manual_seed(0)
-
-        fdr_lin_NN_model = v2_adjustable_FDR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
+        fdr_lin_NN_model = adjustable_FDR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
                           target_col = target_col, fix_col = fix_col, projection = False, 
                           Gamma = K, train_adversarially = True, budget_constraint = 'equality')
 
@@ -834,6 +835,7 @@ if config['train']:
         
         # Warm-start using nominal model
         fdr_lin_NN_model.load_state_dict(mlp_model.state_dict(), strict = False)
+
             
         fdr_lin_NN_model.linear_correction_layer.weight.data = mlp_model.model[0].weight.data.clone()
         fdr_lin_NN_model.linear_correction_layer.bias.data = mlp_model.model[0].bias.data.clone()
@@ -919,6 +921,7 @@ config['pattern'] = 'MCAR'
 
 # config['save'] = True
 
+#%%
 #########################################
 
 for perc in percentage:
@@ -1034,28 +1037,6 @@ for perc in percentage:
         final_fdr_nn_pred = final_fdr_nn_pred.reshape(-1,1)
         temp_Predictions['FDR-NN'] = final_fdr_nn_pred.reshape(-1)
 
-        #### Linearly Adjustable FDR (select the appropriate model for each case)
-        ladj_fdr_predictions = []
-        for i, k in enumerate(K_parameter):
-            
-            ladj_fdr_pred = ladj_FDRR_R_models[i].predict(miss_X_zero.values, final_mask_ind).reshape(-1,1)
-            # fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
-            ladj_fdr_pred = projection(ladj_fdr_pred)
-                
-            ladj_fdr_predictions.append(ladj_fdr_pred.reshape(-1))
-
-        ladj_fdr_predictions = np.array(ladj_fdr_predictions).T
-        
-        # Use only the model with the appropriate K
-        final_ladj_fdr_pred = ladj_fdr_predictions[:,0]
-        if (perc>0)or(config['pattern']=='MNAR'):
-            for j, ind in enumerate(mask_ind):
-                n_miss_feat = miss_X.isna().values[j].sum()
-                final_ladj_fdr_pred[j] = ladj_fdr_predictions[j, n_miss_feat]
-        final_ladj_fdr_pred = final_ladj_fdr_pred.reshape(-1,1)
-        
-        temp_Predictions['LinAdj-FDR'] = final_ladj_fdr_pred.reshape(-1)
-
         #### FDR-Lin-NN
         fdr_lin_nn_pred_list = []
         for i, k in enumerate(K_parameter):
@@ -1106,7 +1087,7 @@ color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
 # models_to_plot = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'FinAd-LAD', 'FinAd-LS']
-models_to_plot = ['NN', 'FDR-NN', 'LinAdj-FDR']
+models_to_plot = ['NN', 'FDR-NN', 'FDR-Lin-NN']
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
 ls_colors = plt.cm.tab20c( list(np.arange(3)))
@@ -1117,7 +1098,7 @@ colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors)
 
 fig, ax = plt.subplots(constrained_layout = True)
 
-temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+temp_df = mae_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
 std_bar = temp_df.groupby(['percentage'])[models_to_plot].std()
 
 for i, m in enumerate(models_to_plot):    
@@ -1129,7 +1110,7 @@ for i, m in enumerate(models_to_plot):
     #plt.fill_between(temp_df['percentage'].unique().astype(float), y_val-100*std_bar[m], 
     #                 y_val+100*std_bar[m], alpha = 0.1, color = color_list[i])    
 plt.legend()
-plt.ylabel('RMSE (%)')
+plt.ylabel('MAE (%)')
 plt.xlabel('Probability of failure $P_{0,1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=2, fontsize = 6)
