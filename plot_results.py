@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -221,8 +221,8 @@ else:
 
 target_park = 'p_1088'
 pattern = 'MCAR'
-config['save'] = True
-min_lag = 4
+config['save'] = False
+min_lag = 1
 
 mae_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv', index_col = 0)
@@ -392,6 +392,7 @@ if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_NN_R
 plt.show()
 
 print(100*temp_df.groupby(['percentage'])[['NN', 'FinAd-NN']].mean())
+
 #%%
 # percentage improvement
 print(100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[['FinAd-NN']].mean().values)/ temp_df.groupby(['percentage'])[['NN']].mean())

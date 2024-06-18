@@ -171,8 +171,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -360,7 +360,7 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show()
 
-
+#%%
 if config['save']:
     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
         pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -457,8 +457,8 @@ if config['train']:
                 pickle.dump(fin_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
 else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
-            fin_LS_model = pickle.load(handle)
+    # with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
+    #         fin_LS_model = pickle.load(handle)
 
     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:
             fin_LS_models_dict = pickle.load(handle)
@@ -507,8 +507,8 @@ num_epochs = 1000
 learning_rate = 1e-3
 patience = 25
 
-# config['train'] = True
-# config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:
             
@@ -754,17 +754,16 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-# config['train'] = False
-# config['save'] = False
+config['train'] = True
+config['save'] = True
 
 FDR_NN_models = []
-
-torch.manual_seed(0)
 
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
         
+        torch.manual_seed(0)        
         # sample missing data to check how predictions are formed
         feat = np.random.choice(target_col, size = K, replace = False)
         a = np.zeros((1,trainPred.shape[1]))
@@ -784,8 +783,8 @@ if config['train']:
         else:
             fdr_nn_model.load_state_dict(FDR_NN_models[-1].state_dict(), strict=False)
         
-        fdr_nn_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+            fdr_nn_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+                                  patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
     
         fdr_nn_pred = fdr_nn_model.predict(testPred.values, project = True)
         FDR_NN_models.append(fdr_nn_model)
@@ -817,13 +816,14 @@ FDR_Lin_NN_models = []
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-# config['train'] = True
-# config['save'] = False
+config['train'] = True
+config['save'] = True
 
 if config['train']:
     for K in K_parameter:
         print(f'Budget: {K}')
-        # sample missing data to check how predictions are formed        
+        # sample missing data to check how predictions are formed   
+        torch.manual_seed(0)
         fdr_lin_NN_model = adjustable_FDR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
                           target_col = target_col, fix_col = fix_col, projection = False, 
                           Gamma = K, train_adversarially = True, budget_constraint = 'equality')
@@ -833,11 +833,11 @@ if config['train']:
         # Warm-start using nominal model
         fdr_lin_NN_model.load_state_dict(mlp_model.state_dict(), strict = False)
             
-        fdr_lin_NN_model.sequential_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+        fdr_lin_NN_model.adversarial_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                               patience = patience, freeze_weights = True, attack_type = 'random_sample')
                     
         FDR_Lin_NN_models.append(fdr_lin_NN_model)
-
+        
     if config['save']:
         with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'wb') as handle:
             pickle.dump(FDR_Lin_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)

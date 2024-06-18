@@ -865,7 +865,7 @@ class gd_FDRR(nn.Module):
             
             for epoch in range(epochs):
                 average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
-                val_loss = self.adversarial_epoch_train(val_loader)
+                val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
     
                 if (verbose != -1)and(epoch%25 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
@@ -1018,6 +1018,7 @@ class adjustable_FDR(nn.Module):
         Forward pass
         Args:
             x: input tensors/ features
+            a: binaries for missing data
         """
         x_imp = x*(1-a)
         # return ((self.w@x_imp.T).T + self.b).reshape(-1,1) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                                      
@@ -1070,6 +1071,10 @@ class adjustable_FDR(nn.Module):
             y_hat = self.correction_forward(X, alpha)
             loss_i = self.estimate_loss(y_hat, y)
             
+            # Minimizing distance from nominal model (weights **must** be frozen, else it's degenerate)
+            # y_hat = self.correction_forward(X, alpha)
+            # y_nom = self.forward(X)
+            # loss_i = self.estimate_loss(y_hat, y_nom)
             
             loss = torch.mean(loss_i)
 
@@ -1084,7 +1089,7 @@ class adjustable_FDR(nn.Module):
     
     def predict(self, X, alpha, project = True):
         # used for inference only
-        #!!!!!! X is zero-imputed 
+        #!!!!!! X is zero-imputed already but X*a = X, so there is no error (hopefully)
         if torch.is_tensor(X):
             temp_X = X
         else:
@@ -1114,7 +1119,10 @@ class adjustable_FDR(nn.Module):
     def sequential_train_model(self, train_loader, val_loader, 
                                optimizer, epochs = 20, patience=5, verbose = 0, 
                                freeze_weights = True, attack_type = 'greedy'):
-        
+        """Sequential model training:
+            1. Train a nominal model.
+            2. Fix model parameters, adversarial training to learn linear decision rules."""
+
         best_train_loss = float('inf')
         best_val_loss = float('inf')
         early_stopping_counter = 0
@@ -1162,7 +1170,7 @@ class adjustable_FDR(nn.Module):
             # Find worst_case alpha
             for epoch in range(epochs):
                 average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
-                val_loss = self.adversarial_epoch_train(val_loader)
+                val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
     
                 if (verbose != -1)and(epoch%10 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
@@ -1181,6 +1189,44 @@ class adjustable_FDR(nn.Module):
                         return    
         else:
             return
+
+    def adversarial_train_model(self, train_loader, val_loader, 
+                               optimizer, epochs = 20, patience=5, verbose = 0, 
+                               freeze_weights = True, attack_type = 'greedy'):
+        ''' Adversarial training to learn linear decision rules.
+            Assumes pre-trained weights are passed to the nominal model, only used for speed-up'''
+        best_train_loss = float('inf')
+        best_val_loss = float('inf')
+        early_stopping_counter = 0
+        best_weights = copy.deepcopy(self.state_dict())
+                    
+        print('Freeze layer weights, start adversarial training')
+        if freeze_weights:
+            for layer in self.model.children():
+                if isinstance(layer, nn.Linear):
+                    layer.weight.requires_grad = False
+                    layer.bias.requires_grad = False
+                                    
+        # Find worst_case alpha
+        for epoch in range(epochs):
+            average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)      
+            val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
+
+            if (verbose != -1)and(epoch%10 == 0):
+                print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
+            
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_weights = copy.deepcopy(self.state_dict())
+                early_stopping_counter = 0
+            else:
+                early_stopping_counter += 1
+                if early_stopping_counter >= patience:
+                    print("Early stopping triggered.")
+                    # recover best weights
+                    self.load_state_dict(best_weights)
+                    self.best_val_loss = best_val_loss
+                    return    
 
 
     def train_model(self, train_loader, val_loader, optimizer, epochs = 20, patience=5, verbose = 0, warm_start = False, 
@@ -1231,7 +1277,7 @@ class adjustable_FDR(nn.Module):
             
             for epoch in range(epochs):
                 average_train_loss = self.adversarial_epoch_train(train_loader, optimizer, attack_type)                
-                val_loss = self.adversarial_epoch_train(val_loader)
+                val_loss = self.adversarial_epoch_train(val_loader, None, attack_type)
     
                 if (verbose != -1)and(epoch%10 == 0):
                     print(f"Epoch [{epoch + 1}/{epochs}] - Train Loss: {average_train_loss:.4f} - Val Loss: {val_loss:.4f}")
