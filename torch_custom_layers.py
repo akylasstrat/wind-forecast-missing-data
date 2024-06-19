@@ -1161,7 +1161,7 @@ class adjustable_FDR(nn.Module):
 
     def sequential_train_model(self, train_loader, val_loader, 
                                optimizer, epochs = 20, patience=5, verbose = 0, 
-                               freeze_weights = True, attack_type = 'greedy'):
+                               freeze_weights = False, attack_type = 'greedy'):
         """Sequential model training:
             1. Train a nominal model.
             2. Fix model parameters, adversarial training to learn linear decision rules."""
