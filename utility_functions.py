@@ -15,6 +15,42 @@ import itertools
 import random
 import gurobipy as gp
 
+def create_IDsupervised(target_col, df, min_lag, max_lag):
+    ''' Supervised learning set for ID forecasting with lags'''
+    #min_lag = 1
+    #max_lag = min_lag + 4 # 4 steps back
+    lead_time_name = '-' + target_col + '_t'+str(min_lag)
+    p_df = df.copy()
+
+    # Create supervised set
+    pred_col = []
+    for park in p_df.columns:
+        for lag in range(min_lag, max_lag):
+            p_df[park+'_'+str(lag)] = p_df[park].shift(lag)
+            pred_col.append(park+'_'+str(lag))
+    
+    Predictors = p_df[pred_col]
+    Y = p_df[target_col].to_frame()
+    
+    return Y, Predictors, pred_col
+
+def create_feat_matrix(df, min_lag, max_lag):
+    ''' Supervised learning set for ID forecasting with lags'''
+    #min_lag = 1
+    #max_lag = min_lag + 4 # 4 steps back
+    p_df = df.copy()
+
+    # Create supervised set
+    pred_col = []
+    for park in p_df.columns:
+        for lag in np.arange(min_lag, max_lag):
+            p_df[park+'_'+str(lag)] = p_df[park].shift(lag)
+            pred_col.append(park+'_'+str(lag))
+    
+    Predictors = p_df[pred_col]
+    return Predictors
+
+
 def projection(pred, ub = 1, lb = 0):
     'Projects to feasible set'
     pred[pred>ub] = ub

@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -221,11 +221,15 @@ else:
 
 target_park = 'p_1088'
 pattern = 'MCAR'
-config['save'] = False
+config['save'] = True
 min_lag = 4
+#%% Missing Not at Random
+mae_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
+rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
 
-mae_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv', index_col = 0)
-rmse_df = pd.read_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv', index_col = 0)
+#%%
+mae_df = pd.read_csv(f'{cd}\\results\\{target_park}_MCAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
+rmse_df = pd.read_csv(f'{cd}\\results\\{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
 
 #%%
 models = rmse_df.columns[:-2]
@@ -234,6 +238,27 @@ models = rmse_df.columns[:-2]
 
 print((100*rmse_df.query('percentage == 0.00')[models].mean()).round(2))
 print((100*mae_df.query('percentage == 0.00')[models].mean()).round(2))
+
+#%% NMAR Plots
+
+
+ls_models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
+nn_models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+fig, ax = plt.subplots(constrained_layout = True)
+plt.bar(np.arange(0, 5*0.25, 0.25), 100*rmse_df_nmar[ls_models_to_plot].mean(), width = 0.2, alpha = .3, 
+        yerr = 100*rmse_df_nmar[ls_models_to_plot].std())
+plt.xticks(np.arange(0, 5*0.25, 0.25), ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'], rotation = 45)
+
+plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].mean(), width = 0.2,
+        yerr = 100*rmse_df_nmar[nn_models_to_plot].std())
+
+plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
+           ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
+
+plt.ylim([7.5, 17.25])
+plt.show()
+
 
 #%% LS performance degradation
  
@@ -288,6 +313,8 @@ plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_LS_RMSE.pdf')
 plt.show()
+
+
 
 
 #%% LS - sensitivity
@@ -382,7 +409,7 @@ std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
 
 for i, m in enumerate(models_to_plot):    
     y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
-
+    y_val[0] = 100*temp_df.query(f'percentage==0')['NN'].mean()
     #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
     plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
              label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
