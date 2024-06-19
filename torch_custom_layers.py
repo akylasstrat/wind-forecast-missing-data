@@ -915,6 +915,7 @@ class gd_FDRR(nn.Module):
                 
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
+                    self.best_val_loss = best_val_loss
                     best_weights = copy.deepcopy(self.state_dict())
                     early_stopping_counter = 0
                 else:
@@ -923,6 +924,7 @@ class gd_FDRR(nn.Module):
                         print("Early stopping triggered.")
                         # recover best weights
                         self.load_state_dict(best_weights)
+                        self.best_val_loss = best_val_loss
                         return    
         else:
             return
@@ -1220,6 +1222,7 @@ class adjustable_FDR(nn.Module):
                 
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
+                    self.best_val_loss = best_val_loss
                     best_weights = copy.deepcopy(self.state_dict())
                     early_stopping_counter = 0
                 else:

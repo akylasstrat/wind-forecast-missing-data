@@ -171,8 +171,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -385,7 +385,7 @@ target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
 fix_col = []
 
 
-### Finite Adaptability - Fixed - LAD
+###### Finitely Adaptive - fixed partitions - LAD model
 from FiniteRetrain import *
 from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
@@ -397,23 +397,37 @@ import pickle
 config['train'] = False
 
 if config['train']:
-    fin_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.05)
-    fin_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
+    FA_greedy_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.05)
+    FA_greedy_LAD_model.fit(trainPred.values, trainY, target_col, fix_col, tree_grow_algo = 'leaf-wise', 
                       budget = 'inequality', solution = 'reformulation')
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'wb') as handle:
-            pickle.dump(fin_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'wb') as handle:
+            pickle.dump(FA_greedy_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
-            fin_LAD_model = pickle.load(handle)
+    try:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'rb') as handle:    
+                FA_greedy_LAD_model = pickle.load(handle)
+
+            
+    except:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
+                temp_model = pickle.load(handle)
+                
+        FA_greedy_LAD_model = temp_model
+
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'wb') as handle:
+            pickle.dump(FA_greedy_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
 
 # plt.plot(np.array(fin_LAD_model.Loss))
 # plt.plot(np.array(fin_LAD_model.ineq_wc_Loss))
 # plt.plot(np.array(fin_LAD_model.eq_wc_Loss))
 # plt.show()
-#%% Finite Adaptability - Linear - greedy partitions - LS base model
+
+#%%
+###### Finitely *Linearly* Adaptive - greedy partitions - LS model
 
 from FiniteRetrain import *
 from FiniteRobustRetrain import *
@@ -421,51 +435,56 @@ from finite_adaptability_model_functions import *
 from torch_custom_layers import *
 import pickle
 
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
-
-#optimizer = torch.optim.Adam(res_mlp_model.parameters())
 
 batch_size = 512
 num_epochs = 1000
 learning_rate = 1e-2
 patience = 15
 
-# config['train'] = True
-# config['save'] = True
-
 Max_number_splits = [1, 2, 5, 10, 25]
-fin_LS_models_dict = {}
+FA_lin_greedy_LS_models_dict = {}
 
 config['train'] = False
 
 if config['train']:
     
     for number_splits in Max_number_splits:
-        fin_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, D = 1_000, red_threshold = 1e-5, 
+        FA_lin_greedy_LS_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, D = 1_000, red_threshold = 1e-5, 
                                                     input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                     train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
         
-        fin_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+        FA_lin_greedy_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                               epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                               lr = 1e-3, batch_size = batch_size, weight_decay = 0)
     
-        fin_LS_models_dict[number_splits] = fin_LS_model
+        FA_lin_greedy_LS_models_dict[number_splits] = FA_lin_greedy_LS_model
     
         if config['save']:
-            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_model_{number_splits}.pickle', 'wb') as handle:
-                pickle.dump(fin_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_model_{number_splits}.pickle', 'wb') as handle:
+                pickle.dump(FA_lin_greedy_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'wb') as handle:
-                pickle.dump(fin_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            
+            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'wb') as handle:
+                pickle.dump(FA_lin_greedy_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    
+
 else:
     # with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_model.pickle', 'rb') as handle:    
     #         fin_LS_model = pickle.load(handle)
+    try:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+                FA_lin_greedy_LS_models_dict = pickle.load(handle)
+            
+    except:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:    
+                fin_LS_models_dict = pickle.load(handle)
+                
+        FA_lin_greedy_LS_models_dict = fin_LS_models_dict
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LS_models_dict.pickle', 'rb') as handle:
-            fin_LS_models_dict = pickle.load(handle)
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'wb') as handle:
+            pickle.dump(FA_lin_greedy_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
 
 #%%
 # t = -4
@@ -488,7 +507,86 @@ else:
 
 # W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
 
-#%% Finitely Adaptive - Linear - NN
+#%%###### Finitely Adaptive - greedy partitions - LS model
+
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+from torch_custom_layers import *
+import pickle
+
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+    FA_greedy_LS_model = FiniteAdapt_Greedy(target_col = target_col, fix_col = fix_col, Max_splits = 10, D = 1_000, red_threshold = 1e-5, 
+                                                input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
+    
+    FA_greedy_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
+    
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'wb') as handle:
+            pickle.dump(FA_greedy_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
+else:
+
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
+            FA_greedy_LS_model = pickle.load(handle)
+
+#%%
+###### Finitely Adaptive - Greedy partitions - NN model
+
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+from torch_custom_layers import *
+import pickle
+
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 25
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+    
+    FA_greedy_NN_model = FiniteAdapt_Greedy(target_col = target_col, fix_col = fix_col, Max_splits = 10, D = 1_000, red_threshold = 1e-5, 
+                                                input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
+    
+    FA_greedy_NN_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                          lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
+    
+    
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'wb') as handle:
+            pickle.dump(FA_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
+else:
+
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
+            FA_greedy_NN_model = pickle.load(handle)
+
+
+#%%
+###### Finitely *Linearly* Adaptive - learning partitions - NN model
 
 from FiniteRetrain import *
 from FiniteRobustRetrain import *
@@ -511,49 +609,49 @@ num_epochs = 1000
 learning_rate = 1e-3
 patience = 25
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
             
-    fin_NN_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
+    FA_lin_greedy_NN_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
                                                 input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
-    fin_NN_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+    FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                          lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_NN_model.pickle', 'wb') as handle:
-            pickle.dump(fin_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
+            pickle.dump(FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_NN_model.pickle', 'rb') as handle:    
-            fin_NN_model = pickle.load(handle)
+    try:
+        
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
+                FA_lin_greedy_NN_model = pickle.load(handle)
+    except:
+        
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_NN_model.pickle', 'rb') as handle:    
+                temp_model = pickle.load(handle)
+        FA_lin_greedy_NN_model = temp_model
 
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
+            pickle.dump(FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-#%% Finetely adaptive - Constant - fixed partitions -  LS model (approximates FDRR from previous work)
+#%% 
+###### Finetely Adaptive - Fixed partitions -  LS & NN model (approximates FDRR from previous work)
 # Train one model per each integer value in range [0, gamma]
 from torch_custom_layers import * 
+from finite_adaptability_model_functions import *
 
-case_folder = config['store_folder']
-output_file_name = f'{cd}\\{case_folder}\\trained-models\\{target_park}_fdrr-aar_{max_lag}.pickle'
+# case_folder = config['store_folder']
+# output_file_name = f'{cd}\\{case_folder}\\trained-models\\{target_park}_fdrr-aar_{max_lag}.pickle'
 
 target_pred = Predictors.columns
 fixed_pred = []
 target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
 fix_col = []
-
-K_parameter = np.arange(0, len(target_pred)+1)
-
-FDRR_AAR_models = []
-
-batch_size = 512
-num_epochs = 250
-learning_rate = 1e-2
-patience = 15
-
-gd_FDRR_R_models = []
 
 #!!!!! Fix validation set
 
@@ -573,273 +671,327 @@ valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], b
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
-config['train'] = True
-config['save'] = True
-
-if config['train']:
-    for K in K_parameter:
-        print(f'Budget: {K}')
-        
-        # sample missing data to check how predictions are formed
-        feat = np.random.choice(target_col, size = K, replace = False)
-        a = np.zeros((1,trainPred.shape[1]))
-        a[:,feat] = 1
-        test_alpha = torch.FloatTensor(a)
-        
-        gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                                  target_col = target_col, fix_col = fix_col, projection = False, 
-                                  Gamma = K, train_adversarially = True, budget_constraint = 'equality')
-        
-        optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
-    
-        # Warm-start: use nominal model or previous iteration
-        if K == 0:
-            gd_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
-            gd_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_)
-        else:
-            gd_fdr_model.load_state_dict(gd_FDRR_R_models[-1].state_dict(), strict=False)
-            
-        gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
-    
-        gd_fdr_pred = gd_fdr_model.predict(testPred.values, project = True)
-        gd_FDRR_R_models.append(gd_fdr_model)
-        
-        print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
-        
-        # plt.plot(gd_fdr_model.predict(tensor_testPred*(1-test_alpha))[:1000], label='GD')
-        # plt.plot(projection(gd_FDRR_R_models[K].predict(testPred.values*(1-a))[:1000]), label='Eq-MinMax')
-        # plt.legend()
-        # plt.show()
-
-        for layer in gd_fdr_model.model.children():
-            if isinstance(layer, nn.Linear):    
-                plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
-        plt.legend()
-        plt.show()
-
-    if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_gd_FDRR_R_model.pickle', 'wb') as handle:
-            pickle.dump(gd_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-else:    
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
-            gd_FDRR_R_models = pickle.load(handle)
-
-
-for j in [0, 1, 2, 3, 4]:
-    for layer in gd_FDRR_R_models[j].model.children():
-        if isinstance(layer, nn.Linear):    
-            plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
-# plt.legend()
-plt.show()
-
-
-#%% Finetely adaptive - Linear - fixed partitions -  LS model (extends FDRR from previous work)
-
-from torch_custom_layers import * 
+########## LS model
 
 batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 15
 
-ladj_FDRR_R_models = []
-
-#!!!!! Fix validation set
-
-### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
 config['train'] = True
 config['save'] = True
 
 if config['train']:
-    for K in K_parameter:
-        print(f'Budget: {K}')
-        
-        # sample missing data to check how predictions are formed
-        feat = np.random.choice(target_col, size = K, replace = False)
-        a = np.zeros((1,trainPred.shape[1]))
-        a[:,feat] = 1
-        test_alpha = torch.FloatTensor(a)
-        
-        adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = False, 
-                          Gamma = K, train_adversarially = True, budget_constraint = 'equality')
-
-        optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
-        
-        # Warm-start using nominal model
-        # adj_fdr_model.linear_correction_layer.weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
-        # adj_fdr_model.linear_correction_layer.bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
-
-        adj_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
-        adj_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
             
-        adj_fdr_model.adversarial_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, freeze_weights = False, attack_type = 'random_sample')
-                    
-        ladj_FDRR_R_models.append(adj_fdr_model)
-
-    if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_ladj_FDRR_R_models.pickle', 'wb') as handle:
-            pickle.dump(ladj_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-else:    
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_ladj_FDRR_R_models.pickle', 'rb') as handle:    
-            ladj_FDRR_R_models = pickle.load(handle)
-            
-#% Retrain without missing features (Tawn, Browell)
-
-# if config['retrain']:
-#     retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
-#                                                            target_col, fix_col, max(K_parameter), base_loss='l2')
-
-#%% FDR - gradient-based, **NN** model
-# Finetely adaptive - Constant - fixed partitions -  NN model (extends previous FDR to non-linear models)
-# Train one model per each integer value in range [0, gamma]
-from torch_custom_layers import * 
-
-batch_size = 512
-num_epochs = 250
-learning_rate = 1e-3
-patience = 25
-
-
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_valid_obs = int(0.15*len(trainY))
-
-tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
-tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
-tensor_testY = torch.FloatTensor(testY)
-
-tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
-tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
-tensor_testPred = torch.FloatTensor(testPred.values)
-
-### MLP model to predict wind from features
-train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
-valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-config['train'] = True
-config['save'] = True
-#%%
-FDR_NN_models = []
-
-if config['train']:
-    for K in K_parameter:
-        print(f'Budget: {K}')
-        
-        torch.manual_seed(0)        
-        # sample missing data to check how predictions are formed
-        feat = np.random.choice(target_col, size = K, replace = False)
-        a = np.zeros((1,trainPred.shape[1]))
-        a[:,feat] = 1
-        test_alpha = torch.FloatTensor(a)
-
-        
-        fdr_nn_model = gd_FDRR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
-                                  target_col = target_col, fix_col = fix_col, projection = False, 
-                                  Gamma = K, train_adversarially = True, budget_constraint = 'equality')
-        
-        optimizer = torch.optim.Adam(fdr_nn_model.parameters(), lr = 1e-3, weight_decay = 1e-5)
-
-        # Warm-start: use nominal model or previous iteration
-        if K == 0:
-            fdr_nn_model.load_state_dict(mlp_model.state_dict(), strict = False)
-        else:
-            fdr_nn_model.load_state_dict(FDR_NN_models[-1].state_dict(), strict=False)
-        
-            fdr_nn_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                                  patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+    FA_fixed_LS_model = FiniteAdapt_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [], 
+                                    output_size = n_outputs, projection = True, train_adversarially = True)
     
-        fdr_nn_pred = fdr_nn_model.predict(testPred.values, project = True)
-        FDR_NN_models.append(fdr_nn_model)
+    FA_fixed_LS_model.fit(trainPred.values, trainY, val_split = 0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
-        print('GD FDRR: ', eval_point_pred(fdr_nn_pred, Target.values, digits=4))
-        
-
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_NN_models.pickle', 'wb') as handle:
-            pickle.dump(FDR_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'wb') as handle:
+            pickle.dump(FA_fixed_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
+            FA_fixed_LS_model = pickle.load(handle)
 
-else:    
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_NN_models.pickle', 'rb') as handle:    
-            FDR_NN_models = pickle.load(handle)
+for j in [0, 1, 2, 3, 4]:
+    for layer in FA_fixed_LS_model.FDR_models[j].model.children():
+        if isinstance(layer, nn.Linear):    
+            plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+# plt.legend()
+plt.show()
 
-
-#%% Finetely adaptive - Linearly Adaptive - fixed partitions -  **NN** model
-# Train one model for each integer in range [0, gamma]
-
-from torch_custom_layers import * 
+########## NN model
 
 batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 25
-
-FDR_Lin_NN_models = []
-
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
+val_perc = 0.15
+decay = 1e-5
 
 config['train'] = True
 config['save'] = True
 
 if config['train']:
-    for K in K_parameter:
-        print(f'Budget: {K}')
-        # sample missing data to check how predictions are formed   
-        torch.manual_seed(0)
-
-        fdr_lin_NN_model = adjustable_FDR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
-                          target_col = target_col, fix_col = fix_col, projection = False, 
-                          Gamma = K, train_adversarially = True, budget_constraint = 'equality')
-
-        optimizer = torch.optim.Adam(fdr_lin_NN_model.parameters(), lr = 1e-3, weight_decay = 1e-5)
-        
-        # Warm-start using nominal model
-        fdr_lin_NN_model.load_state_dict(mlp_model.state_dict(), strict = False)
-
-        # fdr_lin_NN_model.linear_correction_layer.weight.data = mlp_model.model[0].weight.data.clone()
-        # fdr_lin_NN_model.linear_correction_layer.bias.data = mlp_model.model[0].bias.data.clone()
-        # for j in range(2, 3*2+2, 2):
-        #     fdr_lin_NN_model.model[j-1].weight.data = mlp_model.model[j].weight.data.clone()
-        #     fdr_lin_NN_model.model[j-1].bias.data = mlp_model.model[j].bias.data.clone()
-        
-        # if K == 0: 
-        #     FDR_Lin_NN_models.append(fdr_lin_NN_model)
-        #     continue
-
-        if K > 0:
-            fdr_lin_NN_model.adversarial_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                              patience = patience, freeze_weights = False, attack_type = 'random_sample')
-                    
-        FDR_Lin_NN_models.append(fdr_lin_NN_model)
+            
+    FA_fixed_NN_model = FiniteAdapt_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
+                                    output_size = n_outputs, projection = True, train_adversarially = True)
+    
+    FA_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                         lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'wb') as handle:
-            pickle.dump(FDR_Lin_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'wb') as handle:
+            pickle.dump(FA_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
+            FA_fixed_NN_model = pickle.load(handle)
 
-else:    
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'rb') as handle:    
-            FDR_Lin_NN_models = pickle.load(handle)
+# Finitely Adaptive - Linear - Fixed partitions
+
+from torch_custom_layers import * 
+from finite_adaptability_model_functions import *
+
+########## LS model
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+            
+    FA_lin_fixed_LS_model = FiniteAdapt_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [], 
+                                    output_size = n_outputs, projection = True, train_adversarially = True)
+    
+    FA_lin_fixed_LS_model.fit(trainPred.values, trainY, val_split = 0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 0)
+        
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'wb') as handle:
+            pickle.dump(FA_lin_fixed_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
+            FA_lin_fixed_LS_model = pickle.load(handle)
+
+########## NN model
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 25
+val_perc = 0.15
+decay = 1e-5
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+            
+    FA_lin_fixed_NN_model = FiniteAdapt_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
+                                    output_size = n_outputs, projection = True, train_adversarially = True)
+    
+    FA_lin_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                         lr = learning_rate, batch_size = batch_size, weight_decay = decay)
+        
+    if config['save']:
+        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'wb') as handle:
+            pickle.dump(FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+else:
+    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
+            FA_lin_fixed_NN_model = pickle.load(handle)
+#
+
+# if config['train']:
+#     for K in K_parameter:
+#         print(f'Budget: {K}')
+        
+#         # sample missing data to check how predictions are formed
+#         feat = np.random.choice(target_col, size = K, replace = False)
+#         a = np.zeros((1,trainPred.shape[1]))
+#         a[:,feat] = 1
+#         test_alpha = torch.FloatTensor(a)
+        
+#         gd_fdr_model = gd_FDRR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+#                                   target_col = target_col, fix_col = fix_col, projection = False, 
+#                                   Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+        
+#         optimizer = torch.optim.Adam(gd_fdr_model.parameters(), lr = 1e-3)
+    
+#         # Warm-start: use nominal model or previous iteration
+#         if K == 0:
+#             gd_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
+#             gd_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_)
+#         else:
+#             gd_fdr_model.load_state_dict(gd_FDRR_R_models[-1].state_dict(), strict=False)
+            
+#         gd_fdr_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+#                               patience = patience, verbose = 0, warm_start = False, attack_type = 'random_sample')
+    
+#         gd_fdr_pred = gd_fdr_model.predict(testPred.values, project = True)
+#         gd_FDRR_R_models.append(gd_fdr_model)
+        
+#         print('GD FDRR: ', eval_point_pred(gd_fdr_pred, Target.values, digits=4))
+        
+#         for layer in gd_fdr_model.model.children():
+#             if isinstance(layer, nn.Linear):    
+#                 plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+#         plt.legend()
+#         plt.show()
+
+#     if config['save']:
+#         with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_gd_FDRR_R_model.pickle', 'wb') as handle:
+#             pickle.dump(gd_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# else:    
+#     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_gd_FDRR_R_model.pickle', 'rb') as handle:    
+#             gd_FDRR_R_models = pickle.load(handle)
+
+# for j in [0, 1, 2, 3, 4]:
+#     for layer in gd_FDRR_R_models[j].model.children():
+#         if isinstance(layer, nn.Linear):    
+#             plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+# # plt.legend()
+# plt.show()
+
+#
+###### Finetely *Linearly* Adaptive - fixed partitions -  LS model (extends FDRR from previous work)
+
+# from torch_custom_layers import * 
+
+# batch_size = 512
+# num_epochs = 250
+# learning_rate = 1e-3
+# patience = 15
+
+# ladj_FDRR_R_models = []
+
+# #!!!!! Fix validation set
+
+# ### MLP model to predict wind from features
+# train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
+# valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
+
+# n_features = tensor_trainPred.shape[1]
+# n_outputs = tensor_trainY.shape[1]
+
+# config['train'] = False
+# config['save'] = True
+
+# if config['train']:
+#     for K in K_parameter:
+#         print(f'Budget: {K}')
+        
+#         # sample missing data to check how predictions are formed
+#         feat = np.random.choice(target_col, size = K, replace = False)
+#         a = np.zeros((1,trainPred.shape[1]))
+#         a[:,feat] = 1
+#         test_alpha = torch.FloatTensor(a)
+        
+#         adj_fdr_model = adjustable_FDR(input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+#                           target_col = target_col, fix_col = fix_col, projection = False, 
+#                           Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+
+#         optimizer = torch.optim.Adam(adj_fdr_model.parameters(), lr = 1e-3)
+        
+#         # Warm-start using nominal model
+#         # adj_fdr_model.linear_correction_layer.weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
+#         # adj_fdr_model.linear_correction_layer.bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
+
+#         adj_fdr_model.model[0].weight.data = torch.FloatTensor(lr.coef_[0].reshape(1,-1))
+#         adj_fdr_model.model[0].bias.data = torch.FloatTensor(lr.intercept_.reshape(1,-1))
+            
+#         adj_fdr_model.adversarial_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+#                               patience = patience, freeze_weights = False, attack_type = 'random_sample')
+                    
+#         ladj_FDRR_R_models.append(adj_fdr_model)
+
+#     if config['save']:
+#         with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_ladj_FDRR_R_models.pickle', 'wb') as handle:
+#             pickle.dump(ladj_FDRR_R_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# else:    
+#     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_ladj_FDRR_R_models.pickle', 'rb') as handle:    
+#             ladj_FDRR_R_models = pickle.load(handle)
             
 #% Retrain without missing features (Tawn, Browell)
 
 # if config['retrain']:
 #     retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
 #                                                            target_col, fix_col, max(K_parameter), base_loss='l2')
-#%% Testing: varying the number of missing observations/ persistence imputation
-from utility_functions import *
+
+#
+# ###### Finetely Adaptive - fixed partitions -  NN model (extends FDRR from previous work to non-linear models)
+
+# # Train one model per each integer value in range [0, gamma]
+# from torch_custom_layers import * 
+
+# # Standard MLPs (separate) forecasting wind production and dispatch decisions
+# n_valid_obs = int(0.15*len(trainY))
+
+# tensor_trainY = torch.FloatTensor(trainY[:-n_valid_obs])
+# tensor_validY = torch.FloatTensor(trainY[-n_valid_obs:])
+# tensor_testY = torch.FloatTensor(testY)
+
+# tensor_trainPred = torch.FloatTensor(trainPred.values[:-n_valid_obs])
+# tensor_validPred = torch.FloatTensor(trainPred.values[-n_valid_obs:])
+# tensor_testPred = torch.FloatTensor(testPred.values)
+
+# ### MLP model to predict wind from features
+# train_base_data_loader = create_data_loader([tensor_trainPred, tensor_trainY], batch_size = batch_size, shuffle = False)
+# valid_base_data_loader = create_data_loader([tensor_validPred, tensor_validY], batch_size = batch_size, shuffle = False)
+
+# n_features = tensor_trainPred.shape[1]
+# n_outputs = tensor_trainY.shape[1]
+
+# ###### Finetely *Linearly* Adaptive - fixed partitions -  NN model (extends FDRR from previous work)
+
+
+# from torch_custom_layers import * 
+
+# batch_size = 512
+# num_epochs = 250
+# learning_rate = 1e-3
+# patience = 25
+
+# FDR_Lin_NN_models = []
+
+# n_features = tensor_trainPred.shape[1]
+# n_outputs = tensor_trainY.shape[1]
+
+# config['train'] = False
+# config['save'] = True
+
+# if config['train']:
+#     for K in K_parameter:
+#         print(f'Budget: {K}')
+#         # sample missing data to check how predictions are formed   
+#         torch.manual_seed(0)
+
+#         fdr_lin_NN_model = adjustable_FDR(input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, 
+#                           target_col = target_col, fix_col = fix_col, projection = False, 
+#                           Gamma = K, train_adversarially = True, budget_constraint = 'equality')
+
+#         optimizer = torch.optim.Adam(fdr_lin_NN_model.parameters(), lr = 1e-3, weight_decay = 1e-5)
+        
+#         # Warm-start using nominal model
+#         fdr_lin_NN_model.load_state_dict(mlp_model.state_dict(), strict = False)
+
+#         # fdr_lin_NN_model.linear_correction_layer.weight.data = mlp_model.model[0].weight.data.clone()
+#         # fdr_lin_NN_model.linear_correction_layer.bias.data = mlp_model.model[0].bias.data.clone()
+#         # for j in range(2, 3*2+2, 2):
+#         #     fdr_lin_NN_model.model[j-1].weight.data = mlp_model.model[j].weight.data.clone()
+#         #     fdr_lin_NN_model.model[j-1].bias.data = mlp_model.model[j].bias.data.clone()
+        
+#         # if K == 0: 
+#         #     FDR_Lin_NN_models.append(fdr_lin_NN_model)
+#         #     continue
+
+#         if K > 0:
+#             fdr_lin_NN_model.adversarial_train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
+#                               patience = patience, freeze_weights = False, attack_type = 'random_sample')
+                    
+#         FDR_Lin_NN_models.append(fdr_lin_NN_model)
+        
+#     if config['save']:
+#         with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'wb') as handle:
+#             pickle.dump(FDR_Lin_NN_models, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# else:    
+#     with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FDR_Lin_NN_models.pickle', 'rb') as handle:    
+#             FDR_Lin_NN_models = pickle.load(handle)
+            
+#% Retrain without missing features (Tawn, Browell)
+
+# if config['retrain']:
+#     retrain_models, retrain_pred, retrain_comb = retrain_model(trainPred, trainY, testPred, 
+#                                                            target_col, fix_col, max(K_parameter), base_loss='l2')
+# Testing: varying the number of missing observations/ persistence imputation
 
 
 n_feat = len(target_col)
@@ -854,8 +1006,9 @@ percentage = [0, .001, .005, .01, .05, .1]
 # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
-models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LAD'] + [f'FinAd-LS-{n_splits}' for n_splits in Max_number_splits] \
-+ ['FinAd-NN', 'FDR-NN', 'FDR-Lin-NN']
+models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN'] \
+    +['FA-greedy-LAD', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS'] + [f'FA-lin-greedy-LS-{n_splits}' for n_splits in Max_number_splits] \
++ ['FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN','FA-lin-greedy-NN']
 
 models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
                     'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
@@ -962,6 +1115,8 @@ for perc in percentage:
                     imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
         
         
+        ############ Impute-then-Regress
+        
         #### Persistence
         pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
         temp_Predictions['Pers'] = pers_pred.reshape(-1)
@@ -973,54 +1128,22 @@ for perc in percentage:
         #### LS model
         lr_pred = projection(lr.predict(imp_X).reshape(-1,1))
         temp_Predictions['LS'] = lr_pred.reshape(-1)
-        
-        # if config['scale']:
-        #     lr_pred = target_scaler.inverse_transform(lr_pred)            
-        # lr_mae = eval_predictions(lr_pred.reshape(-1,1), Target.values, metric=error_metric)
-        
+                
         #### LASSO
         lasso_pred = projection(lasso.predict(imp_X).reshape(-1,1))
         temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
-
-        # if config['scale']:
-        #     lasso_pred = target_scaler.inverse_transform(lasso_pred)    
-        # lasso_mae = eval_predictions(lasso_pred, Target.values, metric= error_metric)
     
         #### RIDGE
         l2_pred = projection(ridge.predict(imp_X).reshape(-1,1))
         temp_Predictions['Ridge'] = l2_pred.reshape(-1)
-        
-        # if config['scale']:
-        #     l2_pred = target_scaler.inverse_transform(l2_pred)    
-        # l2_mae = eval_predictions(l2_pred, Target.values, metric= error_metric)
-    
+            
         #### LAD model
         lad_pred = projection(lad.predict(imp_X).reshape(-1,1))
         temp_Predictions['LAD'] = lad_pred.reshape(-1)
 
-        # if config['scale']:
-        #     lad_pred = target_scaler.inverse_transform(lad_pred)            
-        # lad_mae = eval_predictions(lad_pred.reshape(-1,1), Target.values, metric=error_metric)
-
-        #### LAD-l1 model
-        # lad_l1_pred = projection(lad_l1.predict(imp_X).reshape(-1,1))
-        # if config['scale']:
-        #     lad_l1_pred = target_scaler.inverse_transform(lad_l1_pred)            
-        # lad_l1_mae = eval_predictions(lad_l1_pred.reshape(-1,1), Target.values, metric=error_metric)
-        
         #### MLPimp
         mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
         temp_Predictions['NN'] = mlp_pred.reshape(-1)
-
-        # if config['scale']:
-        #     mlp_pred = target_scaler.inverse_transform(mlp_pred)    
-        # mlp_mae = eval_predictions(mlp_pred, Target.values, metric= error_metric)
-
-        #### Adversarial MLP
-        # res_mlp_pred = adj_fdr_model.predict(torch.FloatTensor(miss_X_zero.values), torch.FloatTensor(final_mask_ind)).reshape(-1,1)
-        # if config['scale']:
-        #     res_mlp_pred = target_scaler.inverse_transform(res_mlp_pred)    
-        # res_mlp_mae = eval_predictions(res_mlp_pred, Target.values, metric= error_metric)
         
         #### Finite Adaptability - Fixed Partition models: find which model to use
         # col_index = np.zeros(len(Target))
@@ -1031,106 +1154,122 @@ for perc in percentage:
                             
         #### FA models with fixed partitions
         #### FDRR-R (select the appropriate model for each case)
-        fdr_aar_predictions = []
-        for i, k in enumerate(K_parameter):
+        
+        ######### Adversarial Models
+        
+        #### Finite Adaptability - Fixed Partitions
+        
+        ## LS model
+        FA_fixed_LS_pred = FA_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
+        temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
+
+        ## NN model
+        FA_fixed_NN_pred = FA_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_fixed_NN_pred = projection(FA_fixed_NN_pred)
+        temp_Predictions['FA-fixed-NN'] = FA_fixed_NN_pred.reshape(-1)
+
+        # fdr_aar_predictions = []
+        # for i, k in enumerate(K_parameter):
             
-            fdr_pred = gd_FDRR_R_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
-            # fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
-            fdr_pred = projection(fdr_pred)
+        #     fdr_pred = gd_FDRR_R_models[i].predict(torch.FloatTensor(miss_X_zero.values)).reshape(-1,1)
+        #     # fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
+        #     fdr_pred = projection(fdr_pred)
                 
-            # Robust
-            # if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
-            fdr_aar_predictions.append(fdr_pred.reshape(-1))
-        fdr_aar_predictions = np.array(fdr_aar_predictions).T
+        #     # Robust
+        #     # if config['scale']: fdr_pred = target_scaler.inverse_transform(fdr_pred)
+        #     fdr_aar_predictions.append(fdr_pred.reshape(-1))
+        # fdr_aar_predictions = np.array(fdr_aar_predictions).T
         
-        # Use only the model with the appropriate K
-        final_fdr_aar_pred = fdr_aar_predictions[:,0]
-        if (perc>0)or(config['pattern']=='MNAR'):
-            for j, ind in enumerate(mask_ind):
-                n_miss_feat = miss_X.isna().values[j].sum()
-                final_fdr_aar_pred[j] = fdr_aar_predictions[j, n_miss_feat]
-        final_fdr_aar_pred = final_fdr_aar_pred.reshape(-1,1)
+        # # Use only the model with the appropriate K
+        # final_fdr_aar_pred = fdr_aar_predictions[:,0]
+        # if (perc>0)or(config['pattern']=='MNAR'):
+        #     for j, ind in enumerate(mask_ind):
+        #         n_miss_feat = miss_X.isna().values[j].sum()
+        #         final_fdr_aar_pred[j] = fdr_aar_predictions[j, n_miss_feat]
+        # final_fdr_aar_pred = final_fdr_aar_pred.reshape(-1,1)
                 
-        temp_Predictions['FDRR-R'] = final_fdr_aar_pred.reshape(-1)
+        # temp_Predictions['FDRR-R'] = final_fdr_aar_pred.reshape(-1)
 
-        #### Linearly Adjustable FDR (select the appropriate model for each case)
-        ladj_fdr_predictions = []
-        for i, k in enumerate(K_parameter):
+        #### Finite Adaptability - Linear - Fixed Partitions
+        ## LS model
+        FA_lin_fixed_LS_pred = FA_lin_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_fixed_LS_pred = projection(FA_lin_fixed_LS_pred)
+        temp_Predictions['FA-lin-fixed-LS'] = FA_lin_fixed_LS_pred.reshape(-1)
+
+        ## NN model
+        FA_lin_fixed_NN_pred = FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
+        temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
+
+        # #### Linearly Adjustable FDR (select the appropriate model for each case)
+        # ladj_fdr_predictions = []
+        # for i, k in enumerate(K_parameter):
             
-            ladj_fdr_pred = ladj_FDRR_R_models[i].predict(miss_X_zero.values, final_mask_ind).reshape(-1,1)
-            # fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
-            ladj_fdr_pred = projection(ladj_fdr_pred)
+        #     ladj_fdr_pred = ladj_FDRR_R_models[i].predict(miss_X_zero.values, final_mask_ind).reshape(-1,1)
+        #     # fdr_pred = FDRR_AAR_models[i].predict(miss_X_zero).reshape(-1,1)
+        #     ladj_fdr_pred = projection(ladj_fdr_pred)
                 
-            ladj_fdr_predictions.append(ladj_fdr_pred.reshape(-1))
+        #     ladj_fdr_predictions.append(ladj_fdr_pred.reshape(-1))
 
-        ladj_fdr_predictions = np.array(ladj_fdr_predictions).T
+        # ladj_fdr_predictions = np.array(ladj_fdr_predictions).T
         
-        # Use only the model with the appropriate K
-        final_ladj_fdr_pred = ladj_fdr_predictions[:,0]
-        if (perc>0)or(config['pattern']=='MNAR'):
-            for j, ind in enumerate(mask_ind):
-                n_miss_feat = miss_X.isna().values[j].sum()
-                final_ladj_fdr_pred[j] = ladj_fdr_predictions[j, n_miss_feat]
-        final_ladj_fdr_pred = final_ladj_fdr_pred.reshape(-1,1)
+        # # Use only the model with the appropriate K
+        # final_ladj_fdr_pred = ladj_fdr_predictions[:,0]
+        # if (perc>0)or(config['pattern']=='MNAR'):
+        #     for j, ind in enumerate(mask_ind):
+        #         n_miss_feat = miss_X.isna().values[j].sum()
+        #         final_ladj_fdr_pred[j] = ladj_fdr_predictions[j, n_miss_feat]
+        # final_ladj_fdr_pred = final_ladj_fdr_pred.reshape(-1,1)
         
-        temp_Predictions['LinAdj-FDR'] = final_ladj_fdr_pred.reshape(-1)
+        # temp_Predictions['FA-lin-fixed-LS'] = final_ladj_fdr_pred.reshape(-1)
 
-        #### FDR-NN
-        fdr_nn_pred_list = []
-        for i, k in enumerate(K_parameter):
+        # #### FDR-Lin-NN
+        # fdr_lin_nn_pred_list = []
+        # for i, k in enumerate(K_parameter):
             
-            fdr_nn_pred = FDR_NN_models[i].predict(miss_X_zero.values).reshape(-1,1)
-            fdr_nn_pred = projection(fdr_nn_pred)
+        #     fdr_lin_nn_pred = FDR_Lin_NN_models[i].predict(miss_X_zero.values, final_mask_ind).reshape(-1,1)
+        #     fdr_lin_nn_pred = projection(fdr_lin_nn_pred)
                 
-            fdr_nn_pred_list.append(fdr_nn_pred.reshape(-1))
+        #     fdr_lin_nn_pred_list.append(fdr_lin_nn_pred.reshape(-1))
 
-        fdr_nn_pred_list = np.array(fdr_nn_pred_list).T
+        # fdr_lin_nn_pred_list = np.array(fdr_lin_nn_pred_list).T
         
-        # Use only the model with the appropriate K
-        final_fdr_nn_pred = fdr_nn_pred_list[:,0]
-        if (perc>0)or(config['pattern']=='MNAR'):
-            for j, ind in enumerate(mask_ind):
-                n_miss_feat = miss_X.isna().values[j].sum()
-                final_fdr_nn_pred[j] = fdr_nn_pred_list[j, n_miss_feat]
-        final_fdr_nn_pred = final_fdr_nn_pred.reshape(-1,1)
-        temp_Predictions['FDR-NN'] = final_fdr_nn_pred.reshape(-1)
-
-        #### FDR-Lin-NN
-        fdr_lin_nn_pred_list = []
-        for i, k in enumerate(K_parameter):
-            
-            fdr_lin_nn_pred = FDR_Lin_NN_models[i].predict(miss_X_zero.values, final_mask_ind).reshape(-1,1)
-            fdr_lin_nn_pred = projection(fdr_lin_nn_pred)
-                
-            fdr_lin_nn_pred_list.append(fdr_lin_nn_pred.reshape(-1))
-
-        fdr_lin_nn_pred_list = np.array(fdr_lin_nn_pred_list).T
-        
-        # Use only the model with the appropriate K
-        final_fdr_lin_nn_pred = fdr_lin_nn_pred_list[:,0]
-        if (perc>0)or(config['pattern']=='MNAR'):
-            for j, ind in enumerate(mask_ind):
-                n_miss_feat = miss_X.isna().values[j].sum()
-                final_fdr_lin_nn_pred[j] = fdr_lin_nn_pred_list[j, n_miss_feat]
-        final_fdr_lin_nn_pred = final_fdr_lin_nn_pred.reshape(-1,1)
-        temp_Predictions['FDR-Lin-NN'] = final_fdr_lin_nn_pred.reshape(-1)
+        # # Use only the model with the appropriate K
+        # final_fdr_lin_nn_pred = fdr_lin_nn_pred_list[:,0]
+        # if (perc>0)or(config['pattern']=='MNAR'):
+        #     for j, ind in enumerate(mask_ind):
+        #         n_miss_feat = miss_X.isna().values[j].sum()
+        #         final_fdr_lin_nn_pred[j] = fdr_lin_nn_pred_list[j, n_miss_feat]
+        # final_fdr_lin_nn_pred = final_fdr_lin_nn_pred.reshape(-1,1)
+        # temp_Predictions['FA-lin-fixed-NN'] = final_fdr_lin_nn_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS
-        fin_LAD_pred = fin_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        fin_LAD_pred = projection(fin_LAD_pred)
-        temp_Predictions['FinAd-LAD'] = fin_LAD_pred.reshape(-1)
+        FA_greedy_LAD_pred = FA_greedy_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_greedy_LAD_pred = projection(FA_greedy_LAD_pred)
+        temp_Predictions['FA-greedy-LAD'] = FA_greedy_LAD_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS
-        fin_NN_pred = fin_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        fin_NN_pred = projection(fin_NN_pred)
-        temp_Predictions['FinAd-NN'] = fin_NN_pred.reshape(-1)
+        
+        FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
+        temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
+
+        #### FA-Fixed-LS and NN
+        FA_greedy_LS_pred = FA_greedy_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_greedy_LS_pred = projection(FA_greedy_LS_pred)
+        temp_Predictions['FA-greedy-LS'] = FA_greedy_LS_pred.reshape(-1)
+
+        FA_greedy_NN_pred = FA_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_greedy_NN_pred = projection(FA_greedy_NN_pred)
+        temp_Predictions['FA-greedy-NN'] = FA_greedy_NN_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS
         for number_splits in Max_number_splits:
             
-            fin_LS_pred = fin_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            fin_LS_pred = projection(fin_LS_pred)
-            temp_Predictions[f'FinAd-LS-{number_splits}'] = fin_LS_pred.reshape(-1)
+            FA_lin_greedy_LS_pred = FA_lin_greedy_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_lin_greedy_LS_pred = projection(FA_lin_greedy_LS_pred)
+            temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
 
         # fin_LS_pred = fin_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
         # fin_LS_pred = projection(fin_LS_pred)

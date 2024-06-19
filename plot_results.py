@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -240,12 +240,13 @@ print((100*mae_df.query('percentage == 0.00')[models].mean()).round(2))
 # color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
 #          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['LS', 'FDRR-R', 'LinAdj-FDR', 'FinAd-LS-10']
+models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
 
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
-                    'FDRR-R':'$\mathtt{FA(fixed)-LS}$',
-                    'LinAdj-FDR':'$\mathtt{FA(fixed)-LS}$',
-                    'FinAd-LS-10':'$\mathtt{FLA(greedy)-LS}$'}
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(greedy)-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(greedy)-LS}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -255,7 +256,7 @@ fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
 
 # colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
 
-colors = ['black', 'tab:blue', 'tab:orange', 'tab:green']
+colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
 line_style = ['--' '-', '-', '-']
 
 fig, ax = plt.subplots(constrained_layout = True)
@@ -292,10 +293,11 @@ plt.show()
 #%% LS - sensitivity
  
 
-models_to_plot = ['LS', 'FinAd-LS-1', 'FinAd-LS-5', 'FinAd-LS-10', 'FinAd-LS-25']
+models_to_plot = ['LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
+                  'FA-lin-greedy-LS-25']
 
-models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'FinAd-LS-1':'$Q=1$', 'FinAd-LS-5':'$Q=5$', 'FinAd-LS-10':'$Q=10$',
-                    'FinAd-LS-25':'$Q=25$'}
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'FA-lin-greedy-LS-1':'$Q=1$', 'FA-lin-greedy-LS-5':'$Q=5$', 'FA-lin-greedy-LS-10':'$Q=10$',
+                    'FA-lin-greedy-LS-25':'$Q=25$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -340,15 +342,19 @@ plt.show()
 
 #%% NN performance degradation
 
-models_to_plot = ['NN', 'FDR-NN', 'FDR-Lin-NN', 'FinAd-NN']
 
-models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'NN':'$\mathtt{Imp-NN}$', 
-                    'FDRR-R':'$\mathtt{FA(const, fixed)-LS}$',
-                    'LinAdj-FDR':'$\mathtt{FA(fixed)-LS}$',
-                    'FinAd-LS-10':'$\mathtt{FLA(lgreedy)-LS}$', 
-                    'FinAd-NN':'$\mathtt{FLA(greedy)-NN}$', 
-                    'FDR-NN':'$\mathtt{FA(fixed)-NN}$', 
-                    'FDR-Lin-NN':'$\mathtt{FLA(fixed)-NN}$'}
+models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(greedy)-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(greedy)-LS}$', 
+                    'FA-fixed-NN':'$\mathtt{FA(fixed)-NN}$', 
+                    'FA-greedy-NN':'$\mathtt{FA(greedy)-NN}$', 
+                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(greedy)-NN}$', 
+                    'NN':'$\mathtt{NN}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -358,7 +364,7 @@ fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
 
 # colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
 
-colors = ['black', 'tab:blue', 'tab:orange', 'tab:green']
+colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
 line_style = ['--' '-', '-', '-']
 
 fig, ax = plt.subplots(constrained_layout = True)
@@ -391,11 +397,11 @@ plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
 if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_NN_RMSE.pdf')
 plt.show()
 
-print(100*temp_df.groupby(['percentage'])[['NN', 'FinAd-NN']].mean())
-
 #%%
+print(100*temp_df.groupby(['percentage'])[['NN', 'FA-lin-greedy-NN']].mean())
+
 # percentage improvement
-print(100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[['FinAd-NN']].mean().values)/ temp_df.groupby(['percentage'])[['NN']].mean())
+print(100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[['FA-lin-greedy-NN']].mean().values)/ temp_df.groupby(['percentage'])[['NN']].mean())
 
 
 #%% Plotting
