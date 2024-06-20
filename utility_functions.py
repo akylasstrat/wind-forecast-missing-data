@@ -15,6 +15,51 @@ import itertools
 import random
 import gurobipy as gp
 
+def retrain_model(X, Y, testX, target_col, fix_col, Gamma, base_loss = 'l2'):
+    ''' Retrain model without missing features
+        returns a list models and corresponding list of missing features'''
+    # all combinations of missing features for up to Gamma features missing
+    combinations = [list(item) for sublist in [list(itertools.combinations(range(len(target_col)), gamma)) for gamma in range(1,Gamma+1)] for item in sublist]
+    # first instance is without missing features
+    print(f'Number of models: {len(combinations)}')
+    combinations.insert(0, [])
+    models = []
+    predictions = []
+    
+    # augment feature matrix with dummy variable to avoid infeasible solution when all features are missing
+    # !!!!! set fit_intercept = False in lr model.
+    
+    fix_col_bias = fix_col + [X.shape[1]]
+    augm_X = np.column_stack((X.copy(), np.ones(len(X))))
+    augm_testX = np.column_stack((testX.copy(), np.ones(len(testX))))
+
+    for i,v in enumerate(combinations):
+        
+        # find columns not missing 
+        #temp_col = [col for col in target_col if col not in v]
+        #temp_X = X[:,temp_col+fix_col]
+        #temp_test_X = testX[:,temp_col+fix_col]
+        
+        # find columns not missing 
+        temp_col = [col for col in target_col if col not in v]
+        temp_X = augm_X[:,temp_col+fix_col_bias]
+        temp_test_X = augm_testX[:,temp_col+fix_col_bias]
+
+        # retrain model without missing features
+        if base_loss == 'l2':
+            lr = LinearRegression(fit_intercept = True)
+            lr.fit(temp_X, Y)
+        elif base_loss == 'l1':
+            lr = QR_regressor()
+            lr.fit(temp_X, Y)
+            
+        models.append(lr)
+        predictions.append(lr.predict(temp_test_X).reshape(-1))
+    
+    predictions = np.array(predictions).T
+    
+    return models, predictions, combinations
+
 def create_IDsupervised(target_col, df, min_lag, max_lag):
     ''' Supervised learning set for ID forecasting with lags'''
     #min_lag = 1
@@ -87,10 +132,10 @@ def make_MNAR_chain(t_m, start_term, n, series):
         t_m_vary = t_m.copy()
         # the probability of going missing (first row) depends on the actual value of the series
         # first row varies with the values of the series
-        if (series[i]<=.85) and ((series[i]>=0.15)):
-            t_m_vary[0] = [.8, .2]
-        else:
+        if (series[i]<=.95) and (series[i]>=.025):
             t_m_vary[0] = [.999, .001]
+        else:
+            t_m_vary[0] = [.2, .8]
         # t_m_vary[0] = [1-series[i]**2, series[i]**2]
         #t_m_vary[0] = [0.9, 0.1]
         chain.append(get_next_term(t_m_vary[chain[-1]]))

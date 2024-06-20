@@ -2235,7 +2235,11 @@ class FiniteLinear_MLP(object):
     else:
         robust_mlp_model.load_state_dict(mlp_model.state_dict(), strict=False)
 
-    robust_mlp_model.sequential_train_model(train_data_loader, valid_data_loader, optimizer, 
+    # robust_mlp_model.sequential_train_model(train_data_loader, valid_data_loader, optimizer, 
+    #                       epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
+    #                       attack_type = self.gd_FDRR_params['attack_type'])
+
+    robust_mlp_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
                           attack_type = self.gd_FDRR_params['attack_type'])
     
@@ -2437,10 +2441,13 @@ class FiniteLinear_MLP(object):
 
             optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
-            left_robust_mlp_model.sequential_train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
+            # left_robust_mlp_model.sequential_train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
+            #                       epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
+            #                       attack_type = self.gd_FDRR_params['attack_type'])
+
+            left_robust_mlp_model.adversarial_train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
                                   attack_type = self.gd_FDRR_params['attack_type'])
-
             
             # Estimate WC loss and nominal loss
             left_insample_wcloss = left_robust_mlp_model.best_val_loss
@@ -2491,8 +2498,7 @@ class FiniteLinear_MLP(object):
 
             right_robust_mlp_model = adjustable_FDR(input_size = num_features, hidden_sizes = self.gd_FDRR_params['hidden_sizes'], output_size = self.gd_FDRR_params['output_size'], 
                                       target_col = right_target_cols, fix_col = right_fix_cols, projection = self.gd_FDRR_params['projection'], 
-                                      train_adversarially = True, 
-                                      Gamma = gamma_temp, budget_constraint = 'inequality')
+                                      train_adversarially = True, Gamma = gamma_temp, budget_constraint = 'inequality')
 
             # warm start base coeff
             if self.gd_FDRR_params['hidden_sizes'] == []:
@@ -2506,7 +2512,11 @@ class FiniteLinear_MLP(object):
             
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
-            right_robust_mlp_model.sequential_train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
+            # right_robust_mlp_model.sequential_train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
+            #                       epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
+            #                       attack_type = self.gd_FDRR_params['attack_type'])
+
+            right_robust_mlp_model.adversarial_train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
                                   attack_type = self.gd_FDRR_params['attack_type'])
 
@@ -2891,7 +2901,7 @@ class FiniteAdapt_Greedy(object):
                                               target_col = self.target_features[node], fix_col = self.fixed_features[node], projection = self.gd_FDRR_params['projection'], 
                                               train_adversarially = False)
     
-                    optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+                    optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
     
                     new_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
@@ -2969,7 +2979,7 @@ class FiniteAdapt_Greedy(object):
             else:
                 left_robust_mlp_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
 
-            optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+            optimizer = torch.optim.Adam(left_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
             
             left_robust_mlp_model.train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
@@ -3038,7 +3048,7 @@ class FiniteAdapt_Greedy(object):
             # right_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
             # right_robust_mlp_model.W.data = self.wc_node_model_[node].W.data
             
-            optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+            optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
             
             right_robust_mlp_model.train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
@@ -3401,7 +3411,8 @@ class FiniteAdapt_Linear_Fixed(object):
                                   target_col = self.target_col, fix_col = self.fix_col, projection = False, 
                                   Gamma = gamma, train_adversarially = True, budget_constraint = 'equality')
         
-        optimizer = torch.optim.Adam(temp_fdr_model.parameters(), lr = self.MLP_train_dict['lr'])
+        optimizer = torch.optim.Adam(temp_fdr_model.parameters(), lr = self.MLP_train_dict['lr'], 
+                                     weight_decay = self.MLP_train_dict['weight_decay'])
     
         # Warm-start: use nominal model or previous iteration
         if gamma == 0:            
@@ -3424,6 +3435,146 @@ class FiniteAdapt_Linear_Fixed(object):
             temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
                                        epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'],
                                        verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample')
+        
+            self.FDR_models.append(temp_fdr_model)
+                              
+  def predict(self, X, missing_mask):
+     ''' Function to predict using a trained tree. Trees are fully compiled, i.e., 
+     leaves correspond to predictive prescriptions 
+     '''
+     Predictions = []
+     for i in range(X.shape[0]): 
+         #New query point
+         x0 = X[i:i+1,:]
+         m0 = missing_mask[i:i+1,:]
+         # Total missing features in leaf
+         temp_total_missing_feat = m0.sum()
+         Predictions.append( self.FDR_models[temp_total_missing_feat].predict(x0, m0).reshape(-1))
+         
+     return np.array(Predictions).reshape(-1,1)
+
+class v2_FiniteAdapt_Linear_Fixed(object):
+  '''Finitely Adaptive Regression with Fixed Partitions at integer values/ approximates FDR from previous work
+      Wrapper function that calls adjustable_FDR models
+      
+  Paremeters:
+      target_col: columns that can go missing (list)
+      fix_col: columns that cannot go missing (list)
+      error_metric: can be removed and passed to inner model
+      **kwargs: keyword arguments to be passed to adjustable_FDR model
+      '''
+  def __init__(self, target_col, fix_col, error_metric = 'mse', **kwargs):
+      
+    self.Gamma_max = len(target_col)
+    self.error_metric = error_metric
+    
+    # initialize target and fixed features
+    self.target_col = np.array(target_col).copy().astype(int)
+    self.fix_col = np.array(fix_col).copy().astype(int)
+
+    # arguments for base learner
+    self.adjustable_FDR_params = kwargs
+
+  def fit(self, X, Y, val_split = 0.05, **kwargs):
+    ''' Fitting models.
+        Paremeters:
+            X: features
+            Y: Y target
+            val_split: percentage validation split (will be used for NNs)
+            **kwargs: keyword arguments to be passed for training (epochs, batch size, etc.)
+
+    '''
+
+    self.MLP_train_dict = kwargs
+    self.FDR_models = []
+    self.missing_feat_leaf = []
+    # keyword arguments for standard class object resilient_MLP
+    num_features = X.shape[1]    #Number of features
+    n_obs = len(Y)
+    
+    # Prepare supervised learning sets
+    ####### Create train/validation data loaders for torch modules
+    ### Train Nominal model (no missing data here)
+    n_valid_obs = int(val_split*len(Y))
+
+    if val_split == 0:    
+        trainY = Y
+        validY = Y        
+        train_temp_X = X
+        valid_temp_X = X   
+        
+    else:
+        trainY = Y[:-n_valid_obs]
+        validY = Y[-n_valid_obs:]
+
+        train_temp_X = X[:-n_valid_obs]
+        valid_temp_X = X[-n_valid_obs:]        
+
+    tensor_trainY = torch.FloatTensor(trainY)
+    tensor_validY = torch.FloatTensor(validY)
+        
+    tensor_train_X = torch.FloatTensor(train_temp_X)
+    tensor_valid_X = torch.FloatTensor(valid_temp_X)
+
+    train_data_loader = create_data_loader([tensor_train_X, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'], shuffle = False)        
+    valid_data_loader = create_data_loader([tensor_valid_X, tensor_validY], batch_size = self.MLP_train_dict['batch_size'], shuffle = False)
+    
+    # Train nominal model (no missing data)
+    print('Train nominal model')
+    
+    if self.adjustable_FDR_params['hidden_sizes'] == []:
+        # Train Linear Regression model
+        mlp_model = LinearRegression(fit_intercept = True)
+        mlp_model.fit(train_temp_X, trainY)
+    else:
+        # Train Neural Network model
+        mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
+                                  target_col = self.target_col, fix_col = self.fix_col, projection = self.adjustable_FDR_params['projection'], 
+                                  train_adversarially = False, budget_constraint = 'equality')
+        
+        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'], 
+                                     weight_decay = self.MLP_train_dict['weight_decay'])
+        mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+                              epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
+                              verbose = self.MLP_train_dict['verbose'])
+
+    
+    print('Start training robust models...')
+    
+    for gamma in np.arange(self.Gamma_max + 1):
+        self.missing_feat_leaf.append(gamma)
+        print(f'Budget: {gamma}')
+        
+        # Train robust model
+        temp_fdr_model = v2_adjustable_FDR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
+                                  target_col = self.target_col, fix_col = self.fix_col, projection = False, 
+                                  Gamma = gamma, train_adversarially = True, budget_constraint = 'equality')
+        
+        optimizer = torch.optim.Adam(temp_fdr_model.parameters(), lr = self.MLP_train_dict['lr'], 
+                                     weight_decay = self.MLP_train_dict['weight_decay'])
+    
+        # Warm-start: use nominal model or previous iteration
+        if gamma == 0:            
+            if self.adjustable_FDR_params['hidden_sizes'] == []:
+                temp_fdr_model.linear_correction_layer.weight.data = torch.FloatTensor(mlp_model.coef_[0].reshape(1,-1))
+                temp_fdr_model.linear_correction_layer.bias.data = torch.FloatTensor(mlp_model.intercept_)
+            else:
+                temp_fdr_model.load_state_dict(mlp_model.state_dict(), strict = False)      
+            
+        
+        else:
+            # warm-start with previous model
+            temp_fdr_model.load_state_dict(self.FDR_models[-1].state_dict(), strict=False)
+            
+        if gamma == 0:
+            self.FDR_models.append(temp_fdr_model)
+            continue
+        else:
+            
+            temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
+                                       epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'],
+                                       verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample', 
+                                       freeze_weights = False)
         
             self.FDR_models.append(temp_fdr_model)
                               

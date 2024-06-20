@@ -69,8 +69,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -213,7 +213,6 @@ for perc in percentage:
     for iter_ in range(iterations):
         
         torch.manual_seed(run_counter)
-        run_counter += 1
         # Dataframe to store predictions
         # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
         temp_Predictions = pd.DataFrame(data = [], columns = models)
@@ -263,7 +262,9 @@ for perc in percentage:
             if imputation == 'persistence':
                 imp_X = miss_X.copy()
                 # forward fill == imputation with persistence
-                imp_X = imp_X.fillna(method = 'ffill')
+                # imp_X = imp_X.fillna(method = 'ffill')
+                imp_X = imp_X.ffill()
+                
                 # fill initial missing values with previous data
                 for c in imp_X.columns:
                     imp_X[c].loc[imp_X[c].isna()] = trainPred[c].mean()

@@ -168,8 +168,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -186,7 +186,7 @@ target_park = 'p_1088'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 2
+config['min_lag'] = 1
 config['max_lag'] = 2 + config['min_lag']
 
 min_lag = config['min_lag']
@@ -222,7 +222,7 @@ else:
 target_park = 'p_1088'
 pattern = 'MCAR'
 config['save'] = True
-min_lag = 4
+min_lag = 1
 #%% Missing Not at Random
 mae_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
@@ -256,7 +256,7 @@ plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].me
 plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
            ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
-plt.ylim([7.5, 17.25])
+plt.ylim([7.5, 13.25])
 plt.show()
 
 
