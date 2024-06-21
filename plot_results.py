@@ -7,28 +7,15 @@ Plot results
 
 import pickle
 import os, sys
-import gurobipy as gp
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import gurobipy as gp
-import scipy.sparse as sp
-import time
-import itertools
-import random
 
 cd = os.path.dirname(__file__)  #Current directory
 sys.path.append(cd)
 
 # import from forecasting libraries
-
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
-from sklearn.model_selection import GridSearchCV
 from utility_functions import * 
-from FDR_regressor import *
-from QR_regressor import *
 
 # IEEE plot parameters (not sure about mathfont)
 plt.rcParams['figure.dpi'] = 600
@@ -38,138 +25,22 @@ plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Times New Roman'
 plt.rcParams["mathtext.fontset"] = 'dejavuserif'
 
-def eval_dual_predictions(pred, target, priceup, pricedown):
-    ''' Returns expected (or total) trading cost under dual loss function (quantile loss)'''
-
-    error = target.reshape(-1)-pred.reshape(-1)
-    total_cost = (-priceup*error[error<0]).sum() + (pricedown*error[error>0]).sum()
-
-    return (1/len(target))*total_cost
-
-def projection(pred, ub = 1, lb = 0):
-    'Projects to feasible set'
-    pred[pred>ub] = ub
-    pred[pred<lb] = lb
-    return pred
-
-def retrain_model(X, Y, testX, target_col, fix_col, Gamma, base_loss = 'l2'):
-    ''' Retrain model without missing features
-        returns a list models and corresponding list of missing features'''
-    # all combinations of missing features for up to Gamma features missing
-    combinations = [list(item) for sublist in [list(itertools.combinations(range(len(target_col)), gamma)) for gamma in range(1,Gamma+1)] for item in sublist]
-    # first instance is without missing features
-    print(f'Number of models: {len(combinations)}')
-    combinations.insert(0, [])
-    models = []
-    predictions = []
-    
-    # augment feature matrix with dummy variable to avoid infeasible solution when all features are missing
-    # !!!!! set fit_intercept = False in lr model.
-    
-    fix_col_bias = fix_col + [X.shape[1]]
-    augm_X = np.column_stack((X.copy(), np.ones(len(X))))
-    augm_testX = np.column_stack((testX.copy(), np.ones(len(testX))))
-
-    for i,v in enumerate(combinations):
-        
-        # find columns not missing 
-        #temp_col = [col for col in target_col if col not in v]
-        #temp_X = X[:,temp_col+fix_col]
-        #temp_test_X = testX[:,temp_col+fix_col]
-        
-        # find columns not missing 
-        temp_col = [col for col in target_col if col not in v]
-        temp_X = augm_X[:,temp_col+fix_col_bias]
-        temp_test_X = augm_testX[:,temp_col+fix_col_bias]
-
-        # retrain model without missing features
-        if base_loss == 'l2':
-            lr = LinearRegression(fit_intercept = True)
-            lr.fit(temp_X, Y)
-        elif base_loss == 'l1':
-            lr = QR_regressor()
-            lr.fit(temp_X, Y)
-            
-        models.append(lr)
-        predictions.append(lr.predict(temp_test_X).reshape(-1))
-    
-    predictions = np.array(predictions).T
-    
-    return models, predictions, combinations
-
-def create_IDsupervised(target_col, df, min_lag, max_lag):
-    ''' Supervised learning set for ID forecasting with lags'''
-    #min_lag = 1
-    #max_lag = min_lag + 4 # 4 steps back
-    lead_time_name = '-' + target_col + '_t'+str(min_lag)
-    p_df = df.copy()
-
-    # Create supervised set
-    pred_col = []
-    for park in p_df.columns:
-        for lag in range(min_lag, max_lag):
-            p_df[park+'_'+str(lag)] = p_df[park].shift(lag)
-            pred_col.append(park+'_'+str(lag))
-    
-    Predictors = p_df[pred_col]
-    Y = p_df[target_col].to_frame()
-    
-    return Y, Predictors, pred_col
-
-def create_feat_matrix(df, min_lag, max_lag):
-    ''' Supervised learning set for ID forecasting with lags'''
-    #min_lag = 1
-    #max_lag = min_lag + 4 # 4 steps back
-    p_df = df.copy()
-
-    # Create supervised set
-    pred_col = []
-    for park in p_df.columns:
-        for lag in np.arange(min_lag, max_lag):
-            p_df[park+'_'+str(lag)] = p_df[park].shift(lag)
-            pred_col.append(park+'_'+str(lag))
-    
-    Predictors = p_df[pred_col]
-    return Predictors
-
 def params():
     ''' Set up the experiment parameters'''
     params = {}
-    params['scale'] = False
-    params['train'] = False # If True, then train models, else tries to load previous runs
     params['save'] = False # If True, then saves models and results
-    params['K value'] = 5 #Define budget of uncertainty value
-    params['impute'] = True # If True, apply mean imputation for missing features
-    params['cap'] = False # If True, apply dual constraints for capacity (NOT YET IMPLEMENTED)
-    params['trainReg'] = False #Determine best value of regularization for given values. 
- 
-    params['store_folder'] = 'ID-case' # folder to save stuff (do not change)
-    params['max_lag'] = 3
-    params['min_lag'] = 1  #!!! do not change this for the moment
-
-    # Penalties for imbalance cost (only for fixed prices)
-    params['pen_up'] = 4 
-    params['pen_down'] = 3 
-
-    # Parameters for numerical experiment
-    #!!!!!!! To be changed with dates, not percentage
-    #params['percentage_split'] = .75
-    params['start_date'] = '2019-01-01' # start of train set
-    params['split_date'] = '2020-01-01' # end of train set/start of test set
-    params['end_date'] = '2020-05-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
     params['iterations'] = 2 # per pair of (n_nodes,percentage)
     params['pattern'] = 'MCAR'
-    params['retrain'] = False
     
     return params
 
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -182,47 +53,16 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1088'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
 config['max_lag'] = 2 + config['min_lag']
 
-min_lag = config['min_lag']
-max_lag = config['max_lag']
-
-power_df = power_df
-Y, Predictors, pred_col = create_IDsupervised(target_park, power_df, min_lag, max_lag)
-
-target_scaler = MinMaxScaler()
-pred_scaler = MinMaxScaler()
-
-start = '2019-01-01'
-split = '2019-06-01'
-end = '2020-01-01'
-
-if config['scale']:
-    trainY = target_scaler.fit_transform(Y[start:split].values)
-    testY = target_scaler.transform(Y[split:end])
-    Target = Y[split:end]
-    
-    trainPred = pred_scaler.fit_transform(Predictors[start:split])
-    testPred = pred_scaler.transform(Predictors[split:end])
-else:
-    trainY = Y[start:split].values
-    testY = Y[split:end].values
-    Target = Y[split:end]
-    
-    trainPred = Predictors[start:split]
-    testPred = Predictors[split:end]
-#%%
-
-
 target_park = 'p_1088'
-pattern = 'MCAR'
+pattern = 'MNAR'
 config['save'] = True
-min_lag = 1
+min_lag = config['min_lag']
 #%% Missing Not at Random
 mae_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
@@ -256,7 +96,7 @@ plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].me
 plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
            ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
-plt.ylim([7.5, 13.25])
+plt.ylim([7.5, 14.25])
 plt.show()
 
 
@@ -381,7 +221,7 @@ models_to_labels = {'LS':'$\mathtt{Imp-LS}$',
                     'FA-greedy-NN':'$\mathtt{FA(greedy)-NN}$', 
                     'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
                     'FA-lin-greedy-NN':'$\mathtt{FLA(greedy)-NN}$', 
-                    'NN':'$\mathtt{NN}$'}
+                    'NN':'$\mathtt{Imp-NN}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 

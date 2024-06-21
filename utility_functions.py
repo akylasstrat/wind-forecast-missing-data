@@ -119,7 +119,7 @@ def make_chain(t_m, start_term, n):
     return np.array(chain)
 
 
-def make_MNAR_chain(t_m, start_term, n, series):
+def make_MNAR_chain(t_m, start_term, n, series, pattern):
     ''' Simulates block missingness with Markov Chains/ transition matrix
         Data are not missing at random; the probability depends on the actual value
         t_m: transition matrix. First row controls the non-missing, second row controls the missing data.
@@ -132,11 +132,13 @@ def make_MNAR_chain(t_m, start_term, n, series):
         t_m_vary = t_m.copy()
         # the probability of going missing (first row) depends on the actual value of the series
         # first row varies with the values of the series
-        if (series[i]<=.95) and (series[i]>=.025):
-            t_m_vary[0] = [.999, .001]
-        else:
-            t_m_vary[0] = [.2, .8]
-        # t_m_vary[0] = [1-series[i]**2, series[i]**2]
+        if pattern == 'MNAR':
+            if (series[i]<=.95) and (series[i]>=.025):
+                t_m_vary[0] = [.99, .01]
+            else:
+                t_m_vary[0] = [.3, .7]
+        elif pattern == 'MNAR_sq':
+            t_m_vary[0] = [1-series[i]**2, series[i]**2]
         #t_m_vary[0] = [0.9, 0.1]
         chain.append(get_next_term(t_m_vary[chain[-1]]))
     return np.array(chain)

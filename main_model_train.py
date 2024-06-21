@@ -67,8 +67,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
@@ -81,7 +81,7 @@ plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
 plt.show()
 
 #%%
-target_park = 'p_1088'
+target_park = 'p_1475'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -277,7 +277,7 @@ import pickle
 # config['train'] = False
 # config['save'] = False
 
-config['train'] = False
+config['train'] = True
 
 if config['train']:
     FA_greedy_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.05)
@@ -323,7 +323,7 @@ patience = 15
 Max_number_splits = [1, 2, 5, 10, 25]
 FA_lin_greedy_LS_models_dict = {}
 
-config['train'] = False
+config['train'] = True
 
 if config['train']:
     
@@ -387,7 +387,7 @@ num_epochs = 250
 learning_rate = 1e-3
 patience = 25
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -425,7 +425,7 @@ num_epochs = 250
 learning_rate = 1e-3
 patience = 25
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -473,7 +473,7 @@ num_epochs = 250
 learning_rate = 1e-3
 patience = 25
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -541,7 +541,7 @@ num_epochs = 250
 learning_rate = 1e-3
 patience = 15
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -575,7 +575,7 @@ patience = 25
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -631,7 +631,7 @@ patience = 25
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:

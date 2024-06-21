@@ -69,21 +69,21 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
 
 # scale between [0,1]/ or divide by total capacity
 power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
 park_ids = list(power_df.columns)
 
 #%%
-target_park = 'p_1088'
+target_park = 'p_1475'
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
 config['max_lag'] = 2 + config['min_lag']
-config['pattern'] = 'MCAR'
+config['pattern'] = 'MNAR'
 config['save'] = True
 iterations = 5
 percentage = [0, .001, .005, .01, .05, .1]
@@ -208,7 +208,7 @@ check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
 for perc in percentage:
-    if (config['pattern'] == 'MNAR')and(run_counter>1):
+    if (config['pattern'] in ['MNAR', 'MNAR_sq'])and(run_counter>1):
         continue
     for iter_ in range(iterations):
         
@@ -225,13 +225,13 @@ for perc in percentage:
         # generate missing data
         #miss_ind = np.array([make_chain(P, 0, len(testPred)) for i in range(len(target_col))]).T
         miss_ind = np.zeros((len(testPred), len(park_ids)))
-        if config['pattern'] == 'MNAR':
+        if config['pattern'] in ['MNAR', 'MNAR_sq']:
             P = np.array([[.999, .001], [0.2, 0.8]])
             for j, series in enumerate(series_missing):                
                 # Data is MNAR, set values, control the rest within the function 
-                miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), power_df.copy()[series][split:end].values)
+                miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), power_df.copy()[series][split:end].values, config['pattern'])
 
-        else:
+        elif config['pattern'] == 'MCAR':
             P = np.array([[1-perc, perc], [0.2, 0.8]])
             for j in range(len(series_missing)):
                 miss_ind[:,j] = make_chain(P, 0, len(testPred))
