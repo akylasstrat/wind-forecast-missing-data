@@ -156,7 +156,11 @@ plt.show()
 
 
 
+#%%
+# percentage improvement
+print((100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2).to_clipboard() )
 
+print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard())
 #%% LS - sensitivity
  
 
@@ -265,10 +269,11 @@ if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_NN_R
 plt.show()
 
 #%%
-print(100*temp_df.groupby(['percentage'])[['NN', 'FA-lin-greedy-NN']].mean())
 
 # percentage improvement
-print(100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[['FA-lin-greedy-NN']].mean().values)/ temp_df.groupby(['percentage'])[['NN']].mean())
+print((100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['NN']].mean().values).round(2).to_clipboard() )
+
+print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard())
 
 
 #%% Plotting

@@ -852,8 +852,7 @@ class gd_FDRR(nn.Module):
             temp_X = torch.FloatTensor(X.copy())
 
         with torch.no_grad():     
-
-            if self.projection or project:
+            if (self.projection):
                 return (torch.maximum(torch.minimum(self.model(temp_X), self.UB), self.LB)).detach().numpy()
             else:
                 return self.model(temp_X).detach().numpy()
