@@ -49,7 +49,7 @@ def params():
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
     params['start_date'] = '2018-01-01' # start of train set
-    params['split_date'] = '2018-06-01' # end of train set/start of test set
+    params['split_date'] = '2018-04-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
@@ -67,8 +67,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('15min').mean()
@@ -93,7 +93,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[0]
+target_park = plant_ids[1]
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -286,7 +286,7 @@ import pickle
 # config['train'] = False
 # config['save'] = False
 
-config['train'] = True
+config['train'] = False
 
 if config['train']:
     FA_greedy_LAD_model = depth_Finite_FDRR(Max_models = 50, D = 1_000, red_threshold = 1e-5, max_gap = 0.05)
