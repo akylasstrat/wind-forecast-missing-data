@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Main model training 
+Train forecasting models
 
 @author: astratig
 """
@@ -48,9 +48,9 @@ def params():
     # Parameters for numerical experiment
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
-    params['start_date'] = '2019-01-01' # start of train set
-    params['split_date'] = '2019-06-01' # end of train set/start of test set
-    params['end_date'] = '2020-01-01'# end of test set
+    params['start_date'] = '2018-01-01' # start of train set
+    params['split_date'] = '2018-06-01' # end of train set/start of test set
+    params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
     params['iterations'] = 2 # per pair of (n_nodes,percentage)
@@ -67,32 +67,44 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_power_clean_30min.csv', index_col = 0)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\feature-deletion-robust\\data\\smart4res_data\\wind_metadata.csv', index_col=0)
+power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
+#%%
+power_df = power_df.resample('15min').mean()
+
+scaled_power_df = power_df.copy()
+
+for c in scaled_power_df.columns:
+    scaled_power_df[c] = power_df[c].values/metadata_df.loc[c].capacity
+    
+#%%
 # scale between [0,1]/ or divide by total capacity
-power_df = (power_df - power_df.min(0))/(power_df.max() - power_df.min())
-park_ids = list(power_df.columns)
-# transition matrix to generate missing data/ estimated from training data (empirical estimation)
-P = np.array([[0.999, 0.001], [0.241, 0.759]])
 
-plt.figure(constrained_layout = True)
-plt.scatter(x=metadata_df['Long'], y=metadata_df['Lat'])
+# Select zone
+target_zone = 'CENTRL'
+plant_ids = list(metadata_df[metadata_df['load_zone']==target_zone].index)
+
+print('Number of plants per zone')
+print(metadata_df.groupby(['load_zone'])['config'].count())
+
+fig, ax = plt.subplots(constrained_layout = True)
+metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = 'p_1475'
+target_park = plant_ids[0]
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
-config['max_lag'] = 2 + config['min_lag']
+config['max_lag'] = 3 + config['min_lag']
 
 min_lag = config['min_lag']
 max_lag = config['max_lag']
 
 power_df = power_df
-Y, Predictors, pred_col = create_IDsupervised(target_park, power_df, min_lag, max_lag)
+Y, Predictors, pred_col = create_IDsupervised(target_park, scaled_power_df[plant_ids], min_lag, max_lag)
 
 target_scaler = MinMaxScaler()
 pred_scaler = MinMaxScaler()
@@ -101,12 +113,12 @@ start = config['start_date']
 split = config['split_date']
 end = config['end_date']
 
-trainY = Y[start:split].values
-testY = Y[split:end].values
-Target = Y[split:end]
+trainPred = Predictors[start:split].dropna()
+testPred = Predictors[split:end].dropna()
 
-trainPred = Predictors[start:split]
-testPred = Predictors[split:end]
+trainY = Y[trainPred.index[0]:trainPred.index[-1]].values
+testY = Y[testPred.index[0]:testPred.index[-1]].values
+Target = Y[testPred.index[0]:testPred.index[-1]]
 
 
 #%%%% Tune the number of lags using a linear regression
@@ -115,26 +127,23 @@ testPred = Predictors[split:end]
 # loss = []
 # for lag in potential_lags:
 
-#     Y, Predictors, pred_col = create_IDsupervised(target_park, power_df, min_lag, min_lag + lag)
+#     Y, Predictors, pred_col = create_IDsupervised(target_park, scaled_power_df[plant_ids], min_lag, min_lag + lag)
 
-#     target_scaler = MinMaxScaler()
-#     pred_scaler = MinMaxScaler()
+#     start = config['start_date']
+#     split = config['split_date']
+#     end = config['end_date']
 
-#     start = '2019-01-01'
-#     split = '2019-04-01'
-#     end = '2020-01-01'
-
-#     trainY = target_scaler.fit_transform(Y[start:split].values)
-#     testY = target_scaler.transform(Y[split:end])
-#     Target = Y[split:end]
+#     trainPred = Predictors[start:split].dropna()
+#     testPred = Predictors[split:end].dropna()
     
-#     trainPred = pred_scaler.fit_transform(Predictors[start:split])
-#     testPred = pred_scaler.transform(Predictors[split:end])
-
+#     trainY = Y[trainPred.index[0]:trainPred.index[-1]].values
+#     testY = Y[testPred.index[0]:testPred.index[-1]].values
+#     Target = Y[testPred.index[0]:testPred.index[-1]]
+    
 #     ### Linear models: linear regression, ridge, lasso 
 #     lr = LinearRegression(fit_intercept = True)
 #     lr.fit(trainPred, trainY)
-#     lr_pred = target_scaler.inverse_transform(lr.predict(testPred).reshape(-1,1))
+#     lr_pred = lr.predict(testPred).reshape(-1,1)
 
 #     loss.append(100*mae(lr_pred, Target.values))
 
@@ -189,7 +198,7 @@ base_Predictions['Climatology'] = trainY.mean()
 from torch_custom_layers import * 
 
 batch_size = 512
-num_epochs = 1000
+num_epochs = 200
 learning_rate = 1e-3
 patience = 25
 
@@ -245,19 +254,19 @@ plt.show()
 
 #%%
 if config['save']:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
         pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_LAD.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_LAD.pickle', 'wb') as handle:
         pickle.dump(lad, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_Ridge.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_Ridge.pickle', 'wb') as handle:
         pickle.dump(ridge, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_Lasso.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_Lasso.pickle', 'wb') as handle:
         pickle.dump(lasso, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_MLP.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_MLP.pickle', 'wb') as handle:
         pickle.dump(mlp_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 #%%%%%%%%% Adversarial Models
@@ -285,23 +294,13 @@ if config['train']:
                       budget = 'inequality', solution = 'reformulation')
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'wb') as handle:
             pickle.dump(FA_greedy_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-else:
-    try:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'rb') as handle:    
-                FA_greedy_LAD_model = pickle.load(handle)
-
-            
-    except:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_LAD_model.pickle', 'rb') as handle:    
-                temp_model = pickle.load(handle)
-                
-        FA_greedy_LAD_model = temp_model
-
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'wb') as handle:
-            pickle.dump(FA_greedy_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+# else:
+#     try:
+#         with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'rb') as handle:    
+#                 FA_greedy_LAD_model = pickle.load(handle)
         
 #%%
 ###### Finitely *Linearly* Adaptive - greedy partitions - LS model
@@ -316,8 +315,8 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
-num_epochs = 1000
-learning_rate = 1e-2
+num_epochs = 200
+learning_rate = 1e-3
 patience = 15
 
 Max_number_splits = [1, 2, 5, 10, 25]
@@ -339,38 +338,17 @@ if config['train']:
         FA_lin_greedy_LS_models_dict[number_splits] = FA_lin_greedy_LS_model
     
         if config['save']:
-            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_model_{number_splits}.pickle', 'wb') as handle:
+            with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_model_{number_splits}.pickle', 'wb') as handle:
                 pickle.dump(FA_lin_greedy_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'wb') as handle:
+            with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'wb') as handle:
                 pickle.dump(FA_lin_greedy_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     
 
-else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
-            FA_lin_greedy_LS_models_dict = pickle.load(handle)
+# else:
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+#             FA_lin_greedy_LS_models_dict = pickle.load(handle)
             
-#%%
-# t = -4
-# print(fin_LS_model.missing_pattern[t])
-# print(fin_LS_model.fixed_features[t])
-# print('Coef')
-# print(fin_LS_model.node_model_[t].coef_[0].round(2))
-
-# for layer in fin_LS_models_dict[5].wc_node_model_[t].model.children():        
-#     if isinstance(layer, nn.Linear):    
-#         plt.plot(layer.weight.data.detach().numpy().T, label = 'wc coeff')
-#         w = layer.weight.data.detach().numpy()
-#         print('WC Coeff')
-#         print(layer.weight.data.detach().numpy().round(2))
-
-#     plt.plot(fin_LS_models_dict[5].node_model_[t].coef_[0],'--' , label = 'nominal case')
-#     # plt.plot(lr.coef_.T)
-#     plt.legend()
-#     plt.show()
-
-# W = fin_LS_model.wc_node_model_[t].W.detach().numpy().T
-
 #%%###### Finitely Adaptive - greedy partitions - LS model
 
 from FiniteRetrain import *
@@ -400,13 +378,13 @@ if config['train']:
                           lr = learning_rate, batch_size = batch_size, weight_decay = 0)
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'wb') as handle:
             pickle.dump(FA_greedy_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
-else:
+# else:
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
-            FA_greedy_LS_model = pickle.load(handle)
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
+#             FA_greedy_LS_model = pickle.load(handle)
 
 #%%
 ###### Finitely Adaptive - Greedy partitions - NN model
@@ -440,13 +418,13 @@ if config['train']:
     
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
-else:
+# else:
 
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
-            FA_greedy_NN_model = pickle.load(handle)
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
+#             FA_greedy_NN_model = pickle.load(handle)
 
 
 #%%
@@ -487,20 +465,11 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-else:
-    try:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
-                FA_lin_greedy_NN_model = pickle.load(handle)
-    except:
-        
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_fin_NN_model.pickle', 'rb') as handle:    
-                temp_model = pickle.load(handle)
-        FA_lin_greedy_NN_model = temp_model
-
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
-            pickle.dump(FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+# else:
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
+#             FA_lin_greedy_NN_model = pickle.load(handle)
 
 #%% 
 ###### Finetely Adaptive - Fixed partitions -  LS & NN model (approximates FDRR from previous work)
@@ -553,11 +522,11 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'wb') as handle:
             pickle.dump(FA_fixed_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
-            FA_fixed_LS_model = pickle.load(handle)
+# else:
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
+#             FA_fixed_LS_model = pickle.load(handle)
 
 for j in [0, 1, 2, 3, 4]:
     for layer in FA_fixed_LS_model.FDR_models[j].model.children():
@@ -587,11 +556,11 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
-            FA_fixed_NN_model = pickle.load(handle)
+# else:
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
+#             FA_fixed_NN_model = pickle.load(handle)
 
 # Finitely Adaptive - Linear - Fixed partitions
 
@@ -616,11 +585,11 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'wb') as handle:
             pickle.dump(FA_lin_fixed_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
-            FA_lin_fixed_LS_model = pickle.load(handle)
+# else:
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
+#             FA_lin_fixed_LS_model = pickle.load(handle)
 
 ########## NN model
 
@@ -643,8 +612,8 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-else:
-    with open(f'{cd}\\trained-models\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
-            FA_lin_fixed_NN_model = pickle.load(handle)
+# else:
+#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
+#             FA_lin_fixed_NN_model = pickle.load(handle)
