@@ -49,7 +49,7 @@ def params():
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
     params['start_date'] = '2018-01-01' # start of train set
-    params['split_date'] = '2018-04-01' # end of train set/start of test set
+    params['split_date'] = '2018-06-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
@@ -67,20 +67,18 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-power_df = power_df.resample('15min').mean()
+power_df = power_df.resample('30min').mean()
 
 scaled_power_df = power_df.copy()
 
 for c in scaled_power_df.columns:
     scaled_power_df[c] = power_df[c].values/metadata_df.loc[c].capacity
     
-#%%
 # scale between [0,1]/ or divide by total capacity
-
 # Select zone
 target_zone = 'CENTRL'
 plant_ids = list(metadata_df[metadata_df['load_zone']==target_zone].index)
@@ -93,7 +91,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[1]
+target_park = plant_ids[0]
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -198,9 +196,9 @@ base_Predictions['Climatology'] = trainY.mean()
 from torch_custom_layers import * 
 
 batch_size = 512
-num_epochs = 200
-learning_rate = 1e-3
-patience = 25
+num_epochs = 250
+learning_rate = 1e-2
+patience = 15
 
 torch.manual_seed(0)
 
@@ -227,7 +225,7 @@ mlp_model = MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_siz
 
 optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_decay = 1e-5)
 mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0)
+                      patience = patience, verbose = 0-1)
 base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
 
 # Estimate MAE for base models
@@ -315,14 +313,16 @@ n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
-num_epochs = 200
+num_epochs = 250
 learning_rate = 1e-3
-patience = 15
+patience = 25
+val_perc = 0
 
 Max_number_splits = [1, 2, 5, 10, 25]
+Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 
 if config['train']:
     
@@ -331,9 +331,9 @@ if config['train']:
                                                     input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                     train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
         
-        FA_lin_greedy_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+        FA_lin_greedy_LS_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                               epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                              lr = 1e-3, batch_size = batch_size, weight_decay = 0)
+                              lr = learning_rate, batch_size = batch_size, weight_decay = 0)
     
         FA_lin_greedy_LS_models_dict[number_splits] = FA_lin_greedy_LS_model
     
@@ -362,10 +362,11 @@ n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-3
-patience = 25
+learning_rate = 1e-2
+patience = 15
+val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -373,7 +374,7 @@ if config['train']:
                                                 input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
-    FA_greedy_LS_model.fit(trainPred.values, trainY, val_split = 0.0, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+    FA_greedy_LS_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                           lr = learning_rate, batch_size = batch_size, weight_decay = 0)
     
@@ -400,10 +401,11 @@ n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-3
-patience = 25
+learning_rate = 1e-2
+patience = 15
+val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -412,7 +414,7 @@ if config['train']:
                                                 input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
-    FA_greedy_NN_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+    FA_greedy_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                           lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
     
@@ -450,8 +452,9 @@ batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 25
+val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -460,7 +463,7 @@ if config['train']:
                                                 input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
                                                 train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
     
-    FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = 0.15, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+    FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                          lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
         
@@ -507,10 +510,11 @@ n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-3
+learning_rate = 1e-2
 patience = 15
+val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -518,7 +522,7 @@ if config['train']:
     FA_fixed_LS_model = FiniteAdapt_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [], 
                                     output_size = n_outputs, projection = True, train_adversarially = True)
     
-    FA_fixed_LS_model.fit(trainPred.values, trainY, val_split = 0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+    FA_fixed_LS_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
     if config['save']:
@@ -528,23 +532,23 @@ if config['train']:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
 #             FA_fixed_LS_model = pickle.load(handle)
 
-for j in [0, 1, 2, 3, 4]:
-    for layer in FA_fixed_LS_model.FDR_models[j].model.children():
-        if isinstance(layer, nn.Linear):    
-            plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
-# plt.legend()
-plt.show()
-
+# for j in [0, 1, 2, 3, 4]:
+#     for layer in FA_fixed_LS_model.FDR_models[j].model.children():
+#         if isinstance(layer, nn.Linear):    
+#             plt.plot(layer.weight.data.detach().numpy().T, label = 'GD')
+# # plt.legend()
+# plt.show()
+#%%
 ########## NN model
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-3
-patience = 25
+learning_rate = 1e-2
+patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -561,27 +565,28 @@ if config['train']:
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
 #             FA_fixed_NN_model = pickle.load(handle)
-
+#%%
 # Finitely Adaptive - Linear - Fixed partitions
 
 from torch_custom_layers import * 
 from finite_adaptability_model_functions import *
+
 
 ########## LS model
 batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 15
+val_perc = 0.15
 
 config['train'] = True
-config['save'] = True
 
 if config['train']:
             
     FA_lin_fixed_LS_model = FiniteAdapt_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [], 
                                     output_size = n_outputs, projection = True, train_adversarially = True)
     
-    FA_lin_fixed_LS_model.fit(trainPred.values, trainY, val_split = 0, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+    FA_lin_fixed_LS_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
     if config['save']:
@@ -592,11 +597,10 @@ if config['train']:
 #             FA_lin_fixed_LS_model = pickle.load(handle)
 
 ########## NN model
-
 batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
-patience = 25
+patience = 15
 val_perc = 0.15
 decay = 1e-5
 

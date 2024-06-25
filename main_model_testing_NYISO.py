@@ -57,12 +57,12 @@ def params():
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
     params['start_date'] = '2018-01-01' # start of train set
-    params['split_date'] = '2018-03-01' # end of train set/start of test set
+    params['split_date'] = '2018-04-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
     params['iterations'] = 2 # per pair of (n_nodes,percentage)
-    params['pattern'] = 'MCAR'
+    # params['pattern'] = 'MCAR'
     params['retrain'] = False
     
     params['min_lag'] = 1
@@ -76,8 +76,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('30min').mean()
@@ -102,14 +102,16 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[1]
+target_park = plant_ids[0]
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
 config['max_lag'] = 3 + config['min_lag']
-config['pattern'] = 'MCAR'
-config['save'] = False
+# config['pattern'] = 'MNAR'
+config['save'] = True
+config['split_date'] = '2018-06-01' # end of train set/start of test set
+
 iterations = 5
 percentage = [0, .001, .005, .01, .05, .1]
 
@@ -235,172 +237,173 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-for perc in percentage:
-    if (config['pattern'] in ['MNAR', 'MNAR_sq'])and(run_counter>1):
-        continue
-    for iter_ in range(iterations):
-        
-        torch.manual_seed(run_counter)
-        # Dataframe to store predictions
-        # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
-        temp_Predictions = pd.DataFrame(data = [], columns = models)
-
-        # Initialize dataframe to store results
-        temp_df = pd.DataFrame()
-        temp_df['percentage'] = [perc]
-        temp_df['iteration'] = [iter_]
-        
-        # generate missing data
-        #miss_ind = np.array([make_chain(P, 0, len(testPred)) for i in range(len(target_col))]).T
-        miss_ind = np.zeros((len(testPred), len(plant_ids)))
-        if config['pattern'] in ['MNAR', 'MNAR_sq']:
-            P = np.array([[.999, .001], [0.2, 0.8]])
-            for j, series in enumerate(series_missing):                
-                # Data is MNAR, set values, control the rest within the function 
-                miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, config['pattern'])
-
-        elif config['pattern'] == 'MCAR':
-            P = np.array([[1-perc, perc], [0.2, 0.8]])
-            for j in range(len(series_missing)):
-                miss_ind[:,j] = make_chain(P, 0, len(testPred))
-                #miss_ind[1:,j+1] = miss_ind[:-1,j]
-                #miss_ind[1:,j+2] = miss_ind[:-1,j+1]
-        
-        mask_ind = miss_ind==1
-        
-        if run_counter%iterations==0: print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
-        
-        # Predictors w missing values
-        miss_X = scaled_power_df[split:end].copy()[plant_ids]
-        miss_X[mask_ind] = np.nan
-        
-        miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
-        
-        final_mask_ind = (miss_X.isna().values).astype(int)
-        # Predictors w missing values
-        miss_X_zero = miss_X.copy()
-        miss_X_zero = miss_X_zero.fillna(0)
-        
-        # Predictors w mean imputation
-        if config['impute'] != True:
-            imp_X = miss_X_zero.copy()
-        else:
-            imp_X = miss_X.copy()
-            # imputation with persistence or mean            
-            if imputation == 'persistence':
+for pattern in ['MCAR', 'MNAR']:
+    print(f'Test for {pattern} mechanism')
+    for perc in percentage:
+        if (pattern in ['MNAR', 'MNAR_sq'])and(run_counter>1):
+            continue
+        for iter_ in range(iterations):
+            
+            torch.manual_seed(run_counter)
+            # Dataframe to store predictions
+            # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
+            temp_Predictions = pd.DataFrame(data = [], columns = models)
+    
+            # Initialize dataframe to store results
+            temp_df = pd.DataFrame()
+            temp_df['percentage'] = [perc]
+            temp_df['iteration'] = [iter_]
+            
+            # generate missing data
+            #miss_ind = np.array([make_chain(P, 0, len(testPred)) for i in range(len(target_col))]).T
+            miss_ind = np.zeros((len(testPred), len(plant_ids)))
+            if pattern in ['MNAR', 'MNAR_sq']:
+                P = np.array([[.999, .001], [0.2, 0.8]])
+                for j, series in enumerate(series_missing):                
+                    # Data is MNAR, set values, control the rest within the function 
+                    miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, pattern)
+    
+            elif pattern == 'MCAR':
+                P = np.array([[1-perc, perc], [0.2, 0.8]])
+                for j in range(len(series_missing)):
+                    miss_ind[:,j] = make_chain(P, 0, len(testPred))
+                    #miss_ind[1:,j+1] = miss_ind[:-1,j]
+                    #miss_ind[1:,j+2] = miss_ind[:-1,j+1]
+            
+            mask_ind = miss_ind==1
+            
+            if run_counter%iterations==0: print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
+            
+            # Predictors w missing values
+            miss_X = scaled_power_df[split:end].copy()[plant_ids]
+            miss_X[mask_ind] = np.nan
+            
+            miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
+            
+            final_mask_ind = (miss_X.isna().values).astype(int)
+            # Predictors w missing values
+            miss_X_zero = miss_X.copy()
+            miss_X_zero = miss_X_zero.fillna(0)
+            
+            # Predictors w mean imputation
+            if config['impute'] != True:
+                imp_X = miss_X_zero.copy()
+            else:
                 imp_X = miss_X.copy()
-                # forward fill == imputation with persistence
-                # imp_X = imp_X.fillna(method = 'ffill')
-                imp_X = imp_X.ffill()
-                
-                # fill initial missing values with previous data
-                for c in imp_X.columns:
-                    imp_X[c].loc[imp_X[c].isna()] = trainPred[c].mean()
-                
-                #for j in series_missing:
-                #    imp_X[mask_ind[:,j],j] = imp_X[mask_ind[:,j],j+1]
+                # imputation with persistence or mean            
+                if imputation == 'persistence':
+                    imp_X = miss_X.copy()
+                    # forward fill == imputation with persistence
+                    # imp_X = imp_X.fillna(method = 'ffill')
+                    imp_X = imp_X.ffill()
                     
-            elif imputation == 'mean':
-                for j in range(imp_X.shape[1]):
-                    imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
-        
-        
-        ############ Impute-then-Regress
-        
-        #### Persistence
-        pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
-        temp_Predictions['Pers'] = pers_pred.reshape(-1)
-                
-        #### LS model
-        lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['LS'] = lr_pred.reshape(-1)
-                
-        #### LASSO
-        lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
-    
-        #### RIDGE
-        l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['Ridge'] = l2_pred.reshape(-1)
+                    # fill initial missing values with previous data
+                    for c in imp_X.columns:
+                        imp_X[c].loc[imp_X[c].isna()] = trainPred[c].mean()
+                    
+                    #for j in series_missing:
+                    #    imp_X[mask_ind[:,j],j] = imp_X[mask_ind[:,j],j+1]
+                        
+                elif imputation == 'mean':
+                    for j in range(imp_X.shape[1]):
+                        imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
             
-        #### LAD model
-        lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['LAD'] = lad_pred.reshape(-1)
-
-        #### MLPimp
-        mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
-        temp_Predictions['NN'] = mlp_pred.reshape(-1)
-                
-        ######### Adversarial Models
-        
-        #### Finite Adaptability - Fixed Partitions
-        ## LS model
-        FA_fixed_LS_pred = FA_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
-        temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
-
-        ## NN model
-        FA_fixed_NN_pred = FA_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_fixed_NN_pred = projection(FA_fixed_NN_pred)
-        temp_Predictions['FA-fixed-NN'] = FA_fixed_NN_pred.reshape(-1)
-
-        #### Finite Adaptability - Linear - Fixed Partitions
-        ## LS model
-        FA_lin_fixed_LS_pred = FA_lin_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_lin_fixed_LS_pred = projection(FA_lin_fixed_LS_pred)
-        temp_Predictions['FA-lin-fixed-LS'] = FA_lin_fixed_LS_pred.reshape(-1)
-
-        ## NN model
-        FA_lin_fixed_NN_pred = FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
-        temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
-
-        #### FINITE-RETRAIN-LAD and LS
-        # FA_greedy_LAD_pred = FA_greedy_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_greedy_LAD_pred = projection(FA_greedy_LAD_pred)
-        # temp_Predictions['FA-greedy-LAD'] = FA_greedy_LAD_pred.reshape(-1)
-
-        #### FINITE-RETRAIN-LAD and LS
-        
-        FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
-        temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
-
-        #### FA-Fixed-LS and NN
-        FA_greedy_LS_pred = FA_greedy_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_greedy_LS_pred = projection(FA_greedy_LS_pred)
-        temp_Predictions['FA-greedy-LS'] = FA_greedy_LS_pred.reshape(-1)
-
-        FA_greedy_NN_pred = FA_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        FA_greedy_NN_pred = projection(FA_greedy_NN_pred)
-        temp_Predictions['FA-greedy-NN'] = FA_greedy_NN_pred.reshape(-1)
-
-        #### FINITE-RETRAIN-LAD and LS
-        for number_splits in FA_lin_greedy_LS_models_dict.keys():
             
-            FA_lin_greedy_LS_pred = FA_lin_greedy_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            FA_lin_greedy_LS_pred = projection(FA_lin_greedy_LS_pred)
-            temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
+            ############ Impute-then-Regress
+            
+            #### Persistence
+            pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
+            temp_Predictions['Pers'] = pers_pred.reshape(-1)
+                    
+            #### LS model
+            lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['LS'] = lr_pred.reshape(-1)
+                    
+            #### LASSO
+            lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
         
-        for m in models:
-            temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
-        mae_df = pd.concat([mae_df, temp_df])
-        
-        for m in models:
-            temp_df[m] = [rmse(temp_Predictions[m].values, Target.values)]
-        rmse_df = pd.concat([rmse_df, temp_df])
-        
-        run_counter += 1
-
-pattern = config['pattern']
-if config['save']:
-    mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv')
-    rmse_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv')
+            #### RIDGE
+            l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['Ridge'] = l2_pred.reshape(-1)
+                
+            #### LAD model
+            lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['LAD'] = lad_pred.reshape(-1)
     
-#%%
-ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
-rmse_df.groupby(['percentage']).mean()[ls_models].plot()
-#%%
-nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
-rmse_df.groupby(['percentage']).mean()[nn_models].plot()
+            #### MLPimp
+            mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
+            temp_Predictions['NN'] = mlp_pred.reshape(-1)
+                    
+            ######### Adversarial Models
+            
+            #### Finite Adaptability - Fixed Partitions
+            ## LS model
+            FA_fixed_LS_pred = FA_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
+            temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
+    
+            ## NN model
+            FA_fixed_NN_pred = FA_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_fixed_NN_pred = projection(FA_fixed_NN_pred)
+            temp_Predictions['FA-fixed-NN'] = FA_fixed_NN_pred.reshape(-1)
+    
+            #### Finite Adaptability - Linear - Fixed Partitions
+            ## LS model
+            FA_lin_fixed_LS_pred = FA_lin_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_lin_fixed_LS_pred = projection(FA_lin_fixed_LS_pred)
+            temp_Predictions['FA-lin-fixed-LS'] = FA_lin_fixed_LS_pred.reshape(-1)
+    
+            ## NN model
+            FA_lin_fixed_NN_pred = FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
+            temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
+    
+            #### FINITE-RETRAIN-LAD and LS
+            # FA_greedy_LAD_pred = FA_greedy_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            # FA_greedy_LAD_pred = projection(FA_greedy_LAD_pred)
+            # temp_Predictions['FA-greedy-LAD'] = FA_greedy_LAD_pred.reshape(-1)
+    
+            #### FINITE-RETRAIN-LAD and LS
+            
+            FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
+            temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
+    
+            #### FA-Fixed-LS and NN
+            FA_greedy_LS_pred = FA_greedy_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_greedy_LS_pred = projection(FA_greedy_LS_pred)
+            temp_Predictions['FA-greedy-LS'] = FA_greedy_LS_pred.reshape(-1)
+    
+            FA_greedy_NN_pred = FA_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_greedy_NN_pred = projection(FA_greedy_NN_pred)
+            temp_Predictions['FA-greedy-NN'] = FA_greedy_NN_pred.reshape(-1)
+    
+            #### FINITE-RETRAIN-LAD and LS
+            for number_splits in FA_lin_greedy_LS_models_dict.keys():
+                
+                FA_lin_greedy_LS_pred = FA_lin_greedy_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+                FA_lin_greedy_LS_pred = projection(FA_lin_greedy_LS_pred)
+                temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
+            
+            for m in models:
+                temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
+            mae_df = pd.concat([mae_df, temp_df])
+            
+            for m in models:
+                temp_df[m] = [rmse(temp_Predictions[m].values, Target.values)]
+            rmse_df = pd.concat([rmse_df, temp_df])
+            
+            run_counter += 1
+    
+        if config['save']:
+            mae_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_MAE_results.csv')
+            rmse_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv')
+            
+        #%%
+        ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
+        rmse_df.groupby(['percentage']).mean()[ls_models].plot()
+        #%%
+        nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
+        rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
