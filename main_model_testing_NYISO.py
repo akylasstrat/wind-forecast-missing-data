@@ -76,8 +76,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('30min').mean()
@@ -102,7 +102,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[0]
+target_park = plant_ids[1]
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -157,14 +157,14 @@ with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_MLP.pick
 
 # Load adversarial models
 
-# with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
-#     FA_lin_greedy_LS_models_dict = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+    FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
 # with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'rb') as handle:    
 #     FA_greedy_LAD_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
-#     FA_lin_greedy_LS_models_dict = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+    FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
 with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
     FA_greedy_LS_model = pickle.load(handle)
@@ -172,8 +172,8 @@ with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greed
 with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
     FA_greedy_NN_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
-#     FA_lin_greedy_NN_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
+    FA_lin_greedy_NN_model = pickle.load(handle)
 
 with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
         FA_fixed_LS_model = pickle.load(handle)
@@ -200,7 +200,7 @@ P = np.array([[.999, .001], [0.241, 0.759]])
 
 models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN'] \
     +['FA-greedy-LAD', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS']  + ['FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN','FA-lin-greedy-NN']\
-    # +[f'FA-lin-greedy-LS-{n_splits}' for n_splits in FA_lin_greedy_LS_models_dict.keys()] \
+    +[f'FA-lin-greedy-LS-{n_splits}' for n_splits in FA_lin_greedy_LS_models_dict.keys()] \
 
 models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
                     'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
@@ -362,9 +362,9 @@ for perc in percentage:
 
         #### FINITE-RETRAIN-LAD and LS
         
-        # FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
-        # temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
+        FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
+        temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
 
         #### FA-Fixed-LS and NN
         FA_greedy_LS_pred = FA_greedy_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
@@ -376,11 +376,11 @@ for perc in percentage:
         temp_Predictions['FA-greedy-NN'] = FA_greedy_NN_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS
-        # for number_splits in FA_lin_greedy_LS_models_dict.keys():
+        for number_splits in FA_lin_greedy_LS_models_dict.keys():
             
-        #     FA_lin_greedy_LS_pred = FA_lin_greedy_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        #     FA_lin_greedy_LS_pred = projection(FA_lin_greedy_LS_pred)
-        #     temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
+            FA_lin_greedy_LS_pred = FA_lin_greedy_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            FA_lin_greedy_LS_pred = projection(FA_lin_greedy_LS_pred)
+            temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
         
         for m in models:
             temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
@@ -398,9 +398,9 @@ if config['save']:
     rmse_df.to_csv(f'{cd}\\results\\{target_park}_{pattern}_{min_lag}_steps_RMSE_results.csv')
     
 #%%
-ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS']
+ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
 rmse_df.groupby(['percentage']).mean()[ls_models].plot()
-
-nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN']
+#%%
+nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
 rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
