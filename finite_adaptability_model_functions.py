@@ -3434,8 +3434,7 @@ class FiniteAdapt_Linear_Fixed(object):
             
             temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
                                        epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'],
-                                       verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample', 
-                                       freeze_weights = False)
+                                       verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample')
         
             self.FDR_models.append(temp_fdr_model)
                               

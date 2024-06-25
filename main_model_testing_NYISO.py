@@ -76,8 +76,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('30min').mean()
@@ -102,7 +102,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[0]
+target_park = plant_ids[1]
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -237,7 +237,7 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-for pattern in ['MCAR', 'MNAR']:
+for pattern in ['MNAR']:
     print(f'Test for {pattern} mechanism')
     for perc in percentage:
         if (pattern in ['MNAR', 'MNAR_sq'])and(run_counter>1):
@@ -259,10 +259,14 @@ for pattern in ['MCAR', 'MNAR']:
             miss_ind = np.zeros((len(testPred), len(plant_ids)))
             if pattern in ['MNAR', 'MNAR_sq']:
                 P = np.array([[.999, .001], [0.2, 0.8]])
-                for j, series in enumerate(series_missing):                
-                    # Data is MNAR, set values, control the rest within the function 
-                    miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, pattern)
-    
+                for j, series in enumerate(series_missing): 
+                    if series == target_park:
+                        # Data is MNAR, set values, control the rest within the function 
+                        miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, pattern)
+                    else:
+                        P = np.array([[1-0.05, 0.05], [0.2, 0.8]])
+                        miss_ind[:,j] = make_chain(P, 0, len(testPred))
+                        
             elif pattern == 'MCAR':
                 P = np.array([[1-perc, perc], [0.2, 0.8]])
                 for j in range(len(series_missing)):
