@@ -1686,6 +1686,8 @@ class adjustable_FDR(nn.Module):
                 best_val_loss = val_loss
                 best_weights = copy.deepcopy(self.state_dict())
                 early_stopping_counter = 0
+                self.best_val_loss = best_val_loss
+
             else:
                 early_stopping_counter += 1
                 if early_stopping_counter >= patience:

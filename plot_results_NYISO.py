@@ -80,7 +80,8 @@ plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].me
 plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
            ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
-# plt.ylim([7.5, 16.25])
+plt.ylim([6, 13.5])
+if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_MNAR.pdf')
 plt.show()
 
 
@@ -94,8 +95,8 @@ models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-li
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
                     'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
                     'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
-                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(greedy)-LS}$', 
-                    'FA-greedy-LS':'$\mathtt{FA(greedy)-LS}$'}
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(learn)-LS}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -203,12 +204,12 @@ models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-li
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
                     'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
                     'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
-                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(greedy)-LS}$', 
-                    'FA-greedy-LS':'$\mathtt{FA(greedy)-LS}$', 
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(learn)-LS}$', 
                     'FA-fixed-NN':'$\mathtt{FA(fixed)-NN}$', 
-                    'FA-greedy-NN':'$\mathtt{FA(greedy)-NN}$', 
+                    'FA-greedy-NN':'$\mathtt{FA(learn)-NN}$', 
                     'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
-                    'FA-lin-greedy-NN':'$\mathtt{FLA(greedy)-NN}$', 
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)-NN}$', 
                     'NN':'$\mathtt{Imp-NN}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']

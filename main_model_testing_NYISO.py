@@ -57,7 +57,7 @@ def params():
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
     params['start_date'] = '2018-01-01' # start of train set
-    params['split_date'] = '2018-04-01' # end of train set/start of test set
+    params['split_date'] = '2018-06-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
@@ -237,7 +237,7 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-for pattern in ['MNAR']:
+for pattern in ['MCAR', 'MNAR']:
     print(f'Test for {pattern} mechanism')
     for perc in percentage:
         if (pattern in ['MNAR', 'MNAR_sq'])and(run_counter>1):
