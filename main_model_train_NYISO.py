@@ -67,8 +67,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('30min').mean()
@@ -318,11 +318,11 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-Max_number_splits = [1, 2, 5, 10, 25]
+Max_number_splits = [1, 2, 5, 10, 20]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
-#%%
-config['train'] = True
+
+config['train'] = False
 
 if config['train']:
     
@@ -331,7 +331,7 @@ if config['train']:
                                                     input_size = n_features, hidden_sizes = [], output_size = n_outputs, projection = True, 
                                                     train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
         
-        FA_lin_greedy_LS_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+        FA_lin_greedy_LS_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-5, 
                               epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                               lr = learning_rate, batch_size = batch_size, weight_decay = 0)
     
@@ -454,7 +454,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -577,7 +577,7 @@ batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 15
-val_perc = 0.15
+val_perc = 0.0
 
 config['train'] = False
 config['save'] = True
@@ -602,7 +602,7 @@ batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 15
-val_perc = 0.0
+val_perc = 0.15
 decay = 1e-5
 
 config['train'] = True
@@ -622,3 +622,27 @@ if config['train']:
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
 #             FA_lin_fixed_NN_model = pickle.load(handle)
+
+########## NN model
+# batch_size = 512
+# num_epochs = 250
+# learning_rate = 1e-3
+# patience = 15
+# val_perc = 0.15
+# decay = 1e-5
+
+# config['train'] = True
+# config['save'] = True
+
+# if config['train']:
+            
+#     v2FA_lin_fixed_NN_model = v2_FiniteAdapt_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
+#                                     output_size = n_outputs, projection = True, train_adversarially = True)
+    
+#     v2FA_lin_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+#                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
+        
+#     if config['save']:
+#         with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model.pickle', 'wb') as handle:
+#             pickle.dump(v2FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            

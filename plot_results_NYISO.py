@@ -44,7 +44,7 @@ config = params()
 config['min_lag'] = 1
 
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill']
-target_park = 'Dutch Hill - Cohocton'
+target_park = 'Marsh Hill'
 config['save'] = True
 min_lag = config['min_lag']
 #%% Missing Not at Random
@@ -150,10 +150,10 @@ print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_
  
 
 models_to_plot = ['LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
-                  'FA-lin-greedy-LS-25']
+                  'FA-lin-greedy-LS-20']
 
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 'FA-lin-greedy-LS-1':'$Q=1$', 'FA-lin-greedy-LS-5':'$Q=5$', 'FA-lin-greedy-LS-10':'$Q=10$',
-                    'FA-lin-greedy-LS-25':'$Q=25$'}
+                    'FA-lin-greedy-LS-20':'$Q=20$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -209,7 +209,7 @@ models_to_labels = {'LS':'$\mathtt{Imp-LS}$',
                     'FA-fixed-NN':'$\mathtt{FA(fixed)-NN}$', 
                     'FA-greedy-NN':'$\mathtt{FA(learn)-NN}$', 
                     'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
-                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)-NN}$', 
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
                     'NN':'$\mathtt{Imp-NN}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']

@@ -2208,7 +2208,7 @@ class FiniteLinear_MLP(object):
                                   target_col = self.target_features[0], fix_col = self.fixed_features[0], projection = self.gd_FDRR_params['projection'], 
                                   train_adversarially = False, budget_constraint = self.gd_FDRR_params['budget_constraint'])
         
-        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
+        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = 1e-2, weight_decay = self.MLP_train_dict['weight_decay'])
         mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                               epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
                               verbose = self.MLP_train_dict['verbose'])
@@ -2360,7 +2360,7 @@ class FiniteLinear_MLP(object):
                                               target_col = self.target_features[node], fix_col = self.fixed_features[node], projection = self.gd_FDRR_params['projection'], 
                                               train_adversarially = False)
     
-                    optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
+                    optimizer = torch.optim.Adam(new_mlp_model.parameters(), lr = 1e-2)
     
                     new_mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
@@ -3394,7 +3394,7 @@ class FiniteAdapt_Linear_Fixed(object):
                                   target_col = self.target_col, fix_col = self.fix_col, projection = self.adjustable_FDR_params['projection'], 
                                   train_adversarially = False, budget_constraint = 'equality')
         
-        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'], weight_decay = self.MLP_train_dict['weight_decay'])
+        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = 1e-2, weight_decay = self.MLP_train_dict['weight_decay'])
         mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
                               epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
                               verbose = self.MLP_train_dict['verbose'])

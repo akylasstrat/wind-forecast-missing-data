@@ -76,8 +76,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('30min').mean()
@@ -102,8 +102,8 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[1]
-
+target_park = plant_ids[0]
+print(f'target_park:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
@@ -189,6 +189,8 @@ with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_f
 with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
         FA_lin_fixed_NN_model = pickle.load(handle)
 
+with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
+        v2FA_lin_fixed_NN_model = pickle.load(handle)
 
 #%% Test models
 target_col = trainPred.columns
@@ -201,7 +203,7 @@ error_metric = 'rmse'
 P = np.array([[.999, .001], [0.241, 0.759]])
 
 models = ['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN'] \
-    +['FA-greedy-LAD', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS']  + ['FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN','FA-lin-greedy-NN']\
+    +['FA-greedy-LAD', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS']  + ['FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN','FA-lin-greedy-NN', 'v2FA-lin-fixed-NN']\
     +[f'FA-lin-greedy-LS-{n_splits}' for n_splits in FA_lin_greedy_LS_models_dict.keys()] \
 
 models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
@@ -362,6 +364,11 @@ for pattern in ['MCAR', 'MNAR']:
             FA_lin_fixed_NN_pred = FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
             FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
             temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
+
+            ## NN model
+            v2FA_lin_fixed_NN_pred = v2FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            v2FA_lin_fixed_NN_pred = projection(v2FA_lin_fixed_NN_pred)
+            temp_Predictions['v2FA-lin-fixed-NN'] = v2FA_lin_fixed_NN_pred.reshape(-1)
     
             #### FINITE-RETRAIN-LAD and LS
             # FA_greedy_LAD_pred = FA_greedy_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))

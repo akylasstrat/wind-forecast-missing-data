@@ -323,7 +323,7 @@ patience = 15
 Max_number_splits = [1, 2, 5, 10, 25]
 FA_lin_greedy_LS_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 
 if config['train']:
     
