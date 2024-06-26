@@ -91,7 +91,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[0]
+target_park = 'Howard'
 print(f'Target plant:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -322,7 +322,7 @@ Max_number_splits = [1, 2, 5, 10, 20]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
-config['train'] = False
+config['train'] = True
 
 if config['train']:
     
@@ -366,7 +366,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -405,7 +405,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -514,7 +514,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -548,7 +548,7 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -579,7 +579,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:

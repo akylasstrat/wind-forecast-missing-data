@@ -2131,6 +2131,14 @@ class FiniteLinear_MLP(object):
     '''
 
     self.MLP_train_dict = kwargs
+    
+    # check some training parameters
+    if 'weight_decay' not in list(self.MLP_train_dict.keys()):
+        self.MLP_train_dict['weight_decay'] = 0
+    
+    if 'freeze_weights' not in list(self.MLP_train_dict.keys()):
+        self.MLP_train_dict['freeze_weights'] = True
+        
     self.max_gap = max_gap
 
     # keyword arguments for standard class object resilient_MLP
@@ -2241,7 +2249,7 @@ class FiniteLinear_MLP(object):
 
     robust_mlp_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
-                          attack_type = self.gd_FDRR_params['attack_type'])
+                          attack_type = self.gd_FDRR_params['attack_type'], freeze_weights = self.MLP_train_dict['freeze_weights'])
     
 
     # Nominal and WC loss
@@ -2447,7 +2455,7 @@ class FiniteLinear_MLP(object):
 
             left_robust_mlp_model.adversarial_train_model(left_train_data_loader, left_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
-                                  attack_type = self.gd_FDRR_params['attack_type'])
+                                  attack_type = self.gd_FDRR_params['attack_type'], freeze_weights = self.MLP_train_dict['freeze_weights'])
             
             # Estimate WC loss and nominal loss
             left_insample_wcloss = left_robust_mlp_model.best_val_loss
@@ -2518,7 +2526,7 @@ class FiniteLinear_MLP(object):
 
             right_robust_mlp_model.adversarial_train_model(right_train_data_loader, right_valid_data_loader, optimizer, 
                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], verbose = self.MLP_train_dict['verbose'],
-                                  attack_type = self.gd_FDRR_params['attack_type'])
+                                  attack_type = self.gd_FDRR_params['attack_type'], freeze_weights = self.MLP_train_dict['freeze_weights'])
 
             # Estimate WC loss and nominal loss
             right_insample_wcloss = right_robust_mlp_model.best_val_loss
@@ -3348,6 +3356,13 @@ class FiniteAdapt_Linear_Fixed(object):
     '''
 
     self.MLP_train_dict = kwargs
+
+    if 'weight_decay' not in list(self.MLP_train_dict.keys()):
+        self.MLP_train_dict['weight_decay'] = 0
+
+    if 'freeze_weights' not in list(self.MLP_train_dict.keys()):
+        self.MLP_train_dict['freeze_weights'] = True
+        
     self.FDR_models = []
     self.missing_feat_leaf = []
     # keyword arguments for standard class object resilient_MLP
@@ -3434,7 +3449,8 @@ class FiniteAdapt_Linear_Fixed(object):
             
             temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
                                        epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'],
-                                       verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample')
+                                       verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample', 
+                                       freeze_weights = self.MLP_train_dict['freeze_weights'])
         
             self.FDR_models.append(temp_fdr_model)
                               

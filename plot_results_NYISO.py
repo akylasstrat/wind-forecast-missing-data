@@ -43,8 +43,8 @@ config = params()
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
 
-nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill']
-target_park = 'Marsh Hill'
+nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard']
+target_park = 'Howard'
 config['save'] = True
 min_lag = config['min_lag']
 #%% Missing Not at Random

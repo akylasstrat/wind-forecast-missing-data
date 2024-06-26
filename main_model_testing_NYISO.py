@@ -102,7 +102,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = plant_ids[0]
+target_park = 'Howard'
 print(f'target_park:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -189,8 +189,8 @@ with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_f
 with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
         FA_lin_fixed_NN_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
-        v2FA_lin_fixed_NN_model = pickle.load(handle)
+# with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
+#         v2FA_lin_fixed_NN_model = pickle.load(handle)
 
 #%% Test models
 target_col = trainPred.columns
@@ -239,10 +239,10 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-for pattern in ['MCAR', 'MNAR']:
+for pattern in ['MNAR']:
     print(f'Test for {pattern} mechanism')
     for perc in percentage:
-        if (pattern in ['MNAR', 'MNAR_sq'])and(run_counter>1):
+        if (pattern in ['MNAR', 'MNAR_sq'])and(perc>0):
             continue
         for iter_ in range(iterations):
             
@@ -366,9 +366,9 @@ for pattern in ['MCAR', 'MNAR']:
             temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
 
             ## NN model
-            v2FA_lin_fixed_NN_pred = v2FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            v2FA_lin_fixed_NN_pred = projection(v2FA_lin_fixed_NN_pred)
-            temp_Predictions['v2FA-lin-fixed-NN'] = v2FA_lin_fixed_NN_pred.reshape(-1)
+            # v2FA_lin_fixed_NN_pred = v2FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            # v2FA_lin_fixed_NN_pred = projection(v2FA_lin_fixed_NN_pred)
+            # temp_Predictions['v2FA-lin-fixed-NN'] = v2FA_lin_fixed_NN_pred.reshape(-1)
     
             #### FINITE-RETRAIN-LAD and LS
             # FA_greedy_LAD_pred = FA_greedy_LAD_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
