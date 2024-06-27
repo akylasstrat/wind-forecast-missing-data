@@ -41,12 +41,27 @@ config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 2
+config['min_lag'] = 4
 
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard']
 target_park = 'Marsh Hill'
 config['save'] = True
 min_lag = config['min_lag']
+#%% No missing data, all horizons
+
+all_rsme = []
+for s in [1,2,4]:
+    temp_df = pd.read_csv(f'{cd}\\results\\{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
+    temp_df['steps'] = s
+    
+    all_rsme.append(temp_df)
+
+all_rsme = pd.concat(all_rsme)
+#%%
+
+print((100*all_rsme.query(f'percentage==0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN']]).round(2))
+
+
 #%% Missing Not at Random
 mae_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
