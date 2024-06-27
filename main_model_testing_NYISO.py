@@ -76,8 +76,8 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 power_df = power_df.resample('30min').mean()
@@ -102,11 +102,11 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = 'Howard'
+target_park = plant_ids[1]
 print(f'target_park:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 1
+config['min_lag'] = 2
 config['max_lag'] = 3 + config['min_lag']
 # config['pattern'] = 'MNAR'
 config['save'] = True
@@ -239,7 +239,7 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-for pattern in ['MNAR']:
+for pattern in ['MCAR']:
     print(f'Test for {pattern} mechanism')
     for perc in percentage:
         if (pattern in ['MNAR', 'MNAR_sq'])and(perc>0):

@@ -41,10 +41,10 @@ config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 1
+config['min_lag'] = 2
 
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard']
-target_park = 'Howard'
+target_park = 'Marsh Hill'
 config['save'] = True
 min_lag = config['min_lag']
 #%% Missing Not at Random
@@ -146,6 +146,11 @@ plt.show()
 print((100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2).to_clipboard() )
 
 print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard())
+
+#%%
+(100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2).to_clipboard() 
+#%%
+(100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard()
 #%% LS - sensitivity
  
 
@@ -195,6 +200,7 @@ plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{target_park}_{min_lag}_steps_sensitivity_RMSE.pdf')
 plt.show()
+
 
 #%% NN performance degradation
 
@@ -259,3 +265,11 @@ plt.show()
 print((100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['NN']].mean().values).round(2).to_clipboard() )
 
 print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard())
+#%%
+(100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['NN']].mean().values).round(2).to_clipboard()
+
+#%%
+(100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard()
+
+
+
