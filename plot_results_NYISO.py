@@ -41,7 +41,8 @@ config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 2
+config['min_lag'] = 4
+freq = '15min'
 
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard']
 target_park = 'Marsh Hill'
@@ -50,7 +51,7 @@ min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rsme = []
-for s in [1,2]:
+for s in [1,4]:
     temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
 
     temp_df['steps'] = s
@@ -60,7 +61,6 @@ for s in [1,2]:
 
 all_rmse = pd.concat(all_rsme, axis = 0)
 
-#%%
 print(all_rmse.query(f'percentage == 0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'NN', 'LAD']])
 #%% Missing Not at Random
 mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
@@ -95,7 +95,7 @@ plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].me
 plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
            ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
-plt.ylim([6, 13.5])
+# plt.ylim([6, 13.5])
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_MNAR.pdf')
 plt.show()
 
