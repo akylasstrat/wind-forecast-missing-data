@@ -96,7 +96,7 @@ target_park = 'Marsh Hill'
 print(f'Target plant:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 4
+config['min_lag'] = 16
 config['max_lag'] = 3 + config['min_lag']
 
 min_lag = config['min_lag']

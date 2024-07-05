@@ -272,8 +272,11 @@ for perc in percentage:
         #             miss_ind[:,j] = make_chain(P, 0, len(testPred))
                     
         # elif pattern == 'MCAR':
-            
-        P = np.array([[1-perc, perc], [0.2, 0.8]])
+        if freq == '15min':
+            P = np.array([[1-perc, perc], [0.1, 0.9]])
+        else:
+            P = np.array([[1-perc, perc], [0.2, 0.8]])
+
         for j in range(len(series_missing)):
             miss_ind[:,j] = make_chain(P, 0, len(testPred))
             #miss_ind[1:,j+1] = miss_ind[:-1,j]
@@ -460,14 +463,20 @@ for iter_ in range(iterations):
     # generate missing data
     miss_ind = np.zeros((len(testPred), len(plant_ids)))
     
-    P = np.array([[.999, .001], [0.2, 0.8]])
+    if freq == '15min':
+        P_init = np.array([[.999, .001], [0.1, 0.9]])
+        P_norm = np.array([[1-0.05, 0.05], [0.1, 0.9]])
+    else:
+        P = np.array([[.999, .001], [0.2, 0.8]])
+        P_norm = np.array([[1-0.05, 0.05], [0.2, 0.8]])
+            
     for j, series in enumerate(series_missing): 
         if series == target_park:
             # Data is MNAR, set values, control the rest within the function 
             miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, 'MNAR')
         else:
-            P = np.array([[1-0.05, 0.05], [0.2, 0.8]])
-            miss_ind[:,j] = make_chain(P, 0, len(testPred))
+            
+            miss_ind[:,j] = make_chain(P_norm, 0, len(testPred))
     
     mask_ind = miss_ind==1
     
