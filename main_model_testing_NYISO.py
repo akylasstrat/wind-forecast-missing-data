@@ -80,7 +80,10 @@ power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\
 metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-power_df = power_df.resample('30min').mean()
+freq = '15min'
+target_park = 'Marsh Hill'
+
+power_df = power_df.resample(freq).mean()
 
 scaled_power_df = power_df.copy()
 
@@ -102,7 +105,6 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = 'Howard'
 
 print(f'target_park:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
@@ -143,51 +145,51 @@ fix_col = []
 #%% Load trained models
 
 # Load nominal models
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_LR.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_LR.pickle', 'rb') as handle:
     lr_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_LAD.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_LAD.pickle', 'rb') as handle:
     lad_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_Ridge.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_Ridge.pickle', 'rb') as handle:
     ridge_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_Lasso.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_Lasso.pickle', 'rb') as handle:
     lasso_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_MLP.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_MLP.pickle', 'rb') as handle:
     mlp_model = pickle.load(handle)
 
 # Load adversarial models
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
     FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
 # with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'rb') as handle:    
 #     FA_greedy_LAD_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
     FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
     FA_greedy_LS_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
     FA_greedy_NN_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
     FA_lin_greedy_NN_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
         FA_fixed_LS_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
         FA_fixed_NN_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
         FA_lin_fixed_LS_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
         FA_lin_fixed_NN_model = pickle.load(handle)
 
 # with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
@@ -409,8 +411,8 @@ for perc in percentage:
         run_counter += 1
 
     if config['save']:
-        mae_df.to_csv(f'{cd}\\results\\{target_park}_MCAR_{min_lag}_steps_MAE_results.csv')
-        rmse_df.to_csv(f'{cd}\\results\\{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv')
+        mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results.csv')
+        rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv')
         
     ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
@@ -586,8 +588,8 @@ for iter_ in range(iterations):
     run_counter += 1
 
 if config['save']:
-    mae_df.to_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_MAE_results.csv')
-    rmse_df.to_csv(f'{cd}\\results\\{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv')
+    mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv')
+    rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv')
     
 ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
 rmse_df.groupby(['percentage']).mean()[ls_models].plot()

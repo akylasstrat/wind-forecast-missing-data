@@ -71,7 +71,8 @@ power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\
 metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-power_df = power_df.resample('30min').mean()
+freq = '15min'
+power_df = power_df.resample(freq).mean()
 
 scaled_power_df = power_df.copy()
 
@@ -91,7 +92,7 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = 'Howard'
+target_park = 'Marsh Hill'
 print(f'Target plant:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -252,19 +253,19 @@ plt.show()
 
 #%%
 if config['save']:
-    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_LR.pickle', 'wb') as handle:
         pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_LAD.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_LAD.pickle', 'wb') as handle:
         pickle.dump(lad, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_Ridge.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_Ridge.pickle', 'wb') as handle:
         pickle.dump(ridge, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_Lasso.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_Lasso.pickle', 'wb') as handle:
         pickle.dump(lasso, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_MLP.pickle', 'wb') as handle:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_MLP.pickle', 'wb') as handle:
         pickle.dump(mlp_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 #%%%%%%%%% Adversarial Models
@@ -338,10 +339,10 @@ if config['train']:
         FA_lin_greedy_LS_models_dict[number_splits] = FA_lin_greedy_LS_model
     
         if config['save']:
-            with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_model_{number_splits}.pickle', 'wb') as handle:
+            with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_model_{number_splits}.pickle', 'wb') as handle:
                 pickle.dump(FA_lin_greedy_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'wb') as handle:
+            with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'wb') as handle:
                 pickle.dump(FA_lin_greedy_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     
 
@@ -379,7 +380,7 @@ if config['train']:
                           lr = learning_rate, batch_size = batch_size, weight_decay = 0)
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'wb') as handle:
             pickle.dump(FA_greedy_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
 # else:
@@ -420,7 +421,7 @@ if config['train']:
     
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
             
 # else:
@@ -468,7 +469,7 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
@@ -526,7 +527,7 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'wb') as handle:
             pickle.dump(FA_fixed_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
@@ -560,7 +561,7 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
@@ -591,7 +592,7 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = 0)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'wb') as handle:
             pickle.dump(FA_lin_fixed_LS_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
@@ -617,7 +618,7 @@ if config['train']:
                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'wb') as handle:
             pickle.dump(FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
