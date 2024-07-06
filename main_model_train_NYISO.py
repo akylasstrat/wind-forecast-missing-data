@@ -81,7 +81,7 @@ for c in scaled_power_df.columns:
     
 # scale between [0,1]/ or divide by total capacity
 # Select zone
-target_zone = 'NORTH'
+target_zone = 'CENTRL'
 plant_ids = list(metadata_df[metadata_df['load_zone']==target_zone].index)
 
 print('Number of plants per zone')
@@ -92,11 +92,11 @@ metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
 #%%
-target_park = 'Noble Clinton'
+target_park = 'Marsh Hill'
 print(f'Target plant:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 1
+config['min_lag'] = 16
 config['max_lag'] = 3 + config['min_lag']
 
 min_lag = config['min_lag']

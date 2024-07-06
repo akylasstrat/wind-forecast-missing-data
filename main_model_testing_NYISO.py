@@ -81,8 +81,8 @@ metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College Lond
 
 #%%
 freq = '15min'
-target_park = 'Marsh Hill'
-
+target_park = 'Noble Clinton'
+target_zone = 'NORTH'
 power_df = power_df.resample(freq).mean()
 
 scaled_power_df = power_df.copy()
@@ -94,7 +94,7 @@ for c in scaled_power_df.columns:
 # scale between [0,1]/ or divide by total capacity
 
 # Select zone
-target_zone = 'CENTRL'
+
 plant_ids = list(metadata_df[metadata_df['load_zone']==target_zone].index)
 
 print('Number of plants per zone')
@@ -109,7 +109,7 @@ plt.show()
 print(f'target_park:{target_park}')
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 4
+config['min_lag'] = 1
 config['max_lag'] = 3 + config['min_lag']
 # config['pattern'] = 'MNAR'
 config['save'] = True
