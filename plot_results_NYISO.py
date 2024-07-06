@@ -43,14 +43,14 @@ config = params()
 # max_lag: number of historical observations to include
 config['min_lag'] = 1
 freq = '15min'
-nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard']
-target_park = 'Marsh Hill'
+nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
+target_park = 'Noble Clinton'
 config['save'] = True
 min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rsme = []
-for s in [1, 4]:
+for s in [1]:
     temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
     temp_df['steps'] = s
     
@@ -96,7 +96,7 @@ plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].me
 plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
            ['$\mathtt{Imp-LS}$', '$\mathtt{FA(fixed)^{\gamma}-LS}$', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
-plt.ylim([6, 13.5])
+plt.ylim([2.5, 11.5])
 plt.ylabel("RMSE (%)")
 
 xticks_minor = np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25)))
