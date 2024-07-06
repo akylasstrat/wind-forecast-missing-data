@@ -41,9 +41,8 @@ config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 4
+config['min_lag'] = 1
 freq = '15min'
-
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard']
 target_park = 'Marsh Hill'
 config['save'] = True
@@ -51,17 +50,18 @@ min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rsme = []
-for s in [1,4]:
+for s in [1, 4]:
     temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
-
     temp_df['steps'] = s
     
     all_rsme.append(temp_df)
 
+all_rsme = pd.concat(all_rsme)
+#%%
 
-all_rmse = pd.concat(all_rsme, axis = 0)
+print((100*all_rsme.query(f'percentage==0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN']]).round(2))
 
-print(all_rmse.query(f'percentage == 0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'NN', 'LAD']])
+
 #%% Missing Not at Random
 mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
 rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
@@ -86,16 +86,50 @@ nn_models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA
 
 fig, ax = plt.subplots(constrained_layout = True)
 plt.bar(np.arange(0, 5*0.25, 0.25), 100*rmse_df_nmar[ls_models_to_plot].mean(), width = 0.2, alpha = .3, 
-        yerr = 100*rmse_df_nmar[ls_models_to_plot].std())
+        yerr = 100*rmse_df_nmar[ls_models_to_plot].std(), label = '$\mathtt{LS}$')
+
 plt.xticks(np.arange(0, 5*0.25, 0.25), ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'], rotation = 45)
 
 plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].mean(), width = 0.2,
-        yerr = 100*rmse_df_nmar[nn_models_to_plot].std())
+        yerr = 100*rmse_df_nmar[nn_models_to_plot].std(), label = '$\mathtt{NN}$')
 
 plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
-           ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
+           ['$\mathtt{Imp-LS}$', '$\mathtt{FA(fixed)^{\gamma}-LS}$', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
-# plt.ylim([6, 13.5])
+plt.ylim([6, 13.5])
+plt.ylabel("RMSE (%)")
+
+xticks_minor = np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25)))
+xticks_major = [0.625 + 2]
+xlbls = [ '$\mathtt{Imp}$', '$\mathtt{FA(fixed)^{\gamma}}$', '$\mathtt{FLA(fixed)^{\gamma}}$',
+          '$\mathtt{FA(learn)^{10}}$', '$\mathtt{FLA(learn)^{10}}$'] + [ '$\mathtt{Imp}$', '$\mathtt{FA(fixed)^{\gamma}}$', '$\mathtt{FLA(fixed)^{\gamma}}$',
+                    '$\mathtt{FA(learn)^{10}}$', '$\mathtt{FLA(learn)^{10}}$']
+
+
+# ax.set_xticks( xticks_major )
+ax.set_xticks( xticks_minor, minor=True )
+ax.set_xticklabels( xlbls, rotation = 45, fontsize = 7)
+
+plt.legend(ncol = 2)
+# ax.set_xlim( 1, 11 )
+
+# ax.grid( 'off', axis='x' )
+# ax.grid( 'off', axis='x', which='minor' )
+
+# vertical alignment of xtick labels
+# va = [ 0, -.05, 0, -.05, -.05, -.05 ]
+# for t, y in zip( ax.get_xticklabels( ), va ):
+#     t.set_y( y )
+
+# ax.tick_params( axis='x', which='minor', direction='out', length=30 )
+# ax.tick_params( axis='x', which='major', bottom='off', top='off' )
+
+# ax.set_xticks( xticks )
+
+# ax.set_xticks( xticks_minor, minor=True )
+# ax.set_xticklabels( xlbls )
+# ax.set_xlim( 1, 11 )
+
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_MNAR.pdf')
 plt.show()
 
@@ -107,11 +141,11 @@ plt.show()
 
 models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
 
-models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
-                    'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
-                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
-                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)-LS}$', 
-                    'FA-greedy-LS':'$\mathtt{FA(learn)-LS}$'}
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$','Lasso':'$\mathtt{Imp-Lasso}$', 
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}-LS}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}-LS}$',
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(learn)^{10}-LS}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -216,6 +250,9 @@ plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_sensitivity_RMSE.pdf')
 plt.show()
 
+#%%
+temp_df = rmse_df.query('percentage==0.1')
+
 
 #%% NN performance degradation
 
@@ -223,14 +260,14 @@ plt.show()
 models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
 
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
-                    'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
-                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
-                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)-LS}$', 
-                    'FA-greedy-LS':'$\mathtt{FA(learn)-LS}$', 
-                    'FA-fixed-NN':'$\mathtt{FA(fixed)-NN}$', 
-                    'FA-greedy-NN':'$\mathtt{FA(learn)-NN}$', 
-                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
-                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}-LS}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}-LS}$',
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(learn)^{10}-LS}$', 
+                    'FA-fixed-NN':'$\mathtt{FA(fixed)^{\gamma}-NN}$', 
+                    'FA-greedy-NN':'$\mathtt{FA(learn)^{10}-NN}$', 
+                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)^{\gamma}-NN}$', 
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
                     'NN':'$\mathtt{Imp-NN}$'}
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
