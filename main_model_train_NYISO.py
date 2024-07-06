@@ -72,6 +72,10 @@ metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College Lond
 
 #%%
 freq = '15min'
+target_park = 'Noble Clinton'
+target_zone = metadata_df.loc[target_park].load_zone
+
+asdf
 power_df = power_df.resample(freq).mean()
 
 scaled_power_df = power_df.copy()
