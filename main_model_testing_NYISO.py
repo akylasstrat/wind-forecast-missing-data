@@ -82,7 +82,7 @@ metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College Lond
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-target_zone = 'NORTH'
+target_zone = metadata_df.loc[target_park].load_zone
 power_df = power_df.resample(freq).mean()
 
 scaled_power_df = power_df.copy()
@@ -112,7 +112,7 @@ print(f'target_park:{target_park}')
 config['min_lag'] = 1
 config['max_lag'] = 3 + config['min_lag']
 # config['pattern'] = 'MNAR'
-config['save'] = True
+config['save'] = False
 config['split_date'] = '2018-06-01' # end of train set/start of test set
 
 iterations = 5
@@ -273,7 +273,7 @@ for perc in percentage:
                     
         # elif pattern == 'MCAR':
         if freq == '15min':
-            P = np.array([[1-perc, perc], [0.1, 0.9]])
+            P = np.array([[1-perc, perc], [0.2, 0.8]])
         else:
             P = np.array([[1-perc, perc], [0.2, 0.8]])
 
@@ -464,8 +464,8 @@ for iter_ in range(iterations):
     miss_ind = np.zeros((len(testPred), len(plant_ids)))
     
     if freq == '15min':
-        P_init = np.array([[.999, .001], [0.1, 0.9]])
-        P_norm = np.array([[1-0.05, 0.05], [0.1, 0.9]])
+        P_init = np.array([[.999, .001], [0.2, 0.8]])
+        P_norm = np.array([[1-0.05, 0.05], [0.2, 0.8]])
     else:
         P = np.array([[.999, .001], [0.2, 0.8]])
         P_norm = np.array([[1-0.05, 0.05], [0.2, 0.8]])
