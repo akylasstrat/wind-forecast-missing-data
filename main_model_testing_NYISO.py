@@ -80,9 +80,9 @@ power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\
 metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-freq = '15min'
+freq = '5min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 16
+config['min_lag'] = 1
 
 target_zone = metadata_df.loc[target_park].load_zone
 power_df = power_df.resample(freq).mean()

@@ -49,7 +49,7 @@ def params():
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
     params['start_date'] = '2018-01-01' # start of train set
-    params['split_date'] = '2018-06-01' # end of train set/start of test set
+    params['split_date'] = '2018-03-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
@@ -71,9 +71,9 @@ power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\
 metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-freq = '15min'
+freq = '5min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 16
+config['min_lag'] = 1
 
 target_zone = metadata_df.loc[target_park].load_zone
 
@@ -202,7 +202,7 @@ from torch_custom_layers import *
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-2
+learning_rate = 1e-3
 patience = 15
 
 torch.manual_seed(0)
@@ -230,7 +230,7 @@ mlp_model = MLP(input_size = n_features, hidden_sizes = [50, 50, 50], output_siz
 
 optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_decay = 1e-5)
 mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
-                      patience = patience, verbose = 0-1)
+                      patience = patience, verbose = 1)
 base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
 
 # Estimate MAE for base models
@@ -406,7 +406,7 @@ n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-2
+learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 
@@ -548,7 +548,7 @@ if config['train']:
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-2
+learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 decay = 1e-5
