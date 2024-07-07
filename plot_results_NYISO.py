@@ -36,12 +36,23 @@ def params():
     
     return params
 
+models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}-LS}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}-LS}$',
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(learn)^{10}-LS}$', 
+                    'FA-fixed-NN':'$\mathtt{FA(fixed)^{\gamma}-NN}$', 
+                    'FA-greedy-NN':'$\mathtt{FA(learn)^{10}-NN}$', 
+                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)^{\gamma}-NN}$', 
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
+                    'NN':'$\mathtt{Imp-NN}$'}
+
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 16
+config['min_lag'] = 1
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -50,7 +61,8 @@ min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rsme = []
-for s in [1, 4, 8, 16]:
+steps_ = [1,4,8]
+for s in steps_:
     temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
     temp_df['steps'] = s
     
@@ -59,8 +71,116 @@ for s in [1, 4, 8, 16]:
 all_rsme = pd.concat(all_rsme)
 #%%
 
+ls_models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
+nn_models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+
+all_rsme_horizon = all_rsme.query(f'percentage == 0.1')
+
+all_rsme_horizon_impr = pd.DataFrame(data = [], columns = ls_models_to_plot + nn_models_to_plot + ['steps'])
+all_rsme_horizon_impr['steps'] = all_rsme_horizon['steps']
+all_rsme_horizon_impr[ls_models_to_plot] = ((all_rsme_horizon['LS'].values.reshape(-1,1) - all_rsme_horizon[ls_models_to_plot])/all_rsme_horizon['LS'].values.reshape(-1,1))
+all_rsme_horizon_impr[nn_models_to_plot] = ((all_rsme_horizon['NN'].values.reshape(-1,1) - all_rsme_horizon[nn_models_to_plot])/all_rsme_horizon['NN'].values.reshape(-1,1))
+
+ave_improve_horizon = 100*(all_rsme_horizon_impr.groupby(['steps']).mean())
+std_improve_horizon = 100*(all_rsme_horizon_impr.groupby(['steps']).std())
+
+#%%
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+for i,m in enumerate(ls_models_to_plot):
+    if m == 'LS':
+        plt.plot(ave_improve_horizon[m].values, linestyle = '--', color = 'black', label = models_to_labels[m])
+    else:
+        # plt.plot(np.arange(len(steps_)), ave_improve_horizon[m].values, marker = marker[i], color = colors[i], label = models_to_labels[m], linestyle=' ')
+        
+        plt.errorbar(np.arange(len(steps_)), 
+                     ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+                     label = models_to_labels[m])
+
+plt.ylabel('RMSE improvement (%)')
+plt.xticks(np.arange(len(steps_)), steps_)
+plt.xlabel(r'Forecast horizon $h$')
+plt.legend(ncol=1, fontsize = 6)
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_perc_improvement_vs_horizon.pdf')
+plt.show()
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+for i,m in enumerate(nn_models_to_plot):
+    if m == 'NN':
+        plt.plot(ave_improve_horizon[m].values, linestyle = '--', color = 'black', label = models_to_labels[m])
+    else:
+        plt.plot(np.arange(len(steps_)), ave_improve_horizon[m].values, marker = marker[i], color = colors[i], label = models_to_labels[m], linestyle=' ')
+        
+        # plt.errorbar(np.arange(3), ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values)
+
+plt.ylabel('RMSE improvement (%)')
+plt.xticks(np.arange(len(steps_)), steps_)
+plt.xlabel(r'Forecast horizon $h$')
+plt.legend(ncol=1, fontsize = 6)
+plt.show()
+
+
+#%%
 print((100*all_rsme.query(f'percentage==0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN']]).round(2))
 
+
+ls_models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
+nn_models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+fig, ax = plt.subplots(constrained_layout = True)
+plt.bar(np.arange(0, 5*0.25, 0.25), 100*rmse_df_nmar[ls_models_to_plot].mean(), width = 0.2, alpha = .3, 
+        yerr = 100*rmse_df_nmar[ls_models_to_plot].std(), label = '$\mathtt{LS}$')
+
+plt.xticks(np.arange(0, 5*0.25, 0.25), ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'], rotation = 45)
+
+plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*rmse_df_nmar[nn_models_to_plot].mean(), width = 0.2,
+        yerr = 100*rmse_df_nmar[nn_models_to_plot].std(), label = '$\mathtt{NN}$')
+
+plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
+           ['$\mathtt{Imp-LS}$', '$\mathtt{FA(fixed)^{\gamma}-LS}$', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
+
+plt.ylim([2.5, 11.5])
+plt.ylabel("RMSE (%)")
+
+xticks_minor = np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25)))
+xticks_major = [0.625 + 2]
+xlbls = [ '$\mathtt{Imp}$', '$\mathtt{FA(fixed)^{\gamma}}$', '$\mathtt{FLA(fixed)^{\gamma}}$',
+          '$\mathtt{FA(learn)^{10}}$', '$\mathtt{FLA(learn)^{10}}$'] + [ '$\mathtt{Imp}$', '$\mathtt{FA(fixed)^{\gamma}}$', '$\mathtt{FLA(fixed)^{\gamma}}$',
+                    '$\mathtt{FA(learn)^{10}}$', '$\mathtt{FLA(learn)^{10}}$']
+
+
+# ax.set_xticks( xticks_major )
+ax.set_xticks( xticks_minor, minor=True )
+ax.set_xticklabels( xlbls, rotation = 45, fontsize = 7)
+
+plt.legend(ncol = 2)
+# ax.set_xlim( 1, 11 )
+
+# ax.grid( 'off', axis='x' )
+# ax.grid( 'off', axis='x', which='minor' )
+
+# vertical alignment of xtick labels
+# va = [ 0, -.05, 0, -.05, -.05, -.05 ]
+# for t, y in zip( ax.get_xticklabels( ), va ):
+#     t.set_y( y )
+
+# ax.tick_params( axis='x', which='minor', direction='out', length=30 )
+# ax.tick_params( axis='x', which='major', bottom='off', top='off' )
+
+# ax.set_xticks( xticks )
+
+# ax.set_xticks( xticks_minor, minor=True )
+# ax.set_xticklabels( xlbls )
+# ax.set_xlim( 1, 11 )
+
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_MNAR.pdf')
+plt.show()
 
 #%% Missing Not at Random
 mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
@@ -181,7 +301,7 @@ for i, m in enumerate(models_to_plot):
     
 plt.legend()
 plt.ylabel('RMSE (%)')
-plt.xlabel('Probability of failure $p_{0,1}$')
+plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 # plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6)
@@ -243,7 +363,7 @@ for i, m in enumerate(models_to_plot):
     
 plt.legend()
 plt.ylabel('RMSE (%)')
-plt.xlabel('Probability of failure $p_{0,1}$')
+plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 # plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6)
@@ -259,16 +379,7 @@ plt.show()
 
 models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
 
-models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
-                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}-LS}$',
-                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}-LS}$',
-                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
-                    'FA-greedy-LS':'$\mathtt{FA(learn)^{10}-LS}$', 
-                    'FA-fixed-NN':'$\mathtt{FA(fixed)^{\gamma}-NN}$', 
-                    'FA-greedy-NN':'$\mathtt{FA(learn)^{10}-NN}$', 
-                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)^{\gamma}-NN}$', 
-                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
-                    'NN':'$\mathtt{Imp-NN}$'}
+
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 
@@ -304,7 +415,7 @@ for i, m in enumerate(models_to_plot):
     
 plt.legend()
 plt.ylabel('RMSE (%)')
-plt.xlabel('Probability of failure $p_{0,1}$')
+plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 # plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
