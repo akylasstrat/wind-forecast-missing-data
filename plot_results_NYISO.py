@@ -41,7 +41,7 @@ config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 1
+config['min_lag'] = 16
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -50,7 +50,7 @@ min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rsme = []
-for s in [1]:
+for s in [1, 4, 8, 16]:
     temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
     temp_df['steps'] = s
     
@@ -251,7 +251,7 @@ if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_ste
 plt.show()
 
 #%%
-temp_df = rmse_df.query('percentage==0.1')
+# temp_df = rmse_df.query('percentage==0.1')
 
 
 #%% NN performance degradation
