@@ -73,7 +73,7 @@ metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College Lond
 #%%
 freq = '5min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 1
+config['min_lag'] = 12
 
 target_zone = metadata_df.loc[target_park].load_zone
 

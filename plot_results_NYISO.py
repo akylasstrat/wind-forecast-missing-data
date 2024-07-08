@@ -137,12 +137,12 @@ fig, ax = plt.subplots(constrained_layout = True)
 
 for i,m in enumerate(ls_models_to_plot):
 
-    plt.errorbar(np.arange(len(steps_)), 
+    plt.errorbar(np.arange(len(steps_))+i*0.075, 
                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
                  label = models_to_labels[m])
 
-plt.ylabel('RMSE improvement (%)')
-plt.xticks(np.arange(len(steps_)), steps_)
+plt.ylabel('RMSE (%)')
+plt.xticks(np.arange(len(steps_))+0.15, steps_)
 plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_abs_improvement_vs_horizon.pdf')
