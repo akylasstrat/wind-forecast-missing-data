@@ -60,32 +60,50 @@ config['save'] = True
 min_lag = config['min_lag']
 #%% No missing data, all horizons
 
-all_rsme = []
+all_rmse = []
 steps_ = [1,4,8]
 for s in steps_:
     temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
     temp_df['steps'] = s
     
-    all_rsme.append(temp_df)
+    all_rmse.append(temp_df)
 
-all_rsme = pd.concat(all_rsme)
+all_rmse = pd.concat(all_rmse)
+
+ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
+nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+scaled_coef_rmse = all_rmse.query(f'percentage>0').copy()
 #%%
+for s in [1, 4, 8]:
+    nominal_rmse_LS = all_rmse.query(f'steps == {s} and percentage==0')['LS'].mean()
+    nominal_rmse_NN = all_rmse.query(f'steps == {s} and percentage==0')['NN'].mean()
+    
+    for m in ls_models:
+        scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] = 1- (scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] - nominal_rmse_LS)/(all_rmse.query(f'steps == {s} and percentage>0')['LS'].values - nominal_rmse_LS)
+
+    for m in nn_models:
+        scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] = 1- (scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] - nominal_rmse_NN)/(all_rmse.query(f'steps == {s} and percentage>0')['NN'].values - nominal_rmse_NN)
+        
+#%% Percentage improvement over horizons
 
 ls_models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
 nn_models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
 
+all_rmse_horizon = all_rmse.copy()
 
-all_rsme_horizon = all_rsme.query(f'percentage == 0.1')
+all_rmse_horizon_impr = pd.DataFrame(data = [], columns = ls_models_to_plot + nn_models_to_plot + ['steps','percentage'])
+all_rmse_horizon_impr['steps'] = all_rmse_horizon['steps']
+all_rmse_horizon_impr['percentage'] = all_rmse_horizon['percentage']
+all_rmse_horizon_impr[ls_models_to_plot] = ((all_rmse_horizon['LS'].values.reshape(-1,1) - all_rmse_horizon[ls_models_to_plot])/all_rmse_horizon['LS'].values.reshape(-1,1))
+all_rmse_horizon_impr[nn_models_to_plot] = ((all_rmse_horizon['NN'].values.reshape(-1,1) - all_rmse_horizon[nn_models_to_plot])/all_rmse_horizon['NN'].values.reshape(-1,1))
 
-all_rsme_horizon_impr = pd.DataFrame(data = [], columns = ls_models_to_plot + nn_models_to_plot + ['steps'])
-all_rsme_horizon_impr['steps'] = all_rsme_horizon['steps']
-all_rsme_horizon_impr[ls_models_to_plot] = ((all_rsme_horizon['LS'].values.reshape(-1,1) - all_rsme_horizon[ls_models_to_plot])/all_rsme_horizon['LS'].values.reshape(-1,1))
-all_rsme_horizon_impr[nn_models_to_plot] = ((all_rsme_horizon['NN'].values.reshape(-1,1) - all_rsme_horizon[nn_models_to_plot])/all_rsme_horizon['NN'].values.reshape(-1,1))
-
-ave_improve_horizon = 100*(all_rsme_horizon_impr.groupby(['steps']).mean())
-std_improve_horizon = 100*(all_rsme_horizon_impr.groupby(['steps']).std())
+all_rmse_horizon_impr[ls_models_to_plot] = ((all_rmse_horizon['LS'].values.reshape(-1,1) - all_rmse_horizon[ls_models_to_plot])/all_rmse_horizon['LS'].values.reshape(-1,1))
 
 #%%
+
+ave_improve_horizon = 100*(all_rmse_horizon_impr.query(f'percentage==0.1').groupby(['steps']).mean())
+std_improve_horizon = 100*(all_rmse_horizon_impr.query(f'percentage==0.1').groupby(['steps']).std())
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
@@ -95,9 +113,7 @@ fig, ax = plt.subplots(constrained_layout = True)
 for i,m in enumerate(ls_models_to_plot):
     if m == 'LS':
         plt.plot(ave_improve_horizon[m].values, linestyle = '--', color = 'black', label = models_to_labels[m])
-    else:
-        # plt.plot(np.arange(len(steps_)), ave_improve_horizon[m].values, marker = marker[i], color = colors[i], label = models_to_labels[m], linestyle=' ')
-        
+    else:        
         plt.errorbar(np.arange(len(steps_)), 
                      ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
                      label = models_to_labels[m])
@@ -109,6 +125,30 @@ plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_perc_improvement_vs_horizon.pdf')
 plt.show()
 
+#%%
+
+ave_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).mean())
+std_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).std())
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
+
+fig, ax = plt.subplots(constrained_layout = True)
+
+for i,m in enumerate(ls_models_to_plot):
+
+    plt.errorbar(np.arange(len(steps_)), 
+                 ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+                 label = models_to_labels[m])
+
+plt.ylabel('RMSE improvement (%)')
+plt.xticks(np.arange(len(steps_)), steps_)
+plt.xlabel(r'Forecast horizon $h$')
+plt.legend(ncol=1, fontsize = 6)
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_abs_improvement_vs_horizon.pdf')
+plt.show()
+
+#%%
 fig, ax = plt.subplots(constrained_layout = True)
 
 for i,m in enumerate(nn_models_to_plot):
@@ -127,7 +167,7 @@ plt.show()
 
 
 #%%
-print((100*all_rsme.query(f'percentage==0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN']]).round(2))
+print((100*all_rmse.query(f'percentage==0').groupby(['steps']).mean()[['Pers', 'LS', 'Lasso', 'Ridge', 'LAD', 'NN']]).round(2))
 
 
 ls_models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']

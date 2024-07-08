@@ -80,9 +80,9 @@ power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\
 metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-freq = '5min'
+freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 1
+config['min_lag'] = 8
 
 target_zone = metadata_df.loc[target_park].load_zone
 power_df = power_df.resample(freq).mean()
@@ -114,7 +114,7 @@ print(f'target_park:{target_park}')
 
 config['max_lag'] = 3 + config['min_lag']
 # config['pattern'] = 'MNAR'
-config['save'] = True
+config['save'] = False
 config['split_date'] = '2018-06-01' # end of train set/start of test set
 
 iterations = 5
@@ -293,7 +293,7 @@ for perc in percentage:
         miss_X[mask_ind] = np.nan
         
         miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
-        
+
         final_mask_ind = (miss_X.isna().values).astype(int)
         # Predictors w missing values
         miss_X_zero = miss_X.copy()
@@ -406,11 +406,11 @@ for perc in percentage:
             temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
         
         for m in models:
-            temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
+            temp_df[m] = [mae(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
         mae_df = pd.concat([mae_df, temp_df])
         
         for m in models:
-            temp_df[m] = [rmse(temp_Predictions[m].values, Target.values)]
+            temp_df[m] = [rmse(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
         rmse_df = pd.concat([rmse_df, temp_df])
         
         run_counter += 1
