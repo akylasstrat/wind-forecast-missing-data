@@ -80,9 +80,13 @@ power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\
 metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
-freq = '15min'
+freq = '5min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 8
+config['min_lag'] = 12
+config['save'] = True
+
+config['split_date'] = '2018-03-01' # end of train set/start of test set
+config['end_date'] = '2018-07-01'
 
 target_zone = metadata_df.loc[target_park].load_zone
 power_df = power_df.resample(freq).mean()
@@ -114,8 +118,6 @@ print(f'target_park:{target_park}')
 
 config['max_lag'] = 3 + config['min_lag']
 # config['pattern'] = 'MNAR'
-config['save'] = False
-config['split_date'] = '2018-06-01' # end of train set/start of test set
 
 iterations = 5
 percentage = [0, .001, .005, .01, .05, .1]
@@ -274,9 +276,9 @@ for perc in percentage:
         #             miss_ind[:,j] = make_chain(P, 0, len(testPred))
                     
         # elif pattern == 'MCAR':
-        if freq == '15min':
+        if freq in ['15min', '5min']:
             P = np.array([[1-perc, perc], [0.1, 0.9]])
-        else:
+        elif freq in ['30min']:
             P = np.array([[1-perc, perc], [0.2, 0.8]])
 
         for j in range(len(series_missing)):
@@ -465,10 +467,10 @@ for iter_ in range(iterations):
     # generate missing data
     miss_ind = np.zeros((len(testPred), len(plant_ids)))
     
-    if freq == '15min':
+    if freq in ['15min', '5min']:
         P_init = np.array([[.999, .001], [0.2, 0.8]])
         P_norm = np.array([[1-0.01, 0.01], [0.1, 0.9]])
-    else:
+    elif freq in ['30min']:
         P = np.array([[.999, .001], [0.2, 0.8]])
         P_norm = np.array([[1-0.05, 0.05], [0.2, 0.8]])
             
