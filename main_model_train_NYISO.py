@@ -67,12 +67,12 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
 
 #%%
 freq = '5min'
-target_park = 'Noble Clinton'
+target_park = 'Noble_Clinton'
 config['min_lag'] = 12
 
 target_zone = metadata_df.loc[target_park].load_zone

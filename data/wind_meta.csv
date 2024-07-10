@@ -1,0 +1,73 @@
+plant,BA,state,type,status,exactCoord,ia_status_clean,offshore,longitude,latitude,capacity,load_zone,wind_turbine_hub_ht,wind_turbine_rotor_diameter,rotor_swept_area_m2,manufacturer,model,config,turb_generic_loss
+Dutch Hill - Cohocton,NYISO,NY,wind,existing,TRUE,,0,-77.45470686,42.53305176,125,CENTRL,80,96,7238.23,Clipper,C96,c96,9.609900456
+Steel Winds II,NYISO,NY,wind,existing,TRUE,,0,-78.861697,42.80724183,15,WEST,80,96,7238.23,Clipper,C96,c96,9.621068026
+Marsh Hill,NYISO,NY,wind,existing,TRUE,,0,-77.5045769,42.1773228,16.2,CENTRL,80,103,8332.29,GE Wind,GE1.62-103,ge100_1600,9.652089673
+Noble Bliss,NYISO,NY,wind,existing,TRUE,,0,-78.25864031,42.54511716,100.5,WEST,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.043182001
+Harbec Plastics,NYISO,NY,wind,existing,TRUE,,0,-77.360939,43.226522,1.1,GENESE,40,29,660.52,Fuhrlander,FL250,z40,8.475382846
+Maple Ridge,NYISO,NY,wind,existing,TRUE,,0,-75.5533175,43.74738144,184.8,MHK VL,80,82,5281.02,Vestas,V82-1.65,v82_1650,9.533809994
+Steel Winds,NYISO,NY,wind,existing,TRUE,,0,-78.86763563,42.8178915,20,WEST,80,93,6792.91,Clipper,C93,c93,9.482795838
+Marble River,NYISO,NY,wind,existing,TRUE,,0,-73.93881596,44.92812829,215.25,NORTH,94,112,9852.03,Vestas,V112-3.075,v112_3000,9.029271971
+Noble Clinton,NYISO,NY,wind,existing,TRUE,,0,-73.99393073,44.92135984,100.5,NORTH,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.666551086
+Noble Ellenburg,NYISO,NY,wind,existing,TRUE,,0,-73.97373363,44.86983174,81,NORTH,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.090585039
+Noble Altona,NYISO,NY,wind,existing,TRUE,,0,-73.64967252,44.82063391,97.5,NORTH,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,8.950145689
+Copenhagen,NYISO,NY,wind,existing,TRUE,,0,-75.6393374,43.89087773,80,MHK VL,95,110,9503.32,Vestas,V110-2.0,v110_2000,8.93381353
+Madison Windpower,NYISO,NY,wind,existing,TRUE,,0,-75.45203957,42.89491943,11.55,MHK VL,67,66,3421.19,Vestas,V66-1.65,v66_1650,9.604777094
+Zotos,NYISO,NY,wind,existing,TRUE,,0,-76.9679985,42.8866425,3.3,CENTRL,70,82,5281.02,Hyundai,HQ1650,v82_1650,9.254091048
+Wethersfield,NYISO,NY,wind,existing,TRUE,,0,-78.2453368,42.682782,6.6,WEST,65,47,1734.94,Vestas,V47-0.66,v47_660,9.413947936
+Howard,NYISO,NY,wind,existing,TRUE,,0,-77.53695222,42.31271204,55.35,CENTRL,78.5,92.5,6720.06,REpower,MM92,mm92,8.375152084
+Hardscrabble,NYISO,NY,wind,existing,TRUE,,0,-74.89501695,43.14359886,74,MHK VL,100,90,6361.73,Gamesa,G90-2.0,g90,9.263613683
+Fenner Wind Power Project - Repower,NYISO,NY,wind,existing,TRUE,,0,-75.767876,42.975517,1.5,MHK VL,85,82,5281.02,Goldwind,GW82,ge82_1500,10.01455375
+Noble Chateaugay,NYISO,NY,wind,existing,TRUE,,0,-74.03575996,44.89893903,106.5,NORTH,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.517532595
+Jericho Rise,NYISO,NY,wind,existing,TRUE,,0,-74.09657116,44.88308251,77.7,NORTH,93,114,10207.03,Gamesa,G114-2.1,g114,9.333570144
+High Sheldon,NYISO,NY,wind,existing,TRUE,,0,-78.39379155,42.7440134,112.5,WEST,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.28053671
+Orangeville Wind,NYISO,NY,wind,existing,TRUE,,0,-78.24060376,42.7461636,93.96,WEST,80,100,7853.98,GE Wind,GE1.62-100,ge100_1600,9.103118367
+Fenner Wind Power Project,NYISO,NY,wind,existing,TRUE,,0,-75.76067711,42.98913595,28.5,MHK VL,65,70.5,3903.63,GE Wind,GE1.5-70.5,ge70_1500,9.097808092
+Arkwright Summit,NYISO,NY,wind,existing,TRUE,,0,-79.23183256,42.40774783,78.4,WEST,95,110,9503.32,Vestas,V110-2.0,v110_2000,9.442092001
+Noble Wethersfield,NYISO,NY,wind,existing,TRUE,,0,-78.2608549,42.62293007,126,CENTRL,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.850355435
+Munnsville,NYISO,NY,wind,existing,TRUE,,0,-75.55895891,42.92641278,34.5,MHK VL,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.462443125
+Maple Ridge (Lowville),NYISO,NY,wind,existing,TRUE,,0,-75.62256677,43.80766437,136.95,MHK VL,80,82,5281.02,Vestas,V82-1.65,v82_1650,9.468953815
+High Bridge Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-75.426118,42.406724,100.8,MHK VL,80,100,7853.98,GE Wind,GE1.62-100,ge100_1600,8.271846604
+Long Island Offshore Wind,NYISO,NY,wind,planned,FALSE,In Progress,1,-70.41615753,40.74719053,700,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,8.876100727
+Deer River Wind,NYISO,NY,wind,planned,FALSE,In Progress,0,-75.442617,43.786397,100,MHK VL,94,112,9852.03,Vestas,V112-3.075,v112_3000,8.971538377
+EI Steinway 2,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,1300,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,10.88082091
+New York City Offshore Wind,NYISO,NY,wind,planned,FALSE,In Progress,1,-70.41615753,40.74719053,1200,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.287114348
+EI Glenwood Landing,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,1300,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,8.601670829
+Bone Run Wind,NYISO,NY,wind,planned,FALSE,In Progress,0,-78.681006,42.244853,132,WEST,80,93,6792.91,Clipper,C93,c93,8.75932763
+CWW 300 Wind,NYISO,NY,wind,planned,FALSE,Not Started,0,-78.778192,42.752759,300,WEST,80,93,6792.91,Clipper,C93,c93,8.833708351
+NY Wind - Mott Haven,NYISO,NY,wind,planned,FALSE,In Progress,1,-70.79216683,40.96884655,1400,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.466245931
+Vineyard Wind I,NYISO,NY,wind,planned,FALSE,IA Executed,1,-70.48189802,41.04322459,1403,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.322353223
+NY Wind Holbrook 2,NYISO,NY,wind,planned,FALSE,In Progress,1,-70.79216683,40.96884655,1974,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,10.24097124
+Long Island Offshore Wind Connection,NYISO,NY,wind,planned,TRUE,Not Started,1,-70.41615753,40.74719053,300,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.863603973
+North Country Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-74.33878,44.592614,298.2,MHK VL,65,70.5,3903.63,GE Wind,GE1.5-70.5,ge70_1500,8.473452413
+South Fork Wind Farm II,NYISO,NY,wind,planned,FALSE,In Progress,1,-71.13334029,41.08881779,40,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.810727985
+NY Wind - East Garden City,NYISO,NY,wind,planned,FALSE,In Progress,1,-70.79216683,40.96884655,1325,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,8.960466652
+Prattsburgh Wind Farm,NYISO,NY,wind,planned,TRUE,Not Started,0,-77.296818,42.590002,147,CENTRL,78.5,92.5,6720.06,REpower,MM92,mm92,9.400586465
+Bull Run II Wind,NYISO,NY,wind,planned,FALSE,In Progress,0,-73.705648,44.75271,145.4,NORTH,95,110,9503.32,Vestas,V110-2.0,v110_2000,7.376317005
+Bluestone Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-75.558078,42.07531,124.2,MHK VL,80,103,8332.29,GE Wind,GE1.62-103,ge100_1600,9.417742059
+Stockbridge Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-75.657825,43.070465,72.6,MHK VL,80,82,5281.02,Vestas,V82-1.65,v82_1650,9.503399937
+Ball Hill Wind,NYISO,NY,wind,planned,TRUE,IA Executed,0,-79.245832,42.460005,100,WEST,78.5,92.5,6720.06,REpower,MM92,mm92,9.258484125
+EI Steinway 1,NYISO,NY,wind,planned,FALSE,IA Executed,1,-73.31481426,40.29534089,1300,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.187553224
+NY Wind Holbrook,NYISO,NY,wind,planned,TRUE,Not Started,1,-70.79216683,40.96884655,880,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.36588264
+Atlantic Shores Offshore Wind 8,NYISO,NY,wind,planned,FALSE,Not Started,1,-73.57849887,39.36099059,880,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.333170878
+Rolling Upland Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-75.453581,42.874636,72.6,MHK VL,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.268206163
+CWW 300 MW DUN,NYISO,NY,wind,planned,FALSE,Not Started,0,-79.407595,42.304216,300,WEST,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,9.051279021
+Atlantic Shores Offshore Wind 9,NYISO,NY,wind,planned,FALSE,Not Started,1,-73.57849887,39.36099059,880,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,8.764748043
+EI Sunset Park,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,816,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.824473206
+Vineyard Wind II,NYISO,NY,wind,planned,FALSE,In Progress,1,-70.48189802,41.04322459,1403,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.946577344
+CWW 200 Wind,NYISO,NY,wind,planned,FALSE,Not Started,0,-78.778192,42.752759,200,WEST,78.5,92.5,6720.06,REpower,MM92,mm92,9.586842716
+South Fork Wind Farm,NYISO,NY,wind,planned,FALSE,In Progress,1,-71.13334029,41.08881779,96,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.268394901
+Heritage Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-78.162476,43.164964,200.1,WEST,80,103,8332.29,GE Wind,GE1.62-103,ge100_1600,8.737687977
+Bull Run Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-73.615614,44.783769,303.6,NORTH,80,77,4656.63,GE Wind,GE1.5-77,ge77_1500,8.348004521
+Atlantic Shores Offshore Wind 7,NYISO,NY,wind,planned,FALSE,Not Started,1,-73.57849887,39.36099059,880,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,8.760345063
+North Slope Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-73.986124,44.681712,200,MHK VL,70,82,5281.02,Hyundai,HQ1650,v82_1650,8.552377515
+East Wind 1,NYISO,NY,wind,planned,FALSE,In Progress,1,-72.74029799,39.97566861,1200,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.437078338
+NY Wind Gowanus,NYISO,NY,wind,planned,TRUE,Not Started,1,-70.79216683,40.96884655,1200,N.Y.C.,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.899827217
+EI Oceanside,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,1000,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.592221831
+Mad River Wind,NYISO,NY,wind,planned,TRUE,In Progress,0,-75.811718,43.695594,450,MHK VL,85,82,5281.02,Goldwind,GW82,ge82_1500,8.528238808
+Eight Point Wind Energy Center,NYISO,NY,wind,planned,FALSE,IA Executed,0,-77.7058505,42.2573095,101.2,CENTRL,67,66,3421.19,Vestas,V66-1.65,v66_1650,8.667266728
+EI Melville,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,816,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.474568034
+Alle Catt II Wind,NYISO,NY,wind,planned,FALSE,In Progress,0,-78.681006,42.244853,339.1,WEST,80,96,7238.23,Clipper,C96,c96,9.315670334
+EI East Shoreham,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,1300,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.036414981
+Blue Hill Wind,NYISO,NY,wind,planned,FALSE,Unknown,0,-75.663575,42.910026,27,MHK VL,80,96,7238.23,Clipper,C96,c96,9.107345848
+EI Fort Salonga,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,1300,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.7484626
+EI Oceanside 2,NYISO,NY,wind,planned,FALSE,In Progress,1,-73.31481426,40.29534089,1500,LONGIL,136,214,0,atb_2030_conservative_offshore,atb_2030_conservative_offshore,atb_2030_conservative_offshore,9.385182048

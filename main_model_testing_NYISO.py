@@ -76,14 +76,15 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\astratig\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv(f'{cd}\\data\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
 #%%
 freq = '5min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 12
-config['save'] = True
+config['min_lag'] = 6
+config['save'] = False
+
 
 config['split_date'] = '2018-03-01' # end of train set/start of test set
 config['end_date'] = '2018-07-01'
@@ -248,7 +249,7 @@ check_length.groupby('Missing').mean()
 
 
 print('Test for MCAR mechanism')
-for perc in percentage:
+for perc in [0.1]:
     for iter_ in range(iterations):
         
         torch.manual_seed(run_counter)
