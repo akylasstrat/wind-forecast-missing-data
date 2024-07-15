@@ -1,0 +1,9 @@
+h=1,No weather,Weather,,h=4,No weather,Weather,,h=8,No weather,Weather,,h=16,No weather,Weather
+Persistence,3.53,3.53,,Persistence,9.96,9.96,,Persistence,15.58,15.58,,Persistence,23.94,23.92
+LS,2.59,2.58,,LS,8.11,7.97,,LS,12.98,12.12,,LS,20.25,16.74
+Lasso,2.6,2.6,,Lasso,8.11,7.97,,Lasso,12.98,12.13,,Lasso,20.31,16.8
+Ridge,2.64,2.59,,Ridge,8.16,8.01,,Ridge,13.02,12.15,,Ridge,20.28,16.76
+LAD,2.6,2.6,,LAD,8.28,8.25,,LAD,13.3,12.8,,LAD,20.86,17.33
+LAD-L1,2.6,2.6,,LAD-L1,8.29,8.25,,LAD-L1,13.3,12.81,,LAD-L1,20.89,17.31
+Climatology,35.22,35.22,,Climatology,35.22,35.22,,Climatology,35.22,35.22,,Climatology,35.22,35.22
+NN,2.68,2.76,,NN,8.3,8.28,,NN,13.16,11.69,,NN,20.33,14.75
