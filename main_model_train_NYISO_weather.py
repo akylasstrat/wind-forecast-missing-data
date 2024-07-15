@@ -73,7 +73,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 16
+config['min_lag'] = 20
 
 # ID forecasts from NREL (instead of weather)
 
@@ -126,8 +126,8 @@ split = config['split_date']
 end = config['end_date']
 
 # Predictors with weather
-trainPred = Predictors[start:split].dropna()
-testPred = Predictors[split:end].dropna()
+# trainPred = Predictors[start:split].dropna()
+# testPred = Predictors[split:end].dropna()
 
 # Predictors with weather
 trainPred = pd.merge(Predictors[start:split], id_forecasts_df[start:split], how='inner', left_index=True, right_index=True).dropna()
@@ -270,6 +270,8 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show()
 
+asdf
+
 #%%
 if config['save']:
     with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_LR_weather.pickle', 'wb') as handle:
@@ -290,9 +292,9 @@ if config['save']:
 #%%%%%%%%% Adversarial Models
 
 target_pred = Predictors.columns
-fixed_pred = []
-target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
-fix_col = []
+fixed_pred = [f'{target_park}_ID_for']
+target_col = [np.where(trainPred.columns == c)[0][0] for c in target_pred]
+fix_col = [np.where(trainPred.columns == c)[0][0] for c in fixed_pred]
 
 
 ###### Finitely Adaptive - fixed partitions - LAD model
@@ -312,7 +314,7 @@ if config['train']:
                       budget = 'inequality', solution = 'reformulation')
     
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_greedy_LAD_model_weather.pickle', 'wb') as handle:
             pickle.dump(FA_greedy_LAD_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 # else:

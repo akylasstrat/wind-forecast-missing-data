@@ -66,7 +66,7 @@ class Finite_FDRR(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -423,7 +423,7 @@ class stable_Finite_FDRR(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -787,7 +787,7 @@ class depth_Finite_FDRR(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -1195,7 +1195,7 @@ class newversion_depth_Finite_FDRR(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -1637,7 +1637,7 @@ class FiniteAdaptability_MLP(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(self.target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -2160,7 +2160,8 @@ class FiniteLinear_MLP(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(self.target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
+
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -2706,7 +2707,7 @@ class FiniteAdapt_Greedy(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(self.target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
@@ -3661,7 +3662,7 @@ class Piecewise_LDR_Adaptation(object):
     #### Initialize root node
     print('Initialize root node...')
     # at root node, no missing data (1 = missing, 0 = not missing)
-    self.missing_pattern = [np.zeros(len(self.target_col))]
+    self.missing_pattern = [np.zeros(num_features)]
     # number of missing features per tree node
     self.total_missing_feat = [self.missing_pattern[0].sum()]
 
