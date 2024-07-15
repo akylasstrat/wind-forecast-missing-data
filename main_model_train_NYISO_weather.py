@@ -76,13 +76,13 @@ target_park = 'Noble Clinton'
 config['min_lag'] = 20
 
 # ID forecasts from NREL (instead of weather)
-
 id_forecasts = pd.read_csv(f'{cd}\\data\\Site_{target_park}_wind_intraday_2018_forecasts.csv')
 time_index = pd.date_range(start='2018-01-01', end = '2019-01-01', freq = '1h')[:-1]
 id_forecasts_df = pd.DataFrame(data = id_forecasts.mean(0).values, index = time_index, columns=[f'{target_park}_ID_for'])/metadata_df.loc[target_park].capacity
 
-id_forecasts_df = id_forecasts_df.resample('15min').interpolate()
+# id_forecasts_df.to_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv')
 
+id_forecasts_df = id_forecasts_df.resample('15min').interpolate()
 
 #%%
 
