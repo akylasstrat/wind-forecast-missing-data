@@ -75,7 +75,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 16
+config['min_lag'] = 24
 config['save'] = False
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
@@ -408,7 +408,7 @@ for perc in percentage:
         mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results.csv')
         rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv')
         #%%
-    ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10', 'FA-lin-greedy-LS-1']
+    ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
     #%%
     nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
