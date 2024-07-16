@@ -57,7 +57,7 @@ config = params()
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 weather_feat = True
-config['min_lag'] = 16
+config['min_lag'] = 24
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -66,7 +66,7 @@ min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rmse = []
-steps_ = [8, 16, 24]
+steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
     if weather_feat and s >= 16:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
@@ -82,17 +82,16 @@ all_rmse = pd.concat(all_rmse)
 ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
 nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
 
-scaled_coef_rmse = all_rmse.query(f'percentage>0').copy()
+scaled_rmse = all_rmse.query(f'percentage>0').copy()
 #%%
 for s in steps_:
     nominal_rmse_LS = all_rmse.query(f'steps == {s} and percentage==0')['LS'].mean()
     nominal_rmse_NN = all_rmse.query(f'steps == {s} and percentage==0')['NN'].mean()
     
     for m in ls_models:
-        scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] = 1- (scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] - nominal_rmse_LS)/(all_rmse.query(f'steps == {s} and percentage>0')['LS'].values - nominal_rmse_LS)
-
+        scaled_rmse.loc[scaled_rmse['steps'] == s, m] = scaled_rmse.loc[scaled_rmse['steps'] == s, m]/nominal_rmse_LS
     for m in nn_models:
-        scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] = 1- (scaled_coef_rmse.loc[scaled_coef_rmse['steps'] == s, m] - nominal_rmse_NN)/(all_rmse.query(f'steps == {s} and percentage>0')['NN'].values - nominal_rmse_NN)
+        scaled_rmse.loc[scaled_rmse['steps'] == s, m] = scaled_rmse.loc[scaled_rmse['steps'] == s, m]/nominal_rmse_NN
         
 #%% Percentage improvement over horizons
 
@@ -260,9 +259,7 @@ plt.show()
 # color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
 #          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1']
-
-
+models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
 
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
