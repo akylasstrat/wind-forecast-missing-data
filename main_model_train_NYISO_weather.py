@@ -73,7 +73,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 24
+config['min_lag'] = 8
 
 # ID forecasts from NREL (instead of weather)
 id_forecasts = pd.read_csv(f'{cd}\\data\\Site_{target_park}_wind_intraday_2018_forecasts.csv')
@@ -338,12 +338,15 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-Max_number_splits = [1, 2]
+Max_number_splits = [1, 2, 5, 10]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
 config['train'] = True
-config['save'] = False
+config['save'] = True
+
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
+        FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
 if config['train']:
     
@@ -354,7 +357,7 @@ if config['train']:
         
         FA_lin_greedy_LS_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-5, 
                               epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                              lr = learning_rate, batch_size = batch_size, weight_decay = 0)
+                              lr = learning_rate, batch_size = batch_size, weight_decay = 0, freeze_weights = False)
     
         FA_lin_greedy_LS_models_dict[number_splits] = FA_lin_greedy_LS_model
     
@@ -364,7 +367,7 @@ if config['train']:
 
             with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'wb') as handle:
                 pickle.dump(FA_lin_greedy_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                    
+
 #%%
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
@@ -486,7 +489,7 @@ if config['train']:
     
     FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5, freeze_weights = False)
         
     if config['save']:
         with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model_weather.pickle', 'wb') as handle:
@@ -535,7 +538,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -569,7 +572,7 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -609,7 +612,7 @@ if config['train']:
                                     output_size = n_outputs, projection = True, train_adversarially = True)
     
     FA_lin_fixed_LS_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                         lr = learning_rate, batch_size = batch_size, weight_decay = 0)
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 0, freeze_weights = False)
         
     if config['save']:
         with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model_weather.pickle', 'wb') as handle:
@@ -635,7 +638,7 @@ if config['train']:
                                     output_size = n_outputs, projection = True, train_adversarially = True)
     
     FA_lin_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                         lr = learning_rate, batch_size = batch_size, weight_decay = decay)
+                         lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False)
         
     if config['save']:
         with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model_weather.pickle', 'wb') as handle:
