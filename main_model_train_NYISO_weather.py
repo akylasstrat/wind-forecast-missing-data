@@ -268,7 +268,7 @@ plt.plot(lr_pred[:60])
 plt.plot(lad_pred[:60])
 plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
-plt.show()
+plt.show() 
 
 #%%
 if config['save']:
