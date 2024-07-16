@@ -2633,19 +2633,21 @@ class FiniteLinear_MLP(object):
 
          # !!!! If you go to leaf, might be overly conservative
          #Go down the tree until you match the missing pattern OR a Leaf node is reached
+
          while ((self.children_left_dict[node] != -1) and (self.children_right_dict[node] != -1)):
              if (m0==self.missing_pattern[node]).all():
                  break
              
              elif m0[:, self.feature[node]] == 0:
+
                  # if feature is not missing, go left
                  node = self.children_left_dict[node]
              elif m0[:,self.feature[node]] == 1:
+
                  # if feature is missing, go right
-                node = self.children_right_dict[node]
+                 node = self.children_right_dict[node]
              # print('New Node: ', node)
              # print(m0)
-         
          if (m0==self.missing_pattern[node]).all():
              # nominal model
              Predictions.append( self.node_model_[node].predict(x0).reshape(-1))
