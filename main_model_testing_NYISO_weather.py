@@ -75,8 +75,8 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 24
-config['save'] = False
+config['min_lag'] = 8
+config['save'] = True
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
 id_forecasts_df = id_forecasts_df.resample(freq).interpolate()
@@ -169,29 +169,29 @@ with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_M
 with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
     FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
-#     FA_lin_greedy_LS_models_dict = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
+    FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_LS_model.pickle', 'rb') as handle:
-#     FA_greedy_LS_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_LS_model_weather.pickle', 'rb') as handle:
+    FA_greedy_LS_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_NN_model.pickle', 'rb') as handle:
-#     FA_greedy_NN_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_greedy_NN_model_weather.pickle', 'rb') as handle:
+    FA_greedy_NN_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'rb') as handle:    
-#     FA_lin_greedy_NN_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model_weather.pickle', 'rb') as handle:    
+    FA_lin_greedy_NN_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_LS_model.pickle', 'rb') as handle:    
-#         FA_fixed_LS_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_LS_model_weather.pickle', 'rb') as handle:    
+        FA_fixed_LS_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_NN_model.pickle', 'rb') as handle:    
-#         FA_fixed_NN_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_NN_model_weather.pickle', 'rb') as handle:    
+        FA_fixed_NN_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
-#         FA_lin_fixed_LS_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model_weather.pickle', 'rb') as handle:    
+        FA_lin_fixed_LS_model = pickle.load(handle)
 
-# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
-#         FA_lin_fixed_NN_model = pickle.load(handle)
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
+        FA_lin_fixed_NN_model = pickle.load(handle)
 
 #%% Test models
 target_col = trainPred.columns
@@ -353,39 +353,39 @@ for perc in percentage:
         
         #### Finite Adaptability - Fixed Partitions
         ## LS model
-        # FA_fixed_LS_pred = FA_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
-        # temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
+        FA_fixed_LS_pred = FA_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
+        temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
 
         ## NN model
-        # FA_fixed_NN_pred = FA_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_fixed_NN_pred = projection(FA_fixed_NN_pred)
-        # temp_Predictions['FA-fixed-NN'] = FA_fixed_NN_pred.reshape(-1)
+        FA_fixed_NN_pred = FA_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_fixed_NN_pred = projection(FA_fixed_NN_pred)
+        temp_Predictions['FA-fixed-NN'] = FA_fixed_NN_pred.reshape(-1)
 
         #### Finite Adaptability - Linear - Fixed Partitions
         ## LS model
-        # FA_lin_fixed_LS_pred = FA_lin_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_lin_fixed_LS_pred = projection(FA_lin_fixed_LS_pred)
-        # temp_Predictions['FA-lin-fixed-LS'] = FA_lin_fixed_LS_pred.reshape(-1)
+        FA_lin_fixed_LS_pred = FA_lin_fixed_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_fixed_LS_pred = projection(FA_lin_fixed_LS_pred)
+        temp_Predictions['FA-lin-fixed-LS'] = FA_lin_fixed_LS_pred.reshape(-1)
 
         ## NN model
-        # FA_lin_fixed_NN_pred = FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
-        # temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
+        FA_lin_fixed_NN_pred = FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
+        temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS        
-        # FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
-        # temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
+        FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
+        temp_Predictions['FA-lin-greedy-NN'] = FA_lin_greedy_NN_pred.reshape(-1)
 
         #### FA-Fixed-LS and NN
-        # FA_greedy_LS_pred = FA_greedy_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_greedy_LS_pred = projection(FA_greedy_LS_pred)
-        # temp_Predictions['FA-greedy-LS'] = FA_greedy_LS_pred.reshape(-1)
+        FA_greedy_LS_pred = FA_greedy_LS_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_greedy_LS_pred = projection(FA_greedy_LS_pred)
+        temp_Predictions['FA-greedy-LS'] = FA_greedy_LS_pred.reshape(-1)
 
-        # FA_greedy_NN_pred = FA_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_greedy_NN_pred = projection(FA_greedy_NN_pred)
-        # temp_Predictions['FA-greedy-NN'] = FA_greedy_NN_pred.reshape(-1)
+        FA_greedy_NN_pred = FA_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_greedy_NN_pred = projection(FA_greedy_NN_pred)
+        temp_Predictions['FA-greedy-NN'] = FA_greedy_NN_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS
         for number_splits in FA_lin_greedy_LS_models_dict.keys():
@@ -405,17 +405,16 @@ for perc in percentage:
         run_counter += 1
 
     if config['save']:
-        mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results.csv')
-        rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv')
+        mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
+        rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
         #%%
-    ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5']
+    ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-20']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
     #%%
     nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
     rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
 
-stop_here
 #%% Test for MNAR missing data
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -473,13 +472,17 @@ for iter_ in range(iterations):
     mask_ind = miss_ind==1
     
     if run_counter%iterations==0: print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
-    
+        
     # Predictors w missing values
     miss_X = scaled_power_df[split:end].copy()[plant_ids]
+    miss_X = miss_X[testPred.index[0]:testPred.index[-1]]
     miss_X[mask_ind] = np.nan
     
     miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
     
+    # Add weather features 
+    miss_X = pd.merge(miss_X, id_forecasts_df[split:end], how='inner', left_index=True, right_index=True)
+
     final_mask_ind = (miss_X.isna().values).astype(int)
     # Predictors w missing values
     miss_X_zero = miss_X.copy()
@@ -589,8 +592,8 @@ for iter_ in range(iterations):
     run_counter += 1
 
 if config['save']:
-    mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv')
-    rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv')
+    mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
+    rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
     
 ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
 rmse_df.groupby(['percentage']).mean()[ls_models].plot()

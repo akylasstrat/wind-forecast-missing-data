@@ -56,18 +56,23 @@ config = params()
 
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
-config['min_lag'] = 12
-freq = '5min'
+weather_feat = True
+config['min_lag'] = 24
+freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
-config['save'] = True
+config['save'] = False
 min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rmse = []
-steps_ = [1, 3, 6, 12]
+steps_ = [8, 16, 24]
 for s in steps_:
-    temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
+    if weather_feat and s >= 16:
+        temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
+    else:
+        temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
+        
     temp_df['steps'] = s
     
     all_rmse.append(temp_df)
@@ -79,7 +84,7 @@ nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-gre
 
 scaled_coef_rmse = all_rmse.query(f'percentage>0').copy()
 #%%
-for s in [1, 3, 6, 12]:
+for s in steps_:
     nominal_rmse_LS = all_rmse.query(f'steps == {s} and percentage==0')['LS'].mean()
     nominal_rmse_NN = all_rmse.query(f'steps == {s} and percentage==0')['NN'].mean()
     
@@ -172,12 +177,18 @@ plt.show()
 
 
 #%% Missing Not at Random
-mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
-rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
+if weather_feat and min_lag >= 16:
+    mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
+    rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
 
-#%%
-mae_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
-rmse_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
+    mae_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
+    rmse_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
+else:
+    mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
+    rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
+
+    mae_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results.csv', index_col = 0)
+    rmse_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results.csv', index_col = 0)
 
 #%%
 models = rmse_df.columns[:-2]
@@ -249,7 +260,7 @@ plt.show()
 # color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
 #          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
 
-models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
+models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1']
 
 
 

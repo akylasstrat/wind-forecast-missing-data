@@ -73,7 +73,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 20
+config['min_lag'] = 24
 
 # ID forecasts from NREL (instead of weather)
 id_forecasts = pd.read_csv(f'{cd}\\data\\Site_{target_park}_wind_intraday_2018_forecasts.csv')
@@ -270,8 +270,6 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show()
 
-asdf
-
 #%%
 if config['save']:
     with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_LR_weather.pickle', 'wb') as handle:
@@ -340,11 +338,12 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-Max_number_splits = [1, 2, 5, 10, 20]
+Max_number_splits = [1, 2]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
 config['train'] = True
+config['save'] = False
 
 if config['train']:
     
@@ -366,9 +365,9 @@ if config['train']:
             with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'wb') as handle:
                 pickle.dump(FA_lin_greedy_LS_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
                     
-
+#%%
 # else:
-#     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+#     with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
 #             FA_lin_greedy_LS_models_dict = pickle.load(handle)
             
 #%%###### Finitely Adaptive - greedy partitions - LS model

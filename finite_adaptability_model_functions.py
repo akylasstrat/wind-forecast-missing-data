@@ -2517,7 +2517,7 @@ class FiniteLinear_MLP(object):
                 right_robust_mlp_model.load_state_dict(best_new_model.state_dict(), strict=False)
 
             # right_robust_mlp_model.load_state_dict(self.wc_node_model_[node].state_dict(), strict=False)
-            right_robust_mlp_model.W.data = self.wc_node_model_[node].W.data
+            # right_robust_mlp_model.W.data = self.wc_node_model_[node].W.data
             
             optimizer = torch.optim.Adam(right_robust_mlp_model.parameters(), lr = self.MLP_train_dict['lr'])
             
