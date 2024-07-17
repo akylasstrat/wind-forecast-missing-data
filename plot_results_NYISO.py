@@ -61,14 +61,14 @@ config['min_lag'] = 24
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
-config['save'] = False
+config['save'] = True
 min_lag = config['min_lag']
 #%% No missing data, all horizons
 
 all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
-    if weather_feat and s >= 16:
+    if weather_feat and s >= 8:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
     else:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
@@ -78,6 +78,8 @@ for s in steps_:
     all_rmse.append(temp_df)
 
 all_rmse = pd.concat(all_rmse)
+
+all_rmse.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_all_RMSE_results.csv')
 
 ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
 nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
@@ -109,9 +111,9 @@ all_rmse_horizon_impr[nn_models_to_plot] = ((all_rmse_horizon['NN'].values.resha
 all_rmse_horizon_impr[ls_models_to_plot] = ((all_rmse_horizon['LS'].values.reshape(-1,1) - all_rmse_horizon[ls_models_to_plot])/all_rmse_horizon['LS'].values.reshape(-1,1))
 
 #%%
-
-ave_improve_horizon = 100*(all_rmse_horizon_impr.query(f'percentage==0.1').groupby(['steps']).mean())
-std_improve_horizon = 100*(all_rmse_horizon_impr.query(f'percentage==0.1').groupby(['steps']).std())
+### Scaled RMSE vs forecast horizon
+ave_improve_horizon = (scaled_rmse.query(f'percentage==0.1').groupby(['steps']).mean())
+std_improve_horizon = (scaled_rmse.query(f'percentage==0.1').groupby(['steps']).std())
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
@@ -119,21 +121,34 @@ colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
 fig, ax = plt.subplots(constrained_layout = True)
 
 for i,m in enumerate(ls_models_to_plot):
-    if m == 'LS':
-        plt.plot(ave_improve_horizon[m].values, linestyle = '--', color = 'black', label = models_to_labels[m])
-    else:        
-        plt.errorbar(np.arange(len(steps_)), 
-                     ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
-                     label = models_to_labels[m])
 
-plt.ylabel('RMSE improvement (%)')
-plt.xticks(np.arange(len(steps_)), steps_)
+    plt.errorbar(np.arange(len(steps_))+i*0.1, 
+                 ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+                 label = models_to_labels[m])
+
+plt.ylabel('Scaled RMSE')
+plt.xticks(np.arange(len(steps_))+0.25, steps_)
 plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_perc_improvement_vs_horizon.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_LS_scaled_RMSE_vs_horizon.pdf')
+plt.show()
+
+fig, ax = plt.subplots(constrained_layout = True)
+for i,m in enumerate(nn_models_to_plot):
+
+    plt.errorbar(np.arange(len(steps_))+i*0.1, 
+                 ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+                 label = models_to_labels[m])
+
+plt.ylabel('Scaled RMSE')
+plt.xticks(np.arange(len(steps_))+0.25, steps_)
+plt.xlabel(r'Forecast horizon $h$')
+plt.legend(ncol=1, fontsize = 6)
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_NN_scaled_RMSE_vs_horizon.pdf')
 plt.show()
 
 #%%
+### Absolute value RMSE vs forecast horizon
 
 ave_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).mean())
 std_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).std())
@@ -153,30 +168,26 @@ plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.15, steps_)
 plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_abs_improvement_vs_horizon.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_LS_abs_RMSE_vs_horizon.pdf')
 plt.show()
 
-#%%
 fig, ax = plt.subplots(constrained_layout = True)
-
 for i,m in enumerate(nn_models_to_plot):
-    if m == 'NN':
-        plt.plot(ave_improve_horizon[m].values, linestyle = '--', color = 'black', label = models_to_labels[m])
-    else:
-        plt.plot(np.arange(len(steps_)), ave_improve_horizon[m].values, marker = marker[i], color = colors[i], label = models_to_labels[m], linestyle=' ')
-        
-        # plt.errorbar(np.arange(3), ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values)
 
-plt.ylabel('RMSE improvement (%)')
-plt.xticks(np.arange(len(steps_)), steps_)
+    plt.errorbar(np.arange(len(steps_))+i*0.075, 
+                 ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+                 label = models_to_labels[m])
+
+plt.ylabel('RMSE (%)')
+plt.xticks(np.arange(len(steps_))+0.15, steps_)
 plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_NN_abs_RMSE_vs_horizon.pdf')
 plt.show()
-
 
 
 #%% Missing Not at Random
-if weather_feat and min_lag >= 16:
+if weather_feat and min_lag >= 8:
     mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
     rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
 
@@ -216,7 +227,7 @@ plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25
            ['$\mathtt{Imp-LS}$', '$\mathtt{FA(fixed)^{\gamma}-LS}$', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
 
 
-plt.ylim([100*rmse_df_nmar[ls_models_to_plot + nn_models_to_plot].mean().min()*0.8, 100*rmse_df_nmar[ls_models_to_plot + nn_models_to_plot].mean().max()*1.05])
+plt.ylim([100*rmse_df_nmar[ls_models_to_plot + nn_models_to_plot].mean().min()*0.8, 100*rmse_df_nmar[ls_models_to_plot + nn_models_to_plot].mean().max()*1.1])
 plt.ylabel("RMSE (%)")
 
 xticks_minor = np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25)))
@@ -288,9 +299,10 @@ x_val = temp_df['percentage'].unique().astype(float)
 
 for i, m in enumerate(models_to_plot):    
     y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
-
+    y_val[0] = 100*temp_df.query(f'percentage==0')['LS'].mean()
+    
     #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
-    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+    plt.plot(x_val, y_val, 
              label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
     plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
     
@@ -300,7 +312,7 @@ plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 # plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_LS_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_LS_RMSE_MCAR.pdf')
 plt.show()
 
 
@@ -316,8 +328,29 @@ print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_
 #%%
 (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard()
 #%% LS - sensitivity
- 
 
+if weather_feat and min_lag>=8: 
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
+        FA_lin_greedy_LS_models_dict = pickle.load(handle)
+else:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+        FA_lin_greedy_LS_models_dict = pickle.load(handle)
+
+#%% Find WC performance gap
+
+WC_gap = []
+for q in FA_lin_greedy_LS_models_dict.keys():
+    temp_model = FA_lin_greedy_LS_models_dict[q]
+    leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
+    
+    # plt.plot(np.array(temp_model.Loss_gap_perc)[leaf_ind])
+    # plt.title('Loss Gap in Leaves')
+    # plt.show()
+    
+    WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
+
+
+#%%
 models_to_plot = ['LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
                   'FA-lin-greedy-LS-20']
 
@@ -347,6 +380,7 @@ std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
 
 for i, m in enumerate(models_to_plot):    
     y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+    y_val[0] = 100*temp_df.query(f'percentage==0')['LS'].mean()
 
     #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
     plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
@@ -359,12 +393,18 @@ plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 # plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_sensitivity_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_sensitivity_RMSE_MCAR.pdf')
 plt.show()
 
 #%%
-# temp_df = rmse_df.query('percentage==0.1')
+# Sensitivity analysis table results
 
+models_to_plot = ['LS', 'FA-lin-fixed-LS','FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
+                  'FA-lin-greedy-LS-20']
+
+print( 100*rmse_df.query('percentage==0.1').mean()[models_to_plot] )
+print('WC Gap, percentage')
+print((np.array(WC_gap)).round(2))
 
 #%% NN performance degradation
 
@@ -401,7 +441,7 @@ for i, m in enumerate(models_to_plot):
     y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
     y_val[0] = 100*temp_df.query(f'percentage==0')['NN'].mean()
     #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
-    plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
+    plt.plot(x_val, y_val, 
              label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
     plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
     
@@ -411,7 +451,7 @@ plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
 plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 # plt.ylim([9.9, 12.75])
 plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
-if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_NN_RMSE.pdf')
+if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_NN_RMSE_MCAR.pdf')
 plt.show()
 
 #%%
