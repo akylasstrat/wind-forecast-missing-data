@@ -57,7 +57,7 @@ config = params()
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 weather_feat = True
-config['min_lag'] = 24
+config['min_lag'] = 4
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -68,7 +68,7 @@ min_lag = config['min_lag']
 all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
-    if weather_feat and s >= 8:
+    if weather_feat:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
     else:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
