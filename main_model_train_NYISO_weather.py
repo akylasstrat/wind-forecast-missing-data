@@ -73,7 +73,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 8
+config['min_lag'] = 4
 
 # ID forecasts from NREL (instead of weather)
 id_forecasts = pd.read_csv(f'{cd}\\data\\Site_{target_park}_wind_intraday_2018_forecasts.csv')
@@ -338,15 +338,15 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-Max_number_splits = [1, 2, 5, 10]
+Max_number_splits = [1, 2, 5, 10, 20]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
 config['train'] = True
 config['save'] = True
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
-        FA_lin_greedy_LS_models_dict = pickle.load(handle)
+# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
+#         FA_lin_greedy_LS_models_dict = pickle.load(handle)
 
 if config['train']:
     
@@ -538,7 +538,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -572,7 +572,7 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:
@@ -647,26 +647,3 @@ if config['train']:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
 #             FA_lin_fixed_NN_model = pickle.load(handle)
 
-########## NN model
-# batch_size = 512
-# num_epochs = 250
-# learning_rate = 1e-3
-# patience = 15
-# val_perc = 0.15
-# decay = 1e-5
-
-# config['train'] = True
-# config['save'] = True
-
-# if config['train']:
-            
-#     v2FA_lin_fixed_NN_model = v2_FiniteAdapt_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
-#                                     output_size = n_outputs, projection = True, train_adversarially = True)
-    
-#     v2FA_lin_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-#                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
-        
-#     if config['save']:
-#         with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model.pickle', 'wb') as handle:
-#             pickle.dump(v2FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            

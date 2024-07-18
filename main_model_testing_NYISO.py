@@ -80,14 +80,14 @@ power_df = pd.read_csv(f'{cd}\\data\\2018_wind_site_5min.csv', index_col = 0, pa
 metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
 #%%
-freq = '5min'
+freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 6
-config['save'] = False
+config['min_lag'] = 4
+config['save'] = True
 
 
-config['split_date'] = '2018-03-01' # end of train set/start of test set
-config['end_date'] = '2018-07-01'
+config['split_date'] = '2018-06-01' # end of train set/start of test set
+config['end_date'] = '2019-01-01'
 
 target_zone = metadata_df.loc[target_park].load_zone
 power_df = power_df.resample(freq).mean()
@@ -249,7 +249,7 @@ check_length.groupby('Missing').mean()
 
 
 print('Test for MCAR mechanism')
-for perc in [0.1]:
+for perc in percentage:
     for iter_ in range(iterations):
         
         torch.manual_seed(run_counter)

@@ -49,7 +49,7 @@ def params():
     #!!!!!!! To be changed with dates, not percentage
     #params['percentage_split'] = .75
     params['start_date'] = '2018-01-01' # start of train set
-    params['split_date'] = '2018-03-01' # end of train set/start of test set
+    params['split_date'] = '2018-06-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
     params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
@@ -67,13 +67,13 @@ def params():
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
-power_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\Actuals\\2018\\Wind\\2018_wind_site.csv', index_col = 0, parse_dates=True)
-metadata_df = pd.read_csv('C:\\Users\\akyla\\OneDrive - Imperial College London\\NYISO data\\MetaData\\wind_meta.csv', index_col = 0)
+power_df = pd.read_csv(f'{cd}\\data\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
+metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
 #%%
-freq = '5min'
-target_park = 'Noble_Clinton'
-config['min_lag'] = 12
+freq = '15min'
+target_park = 'Noble Clinton'
+config['min_lag'] = 4
 
 target_zone = metadata_df.loc[target_park].load_zone
 
@@ -327,7 +327,7 @@ Max_number_splits = [1, 2, 5, 10, 20]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 
 if config['train']:
     
@@ -371,7 +371,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -410,7 +410,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -470,7 +470,7 @@ if config['train']:
     
     FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
                           epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5)
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5, freeze_weights = False)
         
     if config['save']:
         with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_NN_model.pickle', 'wb') as handle:
@@ -519,7 +519,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -553,7 +553,7 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -584,7 +584,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
