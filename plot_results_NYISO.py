@@ -16,6 +16,7 @@ sys.path.append(cd)
 
 # import from forecasting libraries
 from utility_functions import * 
+from matplotlib.ticker import FormatStrFormatter
 
 # IEEE plot parameters (not sure about mathfont)
 plt.rcParams['figure.dpi'] = 600
@@ -68,7 +69,7 @@ min_lag = config['min_lag']
 all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
-    if weather_feat:
+    if weather_feat  and s >= 8:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
     else:
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)
@@ -150,36 +151,59 @@ plt.show()
 #%%
 ### Absolute value RMSE vs forecast horizon
 
+nominal_rmse_LS = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['LS'].mean()).round(2)
+
 ave_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).mean())
 std_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).std())
 
 marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
 
-fig, ax = plt.subplots(constrained_layout = True)
+#%%
+fig, ax = plt.subplots(constrained_layout = True, nrows = 2, sharey=True, 
+                       figsize = (3.5, 3.5))
+
+ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+plt.sca(ax[0])
 
 for i,m in enumerate(ls_models_to_plot):
 
-    plt.errorbar(np.arange(len(steps_))+i*0.075, 
+    plt.errorbar(np.arange(len(steps_))+i*0.1, 
                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
                  label = models_to_labels[m])
 
+for i, s in enumerate(steps_):
+    if i ==0:
+        plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_LS.loc[s]], '--', color = 'black', label = '$\mathtt{LS}$')
+    else:
+        plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_LS.loc[s]], '--', color = 'black')
+    
 plt.ylabel('RMSE (%)')
-plt.xticks(np.arange(len(steps_))+0.15, steps_)
-plt.xlabel(r'Forecast horizon $h$')
+# plt.xticks(np.arange(len(steps_))+0.25, steps_)
+# plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
-if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_LS_abs_RMSE_vs_horizon.pdf')
-plt.show()
+# if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_LS_abs_RMSE_vs_horizon.pdf')
+# plt.show()
 
-fig, ax = plt.subplots(constrained_layout = True)
+nominal_rmse_NN = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['NN'].mean()).round(2)
+
+plt.sca(ax[1])
+ax[1].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 for i,m in enumerate(nn_models_to_plot):
 
-    plt.errorbar(np.arange(len(steps_))+i*0.075, 
+    plt.errorbar(np.arange(len(steps_))+i*0.1, 
                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
                  label = models_to_labels[m])
+    
+for i, s in enumerate(steps_):
+    if i ==0:
+        plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black', label = '$\mathtt{NN}$')
+    else:
+        plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black')
+
 
 plt.ylabel('RMSE (%)')
-plt.xticks(np.arange(len(steps_))+0.15, steps_)
+plt.xticks(np.arange(len(steps_))+0.25, steps_)
 plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_NN_abs_RMSE_vs_horizon.pdf')
@@ -187,7 +211,7 @@ plt.show()
 
 
 #%% Missing Not at Random
-if weather_feat and min_lag >= 8:
+if weather_feat >= min_lag:
     mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
     rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
 
@@ -286,6 +310,7 @@ line_style = ['--' '-', '-', '-']
 
 fig, ax = plt.subplots(constrained_layout = True)
 
+ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
 
 temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')

@@ -75,8 +75,8 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 4
-config['save'] = True
+config['min_lag'] = 1
+config['save'] = False
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
 id_forecasts_df = id_forecasts_df.resample(freq).interpolate()
@@ -393,6 +393,8 @@ for perc in percentage:
             FA_lin_greedy_LS_pred = FA_lin_greedy_LS_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
             FA_lin_greedy_LS_pred = projection(FA_lin_greedy_LS_pred)
             temp_Predictions[f'FA-lin-greedy-LS-{number_splits}'] = FA_lin_greedy_LS_pred.reshape(-1)
+        
+        error_df = Target.values[max_lag-1:] - temp_Predictions[max_lag-1:]
         
         for m in models:
             temp_df[m] = [mae(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]

@@ -82,7 +82,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 4
+config['min_lag'] = 1
 config['save'] = True
 
 
