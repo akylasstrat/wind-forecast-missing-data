@@ -58,7 +58,7 @@ config = params()
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 weather_feat = True
-config['min_lag'] = 4
+config['min_lag'] = 24
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -211,7 +211,8 @@ plt.show()
 
 
 #%% Missing Not at Random
-if weather_feat >= min_lag:
+
+if weather_feat and min_lag >= 8:
     mae_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
     rmse_df_nmar = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
 

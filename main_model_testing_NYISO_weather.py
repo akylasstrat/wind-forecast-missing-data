@@ -75,7 +75,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 1
+config['min_lag'] = 24
 config['save'] = False
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
@@ -239,7 +239,7 @@ check_length = pd.DataFrame()
 check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
-
+#%%
 
 print('Test for MCAR mechanism')
 for perc in percentage:
@@ -449,7 +449,7 @@ for iter_ in range(iterations):
 
     # Initialize dataframe to store results
     temp_df = pd.DataFrame()
-    temp_df['percentage'] = [perc]
+    temp_df['percentage'] = [0]
     temp_df['iteration'] = [iter_]
     
     # generate missing data
@@ -591,7 +591,7 @@ for iter_ in range(iterations):
     rmse_df = pd.concat([rmse_df, temp_df])
     
     run_counter += 1
-
+#%%
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
     rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
