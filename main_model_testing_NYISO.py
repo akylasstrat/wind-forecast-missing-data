@@ -82,7 +82,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 4
+config['min_lag'] = 1
 config['save'] = True
 
 
@@ -600,7 +600,7 @@ for iter_ in range(iterations):
     rmse_df = pd.concat([rmse_df, temp_df])
     
     run_counter += 1
-
+#%%
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results.csv')
     rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results.csv')
