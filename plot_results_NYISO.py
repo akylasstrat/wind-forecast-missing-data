@@ -58,7 +58,7 @@ config = params()
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 weather_feat = True
-config['min_lag'] = 24
+config['min_lag'] = 1
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -160,7 +160,7 @@ marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
 colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
 
 #%%
-fig, ax = plt.subplots(constrained_layout = True, nrows = 2, sharey=True, 
+fig, ax = plt.subplots(constrained_layout = True, nrows = 2, sharex=True, sharey = True, 
                        figsize = (3.5, 3.5))
 
 ax[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
@@ -179,6 +179,7 @@ for i, s in enumerate(steps_):
         plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_LS.loc[s]], '--', color = 'black')
     
 plt.ylabel('RMSE (%)')
+plt.xticks(np.arange(len(steps_))+0.25, steps_)
 # plt.xticks(np.arange(len(steps_))+0.25, steps_)
 # plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
@@ -206,6 +207,7 @@ plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
 plt.xlabel(r'Forecast horizon $h$')
 plt.legend(ncol=1, fontsize = 6)
+
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_NN_abs_RMSE_vs_horizon.pdf')
 plt.show()
 
