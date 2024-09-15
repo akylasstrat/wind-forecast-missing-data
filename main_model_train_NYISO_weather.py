@@ -73,7 +73,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 4
+config['min_lag'] = 1
 
 # ID forecasts from NREL (instead of weather)
 id_forecasts = pd.read_csv(f'{cd}\\data\\Site_{target_park}_wind_intraday_2018_forecasts.csv')
