@@ -52,6 +52,22 @@ models_to_labels = {'LS':'$\mathtt{Imp-LS}$',
                     'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
                     'NN':'$\mathtt{Imp-NN}$'}
 
+
+models_to_common_labels = {'LS':'$\mathtt{Imp}$', 
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}}$',
+                    'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}}$', 
+                    'FA-lin-greedy-LS-1':'$\mathtt{FLA(learn)^{1}}$', 
+                    'FA-lin-greedy-LS-5':'$\mathtt{FLA(learn)^{5}}$', 
+                    'FA-lin-greedy-LS-2':'$\mathtt{FLA(learn)^{2}}$', 
+                    'FA-lin-greedy-LS-20':'$\mathtt{FLA(learn)^{20}}$', 
+                    'FA-greedy-LS':'$\mathtt{FA(learn)^{10}}$', 
+                    'FA-fixed-NN':'$\mathtt{FA(fixed)^{\gamma}}$', 
+                    'FA-greedy-NN':'$\mathtt{FA(learn)^{10}}$', 
+                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)^{\gamma}}$', 
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}}$',
+                    'NN':'$\mathtt{Imp}$'}
+
 #%% Load data at turbine level, aggregate to park level
 config = params()
 
@@ -60,7 +76,7 @@ config = params()
 weather_feat = True
 weather_all_steps = True
 
-config['min_lag'] = 24
+config['min_lag'] = 1
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
@@ -363,96 +379,6 @@ elif (weather_all_steps == False) and config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_LS_RMSE_MCAR.pdf')
 plt.show()
 
-#%%
-# percentage improvement
-print((100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2).to_clipboard() )
-
-print( (100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard())
-
-#%%
-(100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2).to_clipboard() 
-#%%
-(100*temp_df.groupby(['percentage'])[models_to_plot].mean()).round(2).to_clipboard()
-#%% LS - sensitivity
-
-if weather_all_steps or (weather_feat and min_lag>=8):
-    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
-        FA_lin_greedy_LS_models_dict = pickle.load(handle)        
-        
-else:
-    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
-        FA_lin_greedy_LS_models_dict = pickle.load(handle)
-
-#%% Find WC performance gap
-
-WC_gap = []
-for q in FA_lin_greedy_LS_models_dict.keys():
-    temp_model = FA_lin_greedy_LS_models_dict[q]
-    leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
-    
-    # plt.plot(np.array(temp_model.Loss_gap_perc)[leaf_ind])
-    # plt.title('Loss Gap in Leaves')
-    # plt.show()
-    
-    WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
-
-
-#%%
-# models_to_plot = ['LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-2', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
-#                   'FA-lin-greedy-LS-20']
-
-# marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
-
-# ls_colors = plt.cm.tab20c( list(np.arange(3)))
-# lad_colors = plt.cm.tab20( list(np.arange(10,12)))
-# fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
-
-# # colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
-
-# colors = ['black', 'tab:blue', 'tab:orange', 'tab:green', 'tab:brown']
-# line_style = ['--' '-', '-', '-']
-
-# fig, ax = plt.subplots(constrained_layout = True)
-
-# x_val = temp_df['percentage'].unique().astype(float)
-
-
-# temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
-# std_bar = 100*(temp_df.groupby(['percentage'])[models_to_plot].std())
-
-# for i, m in enumerate(models_to_plot):    
-#     y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
-#     y_val[0] = 100*temp_df.query(f'percentage==0')['LS'].mean()
-
-#     #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
-#     plt.plot(x_val, 100*temp_df.groupby(['percentage'])[m].mean().values, 
-#              label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
-#     plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
-    
-# plt.legend()
-# plt.ylabel('RMSE (%)')
-# plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
-# plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
-# # plt.ylim([9.9, 12.75])
-# plt.legend(ncol=1, fontsize = 6)
-
-
-# if weather_all_steps and config['save']:
-#     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_sensitivity_RMSE_MCAR_weather.pdf')
-# elif (weather_all_steps == False) and config['save']:
-#     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_sensitivity_RMSE_MCAR.pdf')
-# plt.show()
-
-
-#%%
-# Sensitivity analysis table results
-
-models_to_plot = ['LS', 'FA-lin-fixed-LS','FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-2', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
-                  'FA-lin-greedy-LS-20']
-
-print( 100*rmse_df.query('percentage==0.1').mean()[models_to_plot] )
-print('WC Gap, percentage')
-print((np.array(WC_gap)).round(2))
 
 #%% NN performance degradation
 
@@ -501,6 +427,137 @@ plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_NN_RMSE_MCAR.pdf')
 plt.show()
+
+#%% LS & NN performance degradation vs percentage of missing data
+
+# color_list = ['black', 'black', 'gray', 'tab:cyan','tab:green',
+#          'tab:blue', 'tab:brown', 'tab:purple','tab:red', 'tab:orange', 'tab:olive', 'cyan', 'yellow']
+
+LS_models_to_plot = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-10']
+NN_models_to_plot = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+
+ls_colors = plt.cm.tab20c( list(np.arange(3)))
+lad_colors = plt.cm.tab20( list(np.arange(10,12)))
+fdr_colors = plt.cm.tab20c([8,9,10, 12, 13, 14])
+
+# colors = ['black'] + list(ls_colors) +list(lad_colors) + list(fdr_colors) 
+
+colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
+line_style = ['--' '-', '-', '-']
+
+
+props = dict(boxstyle='round', facecolor='white', alpha=0.5)
+
+fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
+                         sharey = True, figsize = (3.5, 3.5))
+
+plt.sca(axes[0])
+axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
+temp_df = rmse_df.query('percentage==0.01 or percentage==0.05 or percentage==0.1 or percentage==0')
+std_bar = 100*(temp_df.groupby(['percentage'])[LS_models_to_plot + NN_models_to_plot].std())
+x_val = temp_df['percentage'].unique().astype(float)
+
+for i, m in enumerate(LS_models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+    y_val[0] = 100*temp_df.query(f'percentage==0')['LS'].mean()
+    
+    #plt.errorbar(perfomance_df['percentage'].unique(), perfomance_df.groupby(['percentage'])[m].mean().values, yerr=std_bar[m])
+    plt.plot(x_val, y_val, color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
+    plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    
+plt.plot(x_val, len(x_val)*[100*temp_df.query(f'percentage == 0')['LS'].mean()], linestyle = '--', linewidth = 2, 
+         color = 'black')
+
+plt.ylabel('RMSE (%)')
+
+# place a text box in upper left in axes coords
+axes[0].text(0.05, 0.95, 'Forecasting model: $\mathtt{LS}$', transform=axes[0].transAxes, fontsize=6,
+        verticalalignment='top', bbox=props)
+# matplotlib.pyplot.annotate(text, xy, xytext=None, xycoords='data', textcoords=None, arrowprops=None, annotation_clip=None, **kwargs)
+
+plt.sca(axes[1])
+for i, m in enumerate(NN_models_to_plot):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+    y_val[0] = 100*temp_df.query(f'percentage==0')['LS'].mean()
+    
+    plt.plot(x_val, y_val, 
+             label = models_to_common_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
+    plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    
+# BASE case (no missing data)
+plt.plot(x_val, len(x_val)*[100*temp_df.query(f'percentage == 0')['FA-fixed-NN'].mean()], linestyle = '--', linewidth = 2, 
+         color = 'black',)
+
+plt.ylabel('RMSE (%)')
+plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
+# place a text box in upper left in axes coords
+axes[1].text(0.05, 0.95, 'Forecasting model: $\mathtt{NN}$', transform=axes[1].transAxes, fontsize=6,
+        verticalalignment='top', bbox=props)
+
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.ylim([1.5,13.5])
+
+
+models_to_common_labels
+lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
+                 bbox_to_anchor=(0.15, -0.1))
+
+if weather_all_steps and config['save']:
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_joint_RMSE_MCAR_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+elif (weather_all_steps == False) and config['save']:
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_joint_RMSE_MCAR.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+plt.show()
+
+
+#%%
+# percentage improvement // LS
+print((100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[LS_models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2))
+print( (100*temp_df.groupby(['percentage'])[LS_models_to_plot].mean()).round(2))
+
+(100*((temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[LS_models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2)).to_clipboard()
+(100*temp_df.groupby(['percentage'])[LS_models_to_plot].mean()).round(2).to_clipboard()
+#%%
+# percentage improvement // NN
+print((100* (temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[NN_models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2))
+print( (100*temp_df.groupby(['percentage'])[NN_models_to_plot].mean()).round(2))
+
+(100*((temp_df.groupby(['percentage'])[['NN']].mean().values - temp_df.groupby(['percentage'])[NN_models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2)).to_clipboard()
+(100*temp_df.groupby(['percentage'])[NN_models_to_plot].mean()).round(2).to_clipboard()
+#%% LS - sensitivity
+
+if weather_all_steps or (weather_feat and min_lag>=8):
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
+        FA_lin_greedy_LS_models_dict = pickle.load(handle)        
+        
+else:
+    with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict.pickle', 'rb') as handle:
+        FA_lin_greedy_LS_models_dict = pickle.load(handle)
+
+#%% Find WC performance gap
+
+WC_gap = []
+for q in FA_lin_greedy_LS_models_dict.keys():
+    temp_model = FA_lin_greedy_LS_models_dict[q]
+    leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
+    
+    # plt.plot(np.array(temp_model.Loss_gap_perc)[leaf_ind])
+    # plt.title('Loss Gap in Leaves')
+    # plt.show()
+    
+    WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
+
+#%%
+# Sensitivity analysis table results
+
+models_to_plot = ['LS', 'FA-lin-fixed-LS','FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-2', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10',
+                  'FA-lin-greedy-LS-20']
+
+print( 100*rmse_df.query('percentage==0.1').mean()[models_to_plot] )
+print('WC Gap, percentage')
+print((np.array(WC_gap)).round(2))
 
 #%%
 
