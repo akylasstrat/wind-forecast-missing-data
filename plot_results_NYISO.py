@@ -58,7 +58,7 @@ config = params()
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 weather_feat = True
-weather_all_steps = False
+weather_all_steps = True
 
 config['min_lag'] = 24
 freq = '15min'
@@ -76,7 +76,7 @@ for s in steps_:
             temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
         else:
             temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results.csv', index_col = 0)            
-    else:        
+    elif (weather_all_steps == True):        
         temp_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
         
     temp_df['steps'] = s
