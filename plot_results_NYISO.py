@@ -134,9 +134,10 @@ print('Improvement over Imputation')
 print( (100*((ave_improve_horizon['LS']-ave_improve_horizon['FA-lin-greedy-LS-10'])/ave_improve_horizon['LS'])).round(2) )
 
 props = dict(boxstyle='round', facecolor='white', alpha=0.5)
-fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 3.5))
 
+
+fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
+                         sharey = True, figsize = (3.5, 3))
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
@@ -209,7 +210,7 @@ line_style = ['--' '-', '-', '-']
 props = dict(boxstyle='round', facecolor='white', alpha=0.5)
 
 fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 3.5))
+                         sharey = True, figsize = (3.5, 3))
 
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
@@ -354,7 +355,7 @@ print('WC Gap, percentage')
 print((np.array(WC_gap)).round(2))
 
 ### Sensitivity plot
-fig, ax1 = plt.subplots(constrained_layout = True)
+fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 3))
 
 color = 'tab:red'
 ax1.set_xlabel('Number of partitions $Q$')
