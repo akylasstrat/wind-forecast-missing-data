@@ -355,7 +355,7 @@ print('WC Gap, percentage')
 print((np.array(WC_gap)).round(2))
 
 ### Sensitivity plot
-fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 3))
+fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 1.75))
 
 color = 'tab:red'
 ax1.set_xlabel('Number of partitions $Q$')
@@ -457,7 +457,7 @@ std_mnar_rmse_horizon = (mnar_rmse_df.groupby(['steps']).std())
 
 props = dict(boxstyle='round', facecolor='white', alpha=0.5)
 fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 3.5))
+                         sharey = True, figsize = (3.5, 3))
 
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
