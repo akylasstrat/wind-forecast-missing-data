@@ -38,33 +38,33 @@ def params():
     return params
 
 models_to_labels = {'LS':'$\mathtt{Imp-LS}$', 
-                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}-LS}$',
-                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}-LS}$',
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)-LS}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)-LS}$',
                     'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
                     'FA-lin-greedy-LS-1':'$\mathtt{FLA(learn)^{1}-LS}$', 
                     'FA-lin-greedy-LS-5':'$\mathtt{FLA(learn)^{5}-LS}$', 
                     'FA-lin-greedy-LS-2':'$\mathtt{FLA(learn)^{2}-LS}$', 
                     'FA-lin-greedy-LS-20':'$\mathtt{FLA(learn)^{20}-LS}$', 
                     'FA-greedy-LS':'$\mathtt{FA(learn)^{10}-LS}$', 
-                    'FA-fixed-NN':'$\mathtt{FA(fixed)^{\gamma}-NN}$', 
+                    'FA-fixed-NN':'$\mathtt{FA(fixed)-NN}$', 
                     'FA-greedy-NN':'$\mathtt{FA(learn)^{10}-NN}$', 
-                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)^{\gamma}-NN}$', 
+                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
                     'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
                     'NN':'$\mathtt{Imp-NN}$'}
 
 
 models_to_common_labels = {'LS':'$\mathtt{Imp}$', 
-                    'FA-fixed-LS':'$\mathtt{FA(fixed)^{\gamma}}$',
-                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)^{\gamma}}$',
+                    'FA-fixed-LS':'$\mathtt{FA(fixed)}$',
+                    'FA-lin-fixed-LS':'$\mathtt{FLA(fixed)}$',
                     'FA-lin-greedy-LS-10':'$\mathtt{FLA(learn)^{10}}$', 
                     'FA-lin-greedy-LS-1':'$\mathtt{FLA(learn)^{1}}$', 
                     'FA-lin-greedy-LS-5':'$\mathtt{FLA(learn)^{5}}$', 
                     'FA-lin-greedy-LS-2':'$\mathtt{FLA(learn)^{2}}$', 
                     'FA-lin-greedy-LS-20':'$\mathtt{FLA(learn)^{20}}$', 
                     'FA-greedy-LS':'$\mathtt{FA(learn)^{10}}$', 
-                    'FA-fixed-NN':'$\mathtt{FA(fixed)^{\gamma}}$', 
+                    'FA-fixed-NN':'$\mathtt{FA(fixed)}$', 
                     'FA-greedy-NN':'$\mathtt{FA(learn)^{10}}$', 
-                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)^{\gamma}}$', 
+                    'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)}$', 
                     'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}}$',
                     'NN':'$\mathtt{Imp}$'}
 
@@ -137,7 +137,7 @@ props = dict(boxstyle='round', facecolor='white', alpha=0.5)
 
 
 fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 3))
+                         sharey = True, figsize = (3.5, 2.8))
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
@@ -172,7 +172,7 @@ for i, s in enumerate(steps_):
 
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
-plt.xlabel(r'Forecast horizon $h$')
+plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
 
 # Text to indicate forecasting model for each subplot
 axes[0].text(0.05, 0.95, 'Forecasting model: $\mathtt{LS}$', transform=axes[0].transAxes, fontsize=6,
@@ -210,7 +210,7 @@ line_style = ['--' '-', '-', '-']
 props = dict(boxstyle='round', facecolor='white', alpha=0.5)
 
 fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 3))
+                         sharey = True, figsize = (3.5, 2.8))
 
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
@@ -355,7 +355,8 @@ print('WC Gap, percentage')
 print((np.array(WC_gap)).round(2))
 
 ### Sensitivity plot
-fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 1.75))
+fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 1.5))
+ax1.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
 color = 'tab:red'
 ax1.set_xlabel('Number of partitions $Q$')
@@ -363,7 +364,7 @@ ax1.set_ylabel('RMSE (%)')
 
 temp_df = all_rmse.query(f'percentage==0.1 and steps == {min_lag}')
 ax1.plot(5*[100*temp_df.mean()['LS']], color='black', marker = '2', label = '$\mathtt{Imp-LS}$', linewidth = 1)
-ax1.plot(5*[100*temp_df.mean()['FA-lin-fixed-LS']], color='tab:brown', marker = 'd', label = '$\mathtt{FLA(fixed)}^{\gamma}$', linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['FA-lin-fixed-LS']], color='tab:brown', marker = 'd', label = '$\mathtt{FLA(fixed)}$', linewidth = 1)
 
 ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{FLA(learn)}^{Q}$', linewidth = 1)
 
@@ -376,7 +377,9 @@ lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8),
 ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
 color = 'tab:red'
+# ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
 ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
+
 ax2.plot((np.array(WC_gap)).round(2), '-.', color=color, linewidth = 2)
 ax2.tick_params(axis='y', labelcolor=color)
 
@@ -457,7 +460,7 @@ std_mnar_rmse_horizon = (mnar_rmse_df.groupby(['steps']).std())
 
 props = dict(boxstyle='round', facecolor='white', alpha=0.5)
 fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 3))
+                         sharey = True, figsize = (3.5, 2.8))
 
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
@@ -490,7 +493,7 @@ for i, s in enumerate(steps_):
 
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
-plt.xlabel(r'Forecast horizon $h$')
+plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
 
 # Text to indicate forecasting model for each subplot
 axes[0].text(0.05, 0.95, 'Forecasting model: $\mathtt{LS}$', transform=axes[0].transAxes, fontsize=6,
@@ -553,7 +556,7 @@ for i,m in enumerate(ls_models_to_plot):
 
 plt.ylabel('Scaled RMSE')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
-plt.xlabel(r'Forecast horizon $h$')
+plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
 plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_LS_scaled_RMSE_vs_horizon.pdf')
 plt.show()
@@ -567,7 +570,7 @@ for i,m in enumerate(nn_models_to_plot):
 
 plt.ylabel('Scaled RMSE')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
-plt.xlabel(r'Forecast horizon $h$')
+plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
 plt.legend(ncol=1, fontsize = 6)
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_NN_scaled_RMSE_vs_horizon.pdf')
 plt.show()
