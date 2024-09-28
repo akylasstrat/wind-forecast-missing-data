@@ -3472,7 +3472,7 @@ class FiniteAdapt_Linear_Fixed(object):
          
      return np.array(Predictions).reshape(-1,1)
 
-class v2_FiniteAdapt_Linear_Fixed(object):
+class FiniteAdapt_Input_Linear_Fixed(object):
   '''Finitely Adaptive Regression with Fixed Partitions at integer values/ approximates FDR from previous work
       Wrapper function that calls adjustable_FDR models
       
@@ -3546,7 +3546,7 @@ class v2_FiniteAdapt_Linear_Fixed(object):
         mlp_model = LinearRegression(fit_intercept = True)
         mlp_model.fit(train_temp_X, trainY)
     else:
-        # Train Neural Network model
+        ### Train nominal NN/ no missing data
         mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
                                   target_col = self.target_col, fix_col = self.fix_col, projection = self.adjustable_FDR_params['projection'], 
                                   train_adversarially = False, budget_constraint = 'equality')
@@ -3565,7 +3565,7 @@ class v2_FiniteAdapt_Linear_Fixed(object):
         print(f'Budget: {gamma}')
         
         # Train robust model
-        temp_fdr_model = v2_adjustable_FDR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
+        temp_fdr_model = input_linear_adjustable_FDR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
                                   target_col = self.target_col, fix_col = self.fix_col, projection = False, 
                                   Gamma = gamma, train_adversarially = True, budget_constraint = 'equality')
         

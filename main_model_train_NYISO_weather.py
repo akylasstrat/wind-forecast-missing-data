@@ -60,7 +60,7 @@ def params():
     params['min_lag'] = 4
     # last known measure value, defined lookahed horizon (min_lag == 2, 1-hour ahead predictions with 30min data)
     params['train'] = True # If True, then train models, else tries to load previous runs
-    params['save'] = True # If True, then saves models and results
+    params['save'] = False # If True, then saves models and results
     
     return params
 
@@ -342,7 +342,7 @@ Max_number_splits = [1, 2, 5, 10, 20]
 # Max_number_splits = [10]
 FA_lin_greedy_LS_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 # with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_greedy_LS_models_dict_weather.pickle', 'rb') as handle:
@@ -390,7 +390,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -429,7 +429,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -478,7 +478,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -538,7 +538,7 @@ learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -572,7 +572,7 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -603,7 +603,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.0
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:
@@ -620,7 +620,7 @@ if config['train']:
 # else:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_LS_model.pickle', 'rb') as handle:    
 #             FA_lin_fixed_LS_model = pickle.load(handle)
-
+#%%
 ########## NN model
 batch_size = 512
 num_epochs = 250
@@ -629,8 +629,8 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:
             
@@ -647,3 +647,28 @@ if config['train']:
 #     with open(f'{cd}\\trained-models\\NYISO\\{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model.pickle', 'rb') as handle:    
 #             FA_lin_fixed_NN_model = pickle.load(handle)
 
+#%%
+########## NN model// linear correction in input layer
+from finite_adaptability_model_functions import *
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.15
+decay = 1e-5
+ 
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+            
+    v2FA_lin_fixed_NN_model = FiniteAdapt_Input_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
+                                    output_size = n_outputs, projection = True, train_adversarially = True)
+    
+    v2FA_lin_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
+        
+    if config['save']:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model_weather.pickle', 'wb') as handle:
+            pickle.dump(v2FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)

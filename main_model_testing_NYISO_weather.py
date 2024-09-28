@@ -75,7 +75,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 24
+config['min_lag'] = 1
 config['save'] = True
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
@@ -192,6 +192,9 @@ with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_F
 
 with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
         FA_lin_fixed_NN_model = pickle.load(handle)
+
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
+        v2FA_lin_fixed_NN_model = pickle.load(handle)
 
 #%% Test models
 target_col = trainPred.columns
@@ -373,6 +376,11 @@ for perc in percentage:
         FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
         temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
 
+        ## NN model// correction in the input layer
+        v2FA_lin_fixed_NN_pred = v2FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        v2FA_lin_fixed_NN_pred = projection(v2FA_lin_fixed_NN_pred)
+        temp_Predictions['v2FA-lin-fixed-NN'] = v2FA_lin_fixed_NN_pred.reshape(-1)
+
         #### FINITE-RETRAIN-LAD and LS        
         FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
         FA_lin_greedy_NN_pred = projection(FA_lin_greedy_NN_pred)
@@ -416,6 +424,7 @@ for perc in percentage:
     nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
     rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
+stop_here
 #%% Test for MNAR missing data
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])

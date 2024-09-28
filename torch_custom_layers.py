@@ -57,9 +57,10 @@ class Linear_Correction_Layer(nn.Module):
 
         # Linear Decision Rules
         # W = torch.zeros(size_in, size_in)
-        # self.W = torch.nn.Parameter(W)  # nn.Parameter is a Tensor that's a module parameter.        
-        self.W = nn.Parameter(torch.FloatTensor(np.zeros((size_in, size_in))).requires_grad_())
-
+        # self.W = torch.nn.Parameter(W)  # nn.Parameter is a Tensor that's a module parameter.       
+        self.W_list = []
+        for i in range(size_out):
+            self.W_list.append(nn.Parameter(torch.FloatTensor(np.zeros((size_in, size_in))).requires_grad_()))
         
         # initialize weights and biases
         torch.nn.init.kaiming_uniform_(self.weight, a=torch.math.sqrt(5)) # weight init
@@ -82,15 +83,13 @@ class Linear_Correction_Layer(nn.Module):
         """        
         # w_times_x= torch.mm(x*a, self.weights.t())
         x_imp = x*(1-a)
-        # print(a.shape)
-        # print(x_imp.shape)
-        # print( (self.W[:,:]@a.T).shape )
-        
-        # print( ((self.weights@x_imp.T).T + self.bias).shape )
-        # print( torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1).shape )
-        # print( (((self.weights@x_imp.T).T + self.bias) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1) ).shape)
 
-        return ((self.weight@x_imp.T).T + self.bias) + torch.sum( (self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)
+        y_hat = ((self.weight@x_imp.T).T + self.bias)
+        y_hat_corrected = y_hat.clone()
+        for i in range(self.weight.shape[0]):
+            y_hat_corrected[:,i:i+1] = y_hat[:,i:i+1] + torch.sum( (self.W_list[i]@a.T).T*(x_imp), dim = 1).reshape(-1,1)
+        return y_hat_corrected
+        # return ((self.weight@x_imp.T).T + self.bias) + torch.sum( (self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)
 
         # return ((self.weight@x_imp.T).T + self.bias).reshape(-1,1) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1).tile((self.weight.shape[0],)).reshape(-1,1)
 
@@ -1765,10 +1764,10 @@ class adjustable_FDR(nn.Module):
         else:
             return
         
-class v2_adjustable_FDR(nn.Module):        
+class input_linear_adjustable_FDR(nn.Module):        
     def __init__(self, input_size, hidden_sizes, output_size, target_col, fix_col, activation=nn.ReLU(), sigmoid_activation = False, 
                  projection = False, UB = 1, LB = 0, Gamma = 1, train_adversarially = True, budget_constraint = 'inequality'):
-        super(v2_adjustable_FDR, self).__init__()
+        super(input_linear_adjustable_FDR, self).__init__()
         """
         Standard MLP for regression
         Args:
