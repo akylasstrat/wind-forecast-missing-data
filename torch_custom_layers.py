@@ -56,11 +56,13 @@ class Linear_Correction_Layer(nn.Module):
         self.bias = torch.nn.Parameter(bias)
 
         # Linear Decision Rules
-        # W = torch.zeros(size_in, size_in)
-        # self.W = torch.nn.Parameter(W)  # nn.Parameter is a Tensor that's a module parameter.       
         self.W_list = []
         for i in range(size_out):
             self.W_list.append(nn.Parameter(torch.FloatTensor(np.zeros((size_in, size_in))).requires_grad_()))
+
+
+        # W = torch.zeros(size_in, size_in)
+        # self.W = torch.nn.Parameter(W)  # nn.Parameter is a Tensor that's a module parameter.       
         
         # initialize weights and biases
         torch.nn.init.kaiming_uniform_(self.weight, a=torch.math.sqrt(5)) # weight init
@@ -70,11 +72,11 @@ class Linear_Correction_Layer(nn.Module):
 
         # torch.nn.init.kaiming_uniform_(self.W, a=torch.math.sqrt(5)) # weight init
 
-    def forward(self, x):
-        w_times_x= torch.mm(x, self.weight.t())
-        return torch.add(w_times_x, self.bias)  # w times x + b
+    # def forward(self, x):
+    #     w_times_x= torch.mm(x, self.weight.t())
+    #     return torch.add(w_times_x, self.bias)  # w times x + b
     
-    def correction_forward(self, x, a):
+    def forward(self, x, a):
         """
         Forward pass
         Args:
@@ -86,6 +88,7 @@ class Linear_Correction_Layer(nn.Module):
 
         y_hat = ((self.weight@x_imp.T).T + self.bias)
         y_hat_corrected = y_hat.clone()
+
         for i in range(self.weight.shape[0]):
             y_hat_corrected[:,i:i+1] = y_hat[:,i:i+1] + torch.sum( (self.W_list[i]@a.T).T*(x_imp), dim = 1).reshape(-1,1)
         return y_hat_corrected
@@ -1796,7 +1799,7 @@ class input_linear_adjustable_FDR(nn.Module):
         
         self.linear_correction_layer = Linear_Correction_Layer(layer_sizes[0], layer_sizes[1])
         
-        if len(hidden_sizes) >0 :
+        if len(hidden_sizes) >0:
             layers.append(activation)
             
         for i in range(len(layer_sizes) - 1):
@@ -1909,10 +1912,7 @@ class input_linear_adjustable_FDR(nn.Module):
         """
         # x_imp = x*(1-a)
         # return self.model(x_imp) + torch.sum((self.W@a.T).T*(x_imp), dim = 1).reshape(-1,1)                              
-        x_inter = self.linear_correction_layer.correction_forward(x, a)  
-        # print('check')
-        # print(x_inter.shape)
-
+        x_inter = self.linear_correction_layer.forward(x, a)  
         return self.model(x_inter)
 
     
@@ -1992,8 +1992,8 @@ class input_linear_adjustable_FDR(nn.Module):
             temp_alpha = torch.FloatTensor(alpha.copy())
 
         with torch.no_grad():     
-            y_hat = self.correction_forward(temp_X, temp_alpha)
-            
+            # run linear correction layer
+            y_hat = self.correction_forward(temp_X, temp_alpha)            
             if self.projection or project:
                 return (torch.maximum(torch.minimum(y_hat, self.UB), self.LB)).detach().numpy()
             else:

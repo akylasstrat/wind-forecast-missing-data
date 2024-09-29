@@ -629,7 +629,7 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = False
+config['train'] = True
 config['save'] = False
 
 if config['train']:
@@ -657,7 +657,7 @@ learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
 decay = 1e-5
- 
+
 config['train'] = True
 config['save'] = True
 

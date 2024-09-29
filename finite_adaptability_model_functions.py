@@ -3539,23 +3539,23 @@ class FiniteAdapt_Input_Linear_Fixed(object):
     valid_data_loader = create_data_loader([tensor_valid_X, tensor_validY], batch_size = self.MLP_train_dict['batch_size'], shuffle = False)
     
     # Train nominal model (no missing data)
-    print('Train nominal model')
+    # print('Train nominal model')
     
-    if self.adjustable_FDR_params['hidden_sizes'] == []:
-        # Train Linear Regression model
-        mlp_model = LinearRegression(fit_intercept = True)
-        mlp_model.fit(train_temp_X, trainY)
-    else:
-        ### Train nominal NN/ no missing data
-        mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
-                                  target_col = self.target_col, fix_col = self.fix_col, projection = self.adjustable_FDR_params['projection'], 
-                                  train_adversarially = False, budget_constraint = 'equality')
+    # if self.adjustable_FDR_params['hidden_sizes'] == []:
+    #     # Train Linear Regression model
+    #     mlp_model = LinearRegression(fit_intercept = True)
+    #     mlp_model.fit(train_temp_X, trainY)
+    # else:
+    #     ### Train nominal NN/ no missing data
+    #     mlp_model = gd_FDRR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
+    #                               target_col = self.target_col, fix_col = self.fix_col, projection = self.adjustable_FDR_params['projection'], 
+    #                               train_adversarially = False, budget_constraint = 'equality')
         
-        optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'], 
-                                     weight_decay = self.MLP_train_dict['weight_decay'])
-        mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
-                              epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
-                              verbose = self.MLP_train_dict['verbose'])
+    #     optimizer = torch.optim.Adam(mlp_model.parameters(), lr = self.MLP_train_dict['lr'], 
+    #                                  weight_decay = self.MLP_train_dict['weight_decay'])
+    #     mlp_model.train_model(train_data_loader, valid_data_loader, optimizer, 
+    #                           epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'], 
+    #                           verbose = self.MLP_train_dict['verbose'])
 
     
     print('Start training robust models...')
@@ -3573,29 +3573,29 @@ class FiniteAdapt_Input_Linear_Fixed(object):
                                      weight_decay = self.MLP_train_dict['weight_decay'])
     
         # Warm-start: use nominal model or previous iteration
-        if gamma == 0:            
-            if self.adjustable_FDR_params['hidden_sizes'] == []:
-                temp_fdr_model.linear_correction_layer.weight.data = torch.FloatTensor(mlp_model.coef_[0].reshape(1,-1))
-                temp_fdr_model.linear_correction_layer.bias.data = torch.FloatTensor(mlp_model.intercept_)
-            else:
-                temp_fdr_model.load_state_dict(mlp_model.state_dict(), strict = False)      
-            
-        
-        else:
+        if gamma > 0:            
             # warm-start with previous model
             temp_fdr_model.load_state_dict(self.FDR_models[-1].state_dict(), strict=False)
+
+        #     if self.adjustable_FDR_params['hidden_sizes'] == []:
+        #         temp_fdr_model.linear_correction_layer.weight.data = torch.FloatTensor(mlp_model.coef_[0].reshape(1,-1))
+        #         temp_fdr_model.linear_correction_layer.bias.data = torch.FloatTensor(mlp_model.intercept_)
+        #     else:
+        #         temp_fdr_model.load_state_dict(mlp_model.state_dict(), strict = False)      
             
-        if gamma == 0:
-            self.FDR_models.append(temp_fdr_model)
-            continue
-        else:
-            
-            temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
-                                       epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'],
-                                       verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample', 
-                                       freeze_weights = False)
         
-            self.FDR_models.append(temp_fdr_model)
+        # else:
+            
+        # if gamma == 0:
+        #     self.FDR_models.append(temp_fdr_model)
+        #     continue
+        # else:            
+        temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
+                                   epochs = self.MLP_train_dict['epochs'], patience = self.MLP_train_dict['patience'],
+                                   verbose = self.MLP_train_dict['verbose'], attack_type = 'random_sample', 
+                                   freeze_weights = False)
+    
+        self.FDR_models.append(temp_fdr_model)
                               
   def predict(self, X, missing_mask):
      ''' Function to predict using a trained tree. Trees are fully compiled, i.e., 
@@ -3608,6 +3608,7 @@ class FiniteAdapt_Input_Linear_Fixed(object):
          m0 = missing_mask[i:i+1,:]
          # Total missing features in leaf
          temp_total_missing_feat = m0.sum()
+
          Predictions.append( self.FDR_models[temp_total_missing_feat].predict(x0, m0).reshape(-1))
          
      return np.array(Predictions).reshape(-1,1)

@@ -411,7 +411,7 @@ for perc in percentage:
         for m in models:
             temp_df[m] = [rmse(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
         rmse_df = pd.concat([rmse_df, temp_df])
-        
+        print(rmse_df.groupby(['percentage']).mean()[['v2FA-lin-fixed-NN', 'FA-lin-fixed-NN']])
         run_counter += 1
 
     if config['save']:
