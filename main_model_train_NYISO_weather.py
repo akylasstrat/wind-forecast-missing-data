@@ -670,5 +670,5 @@ if config['train']:
                           lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model_weather.pickle', 'wb') as handle:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v3FA_lin_fixed_NN_model_weather.pickle', 'wb') as handle:
             pickle.dump(v2FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)

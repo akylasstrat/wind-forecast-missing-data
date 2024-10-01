@@ -49,7 +49,9 @@ models_to_labels = {'LS':'$\mathtt{Imp-LS}$',
                     'FA-fixed-NN':'$\mathtt{FA(fixed)-NN}$', 
                     'FA-greedy-NN':'$\mathtt{FA(learn)^{10}-NN}$', 
                     'FA-lin-fixed-NN':'$\mathtt{FLA(fixed)-NN}$', 
-                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$','v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
+                    'FA-lin-greedy-NN':'$\mathtt{FLA(learn)^{10}-NN}$',
+                    'v2FA-lin-fixed-NN':'$\mathtt{v2FA(fixed)-NN}$',
+                    'v3FA-lin-fixed-NN':'$\mathtt{v3FA(fixed)-NN}$',
                     'NN':'$\mathtt{Imp-NN}$'}
 
 
@@ -313,6 +315,28 @@ plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
 plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
 if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_NN_RMSE_MCAR.pdf')
 plt.show()
+#%%
+### NN: Check linear decision rules in input vs output layer
+min_lag = 24
+temp_df = all_rmse.query(f'(percentage in [0, 0.01, 0.05, 0.1]) and (steps == {min_lag})')
+std_bar = 100*(temp_df.groupby(['percentage']).std())
+x_val = temp_df['percentage'].unique().astype(float)
+
+fig, ax = plt.subplots(constrained_layout = True)
+for i, m in enumerate(['FA-lin-fixed-NN', 'v2FA-lin-fixed-NN', 'v3FA-lin-fixed-NN']):    
+    y_val = 100*temp_df.groupby(['percentage'])[m].mean().values
+    y_val[0] = 100*temp_df.query('percentage==0')['NN'].mean()
+    plt.plot(x_val, y_val, 
+             label = models_to_labels[m], color = colors[i], marker = marker[i], linestyle = '-', linewidth = 1)
+    plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    
+plt.legend()
+plt.ylabel('RMSE (%)')
+plt.xlabel(r'Probability $\mathbb{P}_{0 \rightarrow 1}$')
+plt.xticks(np.array(x_val), (np.array(x_val)).round(2))
+plt.legend(ncol=1, fontsize = 6, loc = 'upper left')
+plt.show()
+stop_
 #%%
 # percentage improvement // LS
 print((100* (temp_df.groupby(['percentage'])[['LS']].mean().values - temp_df.groupby(['percentage'])[LS_models_to_plot].mean())/ temp_df.groupby(['percentage'])[['LS']].mean().values).round(2))

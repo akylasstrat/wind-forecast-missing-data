@@ -3565,9 +3565,14 @@ class FiniteAdapt_Input_Linear_Fixed(object):
         print(f'Budget: {gamma}')
         
         # Train robust model
-        temp_fdr_model = input_linear_adjustable_FDR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
+        
+        temp_fdr_model = Adaptive_LDR_Regression(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
                                   target_col = self.target_col, fix_col = self.fix_col, projection = False, 
                                   Gamma = gamma, train_adversarially = True, budget_constraint = 'equality')
+
+        # temp_fdr_model = input_linear_adjustable_FDR(input_size = num_features, hidden_sizes = self.adjustable_FDR_params['hidden_sizes'], output_size = self.adjustable_FDR_params['output_size'], 
+        #                           target_col = self.target_col, fix_col = self.fix_col, projection = False, 
+        #                           Gamma = gamma, train_adversarially = True, budget_constraint = 'equality')
         
         optimizer = torch.optim.Adam(temp_fdr_model.parameters(), lr = self.MLP_train_dict['lr'], 
                                      weight_decay = self.MLP_train_dict['weight_decay'])
