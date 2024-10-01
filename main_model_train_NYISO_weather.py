@@ -672,3 +672,42 @@ if config['train']:
     if config['save']:
         with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v3FA_lin_fixed_NN_model_weather.pickle', 'wb') as handle:
             pickle.dump(v2FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#%%
+from FiniteRetrain import *
+from FiniteRobustRetrain import *
+from finite_adaptability_model_functions import *
+from torch_custom_layers import *
+import pickle
+
+# Standard MLPs (separate) forecasting wind production and dispatch decisions
+n_features = tensor_trainPred.shape[1]
+n_outputs = tensor_trainY.shape[1]
+
+#optimizer = torch.optim.Adam(res_mlp_model.parameters())
+target_pred = Predictors.columns
+fixed_pred = []
+target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
+fix_col = []
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.15
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+            
+    ldr_FA_lin_greedy_NN_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
+                                                input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
+                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
+    
+    ldr_FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
+                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5, freeze_weights = False)
+        
+    if config['save']:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_ldr_FA_lin_greedy_NN_model_weather.pickle', 'wb') as handle:
+            pickle.dump(ldr_FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)

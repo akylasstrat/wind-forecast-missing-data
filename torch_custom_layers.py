@@ -128,6 +128,8 @@ class LDR_Layer(nn.Module):
         """        
         # !!!!! x: is the output of the previous layer
         # !!!!! a: binary with the size of the original feature vector    
+        print((self.W@a.T).shape)
+        stp
         return ( (self.weight@x.T).T + self.bias)  + torch.sum( (self.W@a.T).T*(x), dim = 1).reshape(-1,1)
         
 class MLP(nn.Module):        

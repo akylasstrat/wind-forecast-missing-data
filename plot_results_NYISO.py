@@ -317,7 +317,7 @@ if config['save']: plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_ste
 plt.show()
 #%%
 ### NN: Check linear decision rules in input vs output layer
-min_lag = 24
+min_lag = 8
 temp_df = all_rmse.query(f'(percentage in [0, 0.01, 0.05, 0.1]) and (steps == {min_lag})')
 std_bar = 100*(temp_df.groupby(['percentage']).std())
 x_val = temp_df['percentage'].unique().astype(float)
