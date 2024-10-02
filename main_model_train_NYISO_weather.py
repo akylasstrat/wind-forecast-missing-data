@@ -73,7 +73,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 4
+config['min_lag'] = 1
 
 # ID forecasts from NREL (instead of weather)
 id_forecasts = pd.read_csv(f'{cd}\\data\\Site_{target_park}_wind_intraday_2018_forecasts.csv')
@@ -663,7 +663,7 @@ config['save'] = True
 
 if config['train']:
             
-    v2FA_lin_fixed_NN_model = FiniteAdapt_Input_Linear_Fixed(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
+    v2FA_lin_fixed_NN_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [50, 50, 50], 
                                     output_size = n_outputs, projection = True, train_adversarially = True)
     
     v2FA_lin_fixed_NN_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
@@ -672,42 +672,86 @@ if config['train']:
     if config['save']:
         with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v3FA_lin_fixed_NN_model_weather.pickle', 'wb') as handle:
             pickle.dump(v2FA_lin_fixed_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+stop_
 #%%
-from FiniteRetrain import *
-from FiniteRobustRetrain import *
 from finite_adaptability_model_functions import *
-from torch_custom_layers import *
-import pickle
-
-# Standard MLPs (separate) forecasting wind production and dispatch decisions
-n_features = tensor_trainPred.shape[1]
-n_outputs = tensor_trainY.shape[1]
-
-#optimizer = torch.optim.Adam(res_mlp_model.parameters())
-target_pred = Predictors.columns
-fixed_pred = []
-target_col = [np.where(Predictors.columns == c)[0][0] for c in target_pred]
-fix_col = []
 
 batch_size = 512
 num_epochs = 250
 learning_rate = 1e-3
 patience = 15
-val_perc = 0.15
+val_perc = 0.0
+decay = 0
 
 config['train'] = True
 config['save'] = True
 
 if config['train']:
             
-    ldr_FA_lin_greedy_NN_model = FiniteLinear_MLP(target_col = target_col, fix_col = fix_col, Max_models = 10, D = 1_000, red_threshold = 1e-5, 
-                                                input_size = n_features, hidden_sizes = [50, 50, 50], output_size = n_outputs, projection = True, 
-                                                train_adversarially = True, budget_constraint = 'inequality', attack_type = 'greedy')
+    v2FA_lin_fixed_LR_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [], 
+                                    output_size = n_outputs, projection = True, train_adversarially = True, 
+                                    apply_LDR = True)
     
-    ldr_FA_lin_greedy_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, 
-                          epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                         lr = learning_rate, batch_size = batch_size, weight_decay = 1e-5, freeze_weights = False)
+    v2FA_lin_fixed_LR_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
         
     if config['save']:
-        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_ldr_FA_lin_greedy_NN_model_weather.pickle', 'wb') as handle:
-            pickle.dump(ldr_FA_lin_greedy_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_LR_model_weather.pickle', 'wb') as handle:
+            pickle.dump(v2FA_lin_fixed_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#%%
+from finite_adaptability_model_functions import *
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.0
+decay = 0
+LDR = False
+
+config['train'] = True
+config['save'] = True
+
+if config['train']:
+            
+    v2FA_fixed_LR_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, input_size = n_features, hidden_sizes = [], 
+                                    output_size = n_outputs, apply_LDR = LDR, projection = True, train_adversarially = True)
+    
+    v2FA_fixed_LR_model.fit(trainPred.values, trainY, val_split = val_perc, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                          lr = learning_rate, batch_size = batch_size, weight_decay = decay)
+        
+    if config['save']:
+        with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_fixed_LR_model_weather.pickle', 'wb') as handle:
+            pickle.dump(v2FA_fixed_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+#%%
+from torch_custom_layers import *
+
+# Train Linear Regression model
+lr_model = LinearRegression(fit_intercept = True)
+lr_model.fit(trainPred.values, trainY)
+        
+tensor_trainY = torch.FloatTensor(trainY)    
+tensor_train_X = torch.FloatTensor(trainPred.values)
+
+train_data_loader = create_data_loader([tensor_train_X[:-800], tensor_trainY[:-800]], batch_size = 512, shuffle = False)        
+valid_data_loader = create_data_loader([tensor_train_X[-800:], tensor_trainY[-800:]], batch_size = 512, shuffle = False)
+
+    
+# Declare robust model
+temp_fdr_model = Adaptive_LDR_Regression(input_size = n_features, hidden_sizes = [], 
+                                         output_size = n_outputs, target_col = target_col, fix_col = fix_col, projection = False, 
+                                         apply_LDR = False, Gamma = 5, budget_constraint = 'equality')
+
+optimizer = torch.optim.Adam(temp_fdr_model.parameters(), lr =1e-3, weight_decay = 0)
+
+# warm-start externally
+temp_fdr_model.model[0].weight.data = torch.FloatTensor(lr_model.coef_[0].reshape(1,-1))
+temp_fdr_model.model[0].bias.data = torch.FloatTensor(lr_model.intercept_)
+
+temp_fdr_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, 
+                                       epochs = 250, patience = 15, verbose = 1, attack_type = 'random_sample', warm_start_nominal = False)
+
+plt.plot(temp_fdr_model.model[0].weight.detach().numpy().T)
+plt.show()

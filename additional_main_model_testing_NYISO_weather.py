@@ -75,7 +75,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 24
+config['min_lag'] = 1
 config['save'] = True
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
@@ -151,6 +151,15 @@ fix_col = [np.where(trainPred.columns == c)[0][0] for c in fixed_pred]
 with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v3FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
         v3FA_lin_fixed_NN_model = pickle.load(handle)
 
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_LR_model_weather.pickle', 'rb') as handle:    
+        v2FA_lin_fixed_LR_model = pickle.load(handle)
+
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_fixed_LR_model_weather.pickle', 'rb') as handle:    
+        v2FA_fixed_LR_model = pickle.load(handle)
+
+with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_LS_model_weather.pickle', 'rb') as handle:    
+        FA_fixed_LR_model = pickle.load(handle)
+        
 #%% Test models
 target_col = trainPred.columns
 fix_col = []
@@ -188,13 +197,11 @@ check_length.groupby('Missing').mean()
 mae_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
 rmse_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
 
-new_model = ['v3FA-lin-fixed-NN']
+new_model = ['v3FA-lin-fixed-NN', 'v2FA-lin-fixed-LR', 'v2FA-fixed-LS', 'FA-fixed-LS']
 
 for m in new_model:
-    if m not in rmse_df.columns:
-        rmse_df[m] = np.nan
-    if m not in mae_df.columns:
-        mae_df[m] = np.nan
+    rmse_df[m] = np.nan
+    mae_df[m] = np.nan
 #%%
 print('Test for MCAR mechanism')
 for perc in percentage:
@@ -266,11 +273,25 @@ for perc in percentage:
         
                                 
         ######### Adversarial Models
+
+        ## LR model// correction in the input layer
+        v2FA_lin_fixed_LR_pred = v2FA_lin_fixed_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        v2FA_lin_fixed_LR_pred = projection(v2FA_lin_fixed_LR_pred)
+        temp_Predictions['v2FA-lin-fixed-LR'] = v2FA_lin_fixed_LR_pred.reshape(-1)
         
         ## NN model// correction in the input layer
         v3FA_lin_fixed_NN_pred = v3FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
         v3FA_lin_fixed_NN_pred = projection(v3FA_lin_fixed_NN_pred)
         temp_Predictions['v3FA-lin-fixed-NN'] = v3FA_lin_fixed_NN_pred.reshape(-1)
+
+        v2FA_fixed_LS_pred = v2FA_fixed_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        v2FA_fixed_LS_pred = projection(v2FA_fixed_LS_pred)
+        temp_Predictions['v2FA-fixed-LS'] = v2FA_fixed_LS_pred.reshape(-1)
+
+        FA_fixed_LS_pred = FA_fixed_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
+        temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
+
         
         error_df = Target.values[max_lag-1:] - temp_Predictions[max_lag-1:]
         
@@ -293,7 +314,13 @@ for perc in percentage:
     nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
     rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
+
+print(rmse_df.groupby(['percentage']).mean()[['v2FA-lin-fixed-NN', 'FA-lin-fixed-NN', 'v3FA-lin-fixed-NN']])
+print(rmse_df.groupby(['percentage']).mean()[['v2FA-lin-fixed-LR', 'FA-lin-fixed-LS']])
+print(rmse_df.groupby(['percentage']).mean()[['v2FA-fixed-LS', 'FA-fixed-LS']])
+
 stop_here
+
 #%% Test for MNAR missing data
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
