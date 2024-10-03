@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Additional results NYISO testing
+Testing robust forecasting models
 
-@author: a.stratigakos
+@author: a.stratigakos@imperial.ac.uk
 """
 
 import pickle
@@ -27,10 +27,10 @@ from sklearn.model_selection import GridSearchCV
 
 
 from utility_functions import * 
-from FDR_regressor import *
+# from FDR_regressor import *
 from QR_regressor import *
-from torch_custom_layers import *
-from finite_adaptability_model_functions import *
+from clean_torch_custom_layers import *
+from clean_finite_adaptability_functions import *
 
 # IEEE plot parameters (not sure about mathfont)
 plt.rcParams['figure.dpi'] = 600
@@ -53,11 +53,6 @@ def params():
     params['split_date'] = '2018-06-01' # end of train set/start of test set
     params['end_date'] = '2019-01-01'# end of test set
     
-    params['percentage'] = [.05, .10, .20, .50]  # percentage of corrupted datapoints
-    params['iterations'] = 2 # per pair of (n_nodes,percentage)
-    # params['pattern'] = 'MCAR'
-    params['retrain'] = False
-    
     params['min_lag'] = 1
     params['max_lag'] = 2 + params['min_lag']
     # last known measure value, defined lookahed horizon (min_lag == 2, 1-hour ahead predictions with 30min data)
@@ -75,8 +70,15 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-config['min_lag'] = 1
+horizon = 1
+
 config['save'] = True
+# min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
+# max_lag: number of historical observations to include
+min_lag = horizon
+max_lag = min_lag + 3
+trained_models_path = f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps'
+
 
 id_forecasts_df = pd.read_csv(f'{cd}\\data\\{target_park}_intraday_forecasts_2018.csv', index_col = 0, parse_dates = True)
 id_forecasts_df = id_forecasts_df.resample(freq).interpolate()
@@ -106,20 +108,11 @@ fig, ax = plt.subplots(constrained_layout = True)
 metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
 
-#%%
 
 print(f'target_park:{target_park}')
-# min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
-# max_lag: number of historical observations to include
-
-config['max_lag'] = 3 + config['min_lag']
-# config['pattern'] = 'MNAR'
 
 iterations = 5
 percentage = [0, .001, .005, .01, .05, .1]
-
-min_lag = config['min_lag']
-max_lag = config['max_lag']
 
 Y, Predictors, pred_col = create_IDsupervised(target_park, scaled_power_df[plant_ids], min_lag, max_lag)
 
@@ -146,23 +139,57 @@ fixed_pred = id_forecasts_df.columns
 target_col = [np.where(trainPred.columns == c)[0][0] for c in target_pred]
 fix_col = [np.where(trainPred.columns == c)[0][0] for c in fixed_pred]
 
-#%% Load new trained models
+#%% Load trained models
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v3FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
-        v3FA_lin_fixed_NN_model = pickle.load(handle)
+# Load nominal models
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_LR_model_weather.pickle', 'rb') as handle:    
-        v2FA_lin_fixed_LR_model = pickle.load(handle)
+with open(f'{trained_models_path}\\{target_park}_LR_weather.pickle', 'rb') as handle:
+    lr_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_fixed_LR_model_weather.pickle', 'rb') as handle:    
-        v2FA_fixed_LR_model = pickle.load(handle)
+with open(f'{trained_models_path}\\{target_park}_LAD_weather.pickle', 'rb') as handle:
+    lad_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_fixed_LS_model_weather.pickle', 'rb') as handle:    
-        FA_fixed_LR_model = pickle.load(handle)
+with open(f'{trained_models_path}\\{target_park}_Ridge_weather.pickle', 'rb') as handle:
+    ridge_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_greedy_LR_model.pickle', 'rb') as handle:    
-        v2FA_lin_greedy_LR_model = pickle.load(handle)
-        
+with open(f'{trained_models_path}\\{target_park}_Lasso_weather.pickle', 'rb') as handle:
+    lasso_model = pickle.load(handle)
+
+with open(f'{trained_models_path}\\{target_park}_MLP_weather.pickle', 'rb') as handle:
+    mlp_model = pickle.load(handle)
+
+### Load adversarial models
+
+
+### FA - LEARN - LDR - LR/NN
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_NN_models_dict = pickle.load(handle)
+    
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_LR_models_dict = pickle.load(handle)
+
+### FA - FIXED - LDR - LR/NN
+with open(f'{trained_models_path}\\{target_park}_FA_FIXED_LDR_LR_model_weather.pickle', 'rb') as handle:
+    FA_FIXED_LDR_LR_model = pickle.load(handle)
+    
+with open(f'{trained_models_path}\\{target_park}_FA_FIXED_LDR_NN_model_weather.pickle', 'rb') as handle:
+    FA_FIXED_LDR_NN_model = pickle.load(handle)
+
+# ### FA - LEARN - LR/NN
+# with open(f'{trained_models_path}\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
+#     FA_LEARN_NN_models_dict = pickle.load(handle)
+    
+# with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+#     FA_LEARN_LR_models_dict = pickle.load(handle)
+
+# ### FA - FIXED - LR/NN
+# with open(f'{trained_models_path}\\{target_park}_FA_FIXED_LR_model_weather.pickle', 'rb') as handle:
+#     FA_FIXED_LR_model = pickle.load(handle)
+    
+# with open(f'{trained_models_path}\\{target_park}_FA_FIXED_NN_model_weather.pickle', 'rb') as handle:
+#     FA_FIXED_NN_model = pickle.load(handle)
+
+
 #%% Test models
 target_col = trainPred.columns
 fix_col = []
@@ -173,6 +200,25 @@ error_metric = 'rmse'
 # # transition matrix to generate missing data
 P = np.array([[.999, .001], [0.241, 0.759]])
 
+models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
+    +['FA-FIXED-LR', 'FA-FIXED-LDR-LR']  \
+    + ['FA-FIXED-NN', 'FA-FIXED-LDR-NN']\
+    + [f'FA-LEARN-LDR-LR-{n_splits}' for n_splits in FA_LEARN_LDR_LR_models_dict.keys()] \
+    + [f'FA-LEARN-LDR-NN-{n_splits}' for n_splits in FA_LEARN_LDR_NN_models_dict.keys()] \
+    # + [f'FA-LEARN-LR-{n_splits}' for n_splits in FA_LEARN_LR_models_dict.keys()] \
+    # + [f'FA-LEARN-NN-{n_splits}' for n_splits in FA_LEARN_NN_models_dict.keys()] \
+
+models_to_labels = {'Pers':'$\mathtt{Imp-Pers}$', 'LS':'$\mathtt{Imp-LS}$', 
+                    'Lasso':'$\mathtt{Imp-Lasso}$', 'Ridge':'$\mathtt{Imp-Ridge}$',
+                    'LAD':'$\mathtt{Imp-LAD}$', 'NN':'$\mathtt{Imp-NN}$',
+                    'FDRR-R':'$\mathtt{FA(const, fixed)}$',
+                    'LinAdj-FDR':'$\mathtt{FA(linear, fixed)}$',
+                    'FinAd-LAD':'$\mathtt{FinAd-LAD}$', 'FinAd-LS-10':'$\mathtt{FA(linear, greedy)}$', 
+                    'FinAd-NN':'$\mathtt{FinAd-NN}$'}
+
+
+mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
+rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
 n_series = 4
 # supress warning
 pd.options.mode.chained_assignment = None
@@ -195,17 +241,7 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 #%%
-# Load results
 
-mae_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
-rmse_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
-
-new_model = ['v2FA-lin-greedy-LS']
-
-for m in new_model:
-    rmse_df[m] = np.nan
-    mae_df[m] = np.nan
-#%%
 print('Test for MCAR mechanism')
 for perc in percentage:
     for iter_ in range(iterations):
@@ -213,7 +249,7 @@ for perc in percentage:
         torch.manual_seed(run_counter)
         # Dataframe to store predictions
         # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
-        temp_Predictions = pd.DataFrame(data = [], columns = new_model)
+        temp_Predictions = pd.DataFrame(data = [], columns = models)
 
         # Initialize dataframe to store results
         temp_df = pd.DataFrame()
@@ -221,8 +257,9 @@ for perc in percentage:
         temp_df['iteration'] = [iter_]
         
         # generate missing data
+        #miss_ind = np.array([make_chain(P, 0, len(testPred)) for i in range(len(target_col))]).T
         miss_ind = np.zeros((len(testPred), len(plant_ids)))
-
+                            
         # elif pattern == 'MCAR':
         if freq in ['15min', '5min']:
             P = np.array([[1-perc, perc], [0.1, 0.9]])
@@ -231,7 +268,9 @@ for perc in percentage:
 
         for j in range(len(series_missing)):
             miss_ind[:,j] = make_chain(P, 0, len(testPred))
-            
+            #miss_ind[1:,j+1] = miss_ind[:-1,j]
+            #miss_ind[1:,j+2] = miss_ind[:-1,j+1]
+        
         mask_ind = miss_ind==1
         
         if run_counter%iterations==0: print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
@@ -241,7 +280,7 @@ for perc in percentage:
         miss_X = miss_X[testPred.index[0]:testPred.index[-1]]
         miss_X[mask_ind] = np.nan
         
-        miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
+        miss_X = create_feat_matrix(miss_X, min_lag, max_lag)
         
         # Add weather features 
         miss_X = pd.merge(miss_X, id_forecasts_df[split:end], how='inner', left_index=True, right_index=True)
@@ -274,65 +313,98 @@ for perc in percentage:
                 for j in range(imp_X.shape[1]):
                     imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
         
-                                
+        
+        ############ Impute-then-Regress
+        
+        #### Persistence
+        pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
+        temp_Predictions['Pers'] = pers_pred.reshape(-1)
+                
+        #### LS model
+        lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['LR'] = lr_pred.reshape(-1)
+                
+        #### LASSO
+        lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
+    
+        #### RIDGE
+        l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['Ridge'] = l2_pred.reshape(-1)
+            
+        #### LAD model
+        lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['LAD'] = lad_pred.reshape(-1)
+
+        #### MLPimp
+        mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
+        temp_Predictions['NN'] = mlp_pred.reshape(-1)
+                
         ######### Adversarial Models
-
-        ## LR model// correction in the input layer
         
-        v2FA_lin_greedy_LR_model
+        # #### Finite Adaptability - Fixed Partitions
+        # ## LS model
+        # FA_FIXED_LR_pred = FA_FIXED_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        # temp_Predictions['FA-FIXED-LR'] = projection(FA_FIXED_LR_pred).reshape(-1)
+
+        # ## NN model
+        # FA_FIXED_NN_pred = FA_FIXED_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        # temp_Predictions['FA-FIXED-NN'] = projection(FA_FIXED_NN_pred).reshape(-1)
+
+        #### Finite Adaptability - Fixed Partitions - LDR
+        ## LS model
+        FA_FIXED_LDR_LR_pred = FA_FIXED_LDR_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        temp_Predictions['FA-FIXED-LDR-LR'] = projection(FA_FIXED_LDR_LR_pred).reshape(-1)
+
+        ## NN model
+        FA_FIXED_LDR_NN_pred = FA_FIXED_LDR_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        temp_Predictions['FA-FIXED-LDR-LR'] = projection(FA_FIXED_LDR_NN_pred).reshape(-1)
+
+
+        #### Finite Adaptability - Learned Partitions
         
-        v2FA_lin_greedy_LR_pred = v2FA_lin_greedy_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        v2FA_lin_greedy_LR_pred = projection(v2FA_lin_greedy_LR_pred)
-        temp_Predictions['FA-lin-greedy-LS'] = v2FA_lin_greedy_LR_pred.reshape(-1)
-
-        # v2FA_lin_fixed_LR_pred = v2FA_lin_fixed_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # v2FA_lin_fixed_LR_pred = projection(v2FA_lin_fixed_LR_pred)
-        # temp_Predictions['v2FA-lin-fixed-LR'] = v2FA_lin_fixed_LR_pred.reshape(-1)
+        ### LDR - LS//NN
         
-        # ## NN model// correction in the input layer
-        # v3FA_lin_fixed_NN_pred = v3FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # v3FA_lin_fixed_NN_pred = projection(v3FA_lin_fixed_NN_pred)
-        # temp_Predictions['v3FA-lin-fixed-NN'] = v3FA_lin_fixed_NN_pred.reshape(-1)
+        for number_splits in FA_LEARN_LDR_LR_models_dict.keys():            
+            temp_FA_LEARN_LDR_LR_pred = FA_LEARN_LDR_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions[f'FA-LEARN-LDR-LR-{number_splits}'] = projection(temp_FA_LEARN_LDR_LR_pred).reshape(-1)
 
-        # v2FA_fixed_LS_pred = v2FA_fixed_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # v2FA_fixed_LS_pred = projection(v2FA_fixed_LS_pred)
-        # temp_Predictions['v2FA-fixed-LS'] = v2FA_fixed_LS_pred.reshape(-1)
+        for number_splits in FA_LEARN_LDR_NN_models_dict.keys():            
+            temp_FA_LEARN_LDR_NN_pred = FA_LEARN_LDR_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions[f'FA-LEARN-LDR-NN-{number_splits}'] = projection(temp_FA_LEARN_LDR_NN_pred).reshape(-1)
+        
+        # ### Static models, no linear decision rules - LS//NN
+        
+        # for number_splits in FA_LEARN_LR_models_dict.keys():            
+        #     temp_FA_LEARN_LR_pred = FA_LEARN_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        #     temp_Predictions[f'FA-LEARN-LR-{number_splits}'] = projection(temp_FA_LEARN_LR_pred).reshape(-1)
 
-        # FA_fixed_LS_pred = FA_fixed_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # FA_fixed_LS_pred = projection(FA_fixed_LS_pred)
-        # temp_Predictions['FA-fixed-LS'] = FA_fixed_LS_pred.reshape(-1)
-
+        # for number_splits in FA_LEARN_NN_models_dict.keys():            
+        #     temp_FA_LEARN_NN_pred = FA_LEARN_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        #     temp_Predictions[f'FA-LEARN-NN-{number_splits}'] = projection(temp_FA_LEARN_NN_pred).reshape(-1)
         
         error_df = Target.values[max_lag-1:] - temp_Predictions[max_lag-1:]
         
+        for m in models:
+            temp_df[m] = [mae(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
+        mae_df = pd.concat([mae_df, temp_df])
         
-        for m in new_model:
-            mae_df.loc[(mae_df['percentage'] == perc)* (mae_df['iteration'] == iter_), m] = mae(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])
-            rmse_df.loc[(rmse_df['percentage'] == perc)* (rmse_df['iteration'] == iter_), m] = rmse(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])
-
-        print(rmse_df.groupby(['percentage']).mean()[['v2FA-lin-fixed-NN', 'FA-lin-fixed-NN', 
-                                                      'v3FA-lin-fixed-NN']])
+        for m in models:
+            temp_df[m] = [rmse(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
+        rmse_df = pd.concat([rmse_df, temp_df])
         run_counter += 1
 
     if config['save']:
-        mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
-        rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
-        
-    ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-2', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10']
+        mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
+        rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
+        #%%
+    ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-FIXED-LDR-LR']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
-    
-    nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
+
+    nn_models = ['NN', 'FA-LEARN-LDR-NN-5', 'FA-FIXED-LDR-NN']
     rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
-#%%
-print(rmse_df.groupby(['percentage']).mean()[['v2FA-lin-fixed-NN', 'FA-lin-fixed-NN', 'v3FA-lin-fixed-NN']])
-print(rmse_df.groupby(['percentage']).mean()[['v2FA-lin-fixed-LR', 'FA-lin-fixed-LS']])
-print(rmse_df.groupby(['percentage']).mean()[['v2FA-fixed-LS', 'FA-fixed-LS']])
-
-print(rmse_df.groupby(['percentage']).mean()[['v3FA-lin-greedy-LR', 'FA-lin-greedy-LS-10']])
-
 stop_here
-
 #%% Test for MNAR missing data
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -396,7 +468,7 @@ for iter_ in range(iterations):
     miss_X = miss_X[testPred.index[0]:testPred.index[-1]]
     miss_X[mask_ind] = np.nan
     
-    miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
+    miss_X = create_feat_matrix(miss_X, min_lag, max_lag)
     
     # Add weather features 
     miss_X = pd.merge(miss_X, id_forecasts_df[split:end], how='inner', left_index=True, right_index=True)
@@ -510,8 +582,8 @@ for iter_ in range(iterations):
     run_counter += 1
 #%%
 if config['save']:
-    mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
-    rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
+    mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
+    rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
     
 ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
 rmse_df.groupby(['percentage']).mean()[ls_models].plot()
@@ -568,7 +640,7 @@ for th in (threshold):
     miss_X = scaled_power_df[split:end].copy()[plant_ids]
     miss_X[mask_ind] = np.nan
     
-    miss_X = create_feat_matrix(miss_X, config['min_lag'], config['max_lag'])
+    miss_X = create_feat_matrix(miss_X, min_lag, max_lag)
     
     # Add weather features 
     miss_X = pd.merge(miss_X, id_forecasts_df[split:end], how='inner', left_index=True, right_index=True)
@@ -681,8 +753,8 @@ for th in (threshold):
     run_counter += 1
 
 if config['save']:
-    mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_MAE_results.csv')
-    rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_RMSE_results.csv')
+    mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_MAE_results.csv')
+    rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_RMSE_results.csv')
 
 ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
 rmse_df.groupby(['threshold']).mean()[ls_models].plot(kind = 'bar')

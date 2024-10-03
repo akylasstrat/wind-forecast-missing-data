@@ -40,18 +40,18 @@ class Learn_FiniteAdapt_Robust_Reg(object):
     # initialize target and fixed features
     self.target_col = np.array(target_col).copy().astype(int)
     self.fix_col = np.array(fix_col).copy().astype(int)
-    
-    # Set-up some parameters used multiple times
-    # *** I only consider inequality-based uncertainty sets ***
-    self.attack_type = self.adapt_regr_param['attack_type']
-    self.budget_constraint = 'inequality'
-    
+        
     # arguments for base learner
     self.adapt_regr_param = kwargs
     if self.adapt_regr_param['hidden_sizes'] == []:
         self.base_model = 'LR'
     else:
         self.base_model = 'NN'
+
+    # Set-up some parameters used multiple times
+    # *** I only consider inequality-based uncertainty sets ***
+    self.attack_type = self.adapt_regr_param['attack_type']
+    self.budget_constraint = 'inequality'
         
     # Check if model is declared properly
     if 'apply_LDR' not in self.adapt_regr_param:
@@ -144,10 +144,11 @@ class Learn_FiniteAdapt_Robust_Reg(object):
     ####### Train nominal model
     ###########################################
     nominal_model = Adaptive_LDR_Regression(input_size = num_features, hidden_sizes = self.adapt_regr_param['hidden_sizes'], 
-                                             output_size = self.adapt_regr_param['output_size'], target_col = self.target_col, fix_col = self.fix_col, projection = False, 
+                                             output_size = self.adapt_regr_param['output_size'], target_col = self.target_features[0], 
+                                             fix_col = self.fixed_features[0], projection = False, 
                                              apply_LDR = self.adapt_regr_param['apply_LDR'], Gamma = 0, budget_constraint = self.budget_constraint)
     
-    optimizer = torch.optim.Adam(temp_fdr_model.parameters(), 
+    optimizer = torch.optim.Adam(nominal_model.parameters(), 
                                  lr = self.gd_train_parameters['lr'], weight_decay = self.gd_train_parameters['weight_decay'])
     
     # If base model is linear, then warm-start with analytical solution// skip gradient descent
@@ -188,10 +189,10 @@ class Learn_FiniteAdapt_Robust_Reg(object):
     
     # Nominal and WC loss
     insample_loss = eval_predictions(nominal_model.predict(train_temp_miss_X, self.missing_pattern[0]), trainY, self.error_metric)
-    insample_wc_loss = eval_predictions(robust_mlp_model.predict(train_temp_miss_X, self.missing_pattern[0]), trainY, self.error_metric)
+    insample_wc_loss = eval_predictions(robust_model.predict(train_temp_miss_X, self.missing_pattern[0]), trainY, self.error_metric)
     
-    print(f'Lower loss bound:{insample_loss.round(4)}')
-    print(f'Upper loss bound:{robust_model.best_val_loss.round(4)}')
+    print(f'Lower loss bound:{np.round(insample_loss, 4)}')
+    print(f'Upper loss bound:{np.round(robust_model.best_val_loss, 4)}')
     
     # Nominal, WC loss, and loss gap
     self.LB_Loss = [insample_loss]
@@ -252,7 +253,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
         
             
         # Initialize placeholder for subtree error
-        Best_loss = self.Loss[node]
+        Best_loss = self.LB_Loss[node]
         # Indicators to check for splitting node
         solution_count = 0
         apply_split = False
@@ -282,10 +283,10 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.gd_train_parameters['batch_size'], shuffle = False)
                 
             # Find performance degradation for the NOMINAL model when data are missing
-            current_node_loss = eval_predictions(self.node_model_[node].predict(train_temp_miss_X), trainY, self.error_metric)
+            current_node_loss = eval_predictions(self.node_model_[node].predict(train_temp_miss_X, temp_missing_pattern), trainY, self.error_metric)
         
             # Check if nominal model **degrades** enough (loss increase)
-            nominal_loss_worse_ind = ((current_node_loss-self.Loss[node])/self.Loss[node] > self.red_threshold)   
+            nominal_loss_worse_ind = ((current_node_loss-self.LB_Loss[node])/self.LB_Loss[node] > self.red_threshold)   
             
             if (current_node_loss > Best_loss)*(nominal_loss_worse_ind):    
                 # Further check if a new model **improves** over the WC model enough (decrease loss)
@@ -293,10 +294,11 @@ class Learn_FiniteAdapt_Robust_Reg(object):
                 ####### Train nominal model with missing data
 
                 new_nominal_model = Adaptive_LDR_Regression(input_size = num_features, hidden_sizes = self.adapt_regr_param['hidden_sizes'], 
-                                                         output_size = self.adapt_regr_param['output_size'], target_col = self.target_col, fix_col = self.fix_col, projection = False, 
+                                                         output_size = self.adapt_regr_param['output_size'], target_col = self.target_features[node], 
+                                                         fix_col = self.fixed_features[node], projection = False, 
                                                          apply_LDR = self.adapt_regr_param['apply_LDR'])
                 
-                optimizer = torch.optim.Adam(temp_fdr_model.parameters(), 
+                optimizer = torch.optim.Adam(new_nominal_model.parameters(), 
                                              lr = self.gd_train_parameters['lr'], weight_decay = self.gd_train_parameters['weight_decay'])
     
                 # If base model is linear, then warm-start with analytical solution// skip gradient descent
@@ -377,7 +379,8 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             ############ Left leaf: Robust model
                 
             left_robust_model = Adaptive_LDR_Regression(input_size = num_features, hidden_sizes = self.adapt_regr_param['hidden_sizes'], 
-                                                     output_size = self.adapt_regr_param['output_size'], target_col = self.target_col, fix_col = self.fix_col, projection = False, 
+                                                     output_size = self.adapt_regr_param['output_size'], target_col = left_target_cols, 
+                                                     fix_col = left_fix_cols, projection = False, 
                                                      apply_LDR = self.adapt_regr_param['apply_LDR'], Gamma = temp_left_gamma, budget_constraint = self.budget_constraint)
             
             optimizer = torch.optim.Adam(left_robust_model.parameters(), 
@@ -386,14 +389,14 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             # Warm start robust model with nominal model parameters
             left_robust_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
 
-            left_robust_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
+            left_robust_model.adversarial_train_model(left_train_data_loader, left_valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
                                          patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'], attack_type = self.attack_type)
             
             # Estimate WC loss and nominal loss
             left_insample_wcloss = left_robust_model.best_val_loss
 
             # Nominal loss: inherits the nominal loss of the parent node/ WC loss: the estimated
-            self.LB_Loss.append(self.Loss[node])
+            self.LB_Loss.append(self.LB_Loss[node])
             self.UB_Loss.append(left_insample_wcloss)
             self.Loss_gap.append( self.UB_Loss[-1] -  self.LB_Loss[-1])
             self.Loss_gap_perc.append( (self.UB_Loss[-1] -  self.LB_Loss[-1])/self.LB_Loss[-1] )
@@ -430,14 +433,15 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             tensor_train_missX = torch.FloatTensor(train_temp_miss_X)
             tensor_valid_missX = torch.FloatTensor(valid_temp_miss_X)
                 
-            right_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.MLP_train_dict['batch_size'], shuffle=False)        
-            right_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.MLP_train_dict['batch_size'], shuffle=False)
+            right_train_data_loader = create_data_loader([tensor_train_missX, tensor_trainY], batch_size = self.gd_train_parameters['batch_size'], shuffle=False)        
+            right_valid_data_loader = create_data_loader([tensor_valid_missX, tensor_validY], batch_size = self.gd_train_parameters['batch_size'], shuffle=False)
 
 
             ############ Right leaf: Robust model
                 
             right_robust_model = Adaptive_LDR_Regression(input_size = num_features, hidden_sizes = self.adapt_regr_param['hidden_sizes'], 
-                                                     output_size = self.adapt_regr_param['output_size'], target_col = self.target_col, fix_col = self.fix_col, projection = False, 
+                                                     output_size = self.adapt_regr_param['output_size'], target_col = right_target_cols, 
+                                                     fix_col = right_fix_cols, projection = False, 
                                                      apply_LDR = self.adapt_regr_param['apply_LDR'], Gamma = temp_right_gamma, budget_constraint = self.budget_constraint)
             
             optimizer = torch.optim.Adam(right_robust_model.parameters(), 
@@ -446,7 +450,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             # Warm start robust model with **new** nominal model
             right_robust_model.load_state_dict(best_new_model.state_dict(), strict=False)
 
-            right_robust_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
+            right_robust_model.adversarial_train_model(right_train_data_loader, right_valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
                                          patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'], attack_type = self.attack_type)
 
             
@@ -569,7 +573,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
          
          if (m0==self.missing_pattern[node]).all():
              # nominal model
-             Predictions.append( self.node_model_[node].predict(x0, torch.zeros_like(x0, requires_grad=False)).reshape(-1))
+             Predictions.append( self.node_model_[node].predict(x0, m0).reshape(-1))
          else:
              # WC model
              Predictions.append( self.wc_node_model_[node].predict(x0, m0).reshape(-1))

@@ -71,7 +71,7 @@ def adversarial_epoch_train(torch_model, loader, opt=None, attack_type = 'greedy
         #### Find adversarial example    
         if attack_type == 'greedy':
             # Greedy top-down heuristic (Algorithm 1), works best when budget_constraint == 'inequality'
-            alpha = greedy_missing_data_attack(torch_model, X, y, gamma = torch_model.gamma)            
+            alpha = greedy_missing_data_attack(torch_model, X, y, attack_budget_gamma = torch_model.gamma)            
 
         elif attack_type == 'random_sample':
             # Uniform sampling: approximates well uncertainty set with budget equality constraint
@@ -112,6 +112,11 @@ def greedy_missing_data_attack(torch_model, X, y, attack_budget_gamma = 1, perc 
     # initialize wc loss and adversarial example
     wc_loss = current_loss.data
     best_alpha =  torch.zeros_like(X)
+    
+    # Features that could go missing
+    # !!!! When placing a model within a tree-based partition, we have features that are already missing once we reach this point
+    # !!!! These features have already been multiplied by (1-a), hence are set to 0; the respective attack learned here does apply any correction
+    #       as we assume these features were never 'observed' by this model to begin with
     current_target_col = torch_model.target_col
     
     # Iterate over gamma, greedily add one feature per iteration
