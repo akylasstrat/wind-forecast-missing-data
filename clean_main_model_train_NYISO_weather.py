@@ -309,7 +309,7 @@ NN_hidden_size = [50, 50, 50]
 Max_number_splits = [5]
 FA_LEARN_LDR_LR_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -329,7 +329,7 @@ if config['train']:
 
             with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'wb') as handle:
                 pickle.dump(FA_LEARN_LDR_LR_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
+#%%
 ###### NN base model 
 Max_number_splits = [5]
 FA_LEARN_LDR_NN_models_dict = {}
@@ -344,7 +344,8 @@ if config['train']:
                                                     budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
                 
         FA_LEARN_LDR_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                             lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False)
+                             lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False, 
+                             warm_start_nominal = False)
             
         FA_LEARN_LDR_NN_models_dict[number_splits] = FA_LEARN_LDR_NN_model
     
@@ -354,7 +355,7 @@ if config['train']:
 
             with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'wb') as handle:
                 pickle.dump(FA_LEARN_LDR_NN_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-                
+
 
 #%%
 
@@ -374,7 +375,7 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -426,7 +427,7 @@ NN_hidden_size = [50, 50, 50]
 Max_number_splits = [5]
 FA_LEARN_LR_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -451,7 +452,7 @@ if config['train']:
 Max_number_splits = [5]
 FA_LEARN_NN_models_dict = {}
 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -489,7 +490,7 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -506,7 +507,7 @@ if config['train']:
             pickle.dump(FA_FIXED_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    

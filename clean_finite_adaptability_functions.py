@@ -190,7 +190,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
 
     robust_model.adversarial_train_model(train_data_loader, valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
                                  patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'],
-                                 attack_type = self.attack_type)
+                                 attack_type = self.attack_type, warm_start_nominal = False, freeze_weights = False)
     
     # Nominal and WC loss
     insample_loss = eval_predictions(nominal_model.predict(train_temp_miss_X, self.missing_pattern[0]), trainY, self.error_metric)
@@ -396,7 +396,8 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             left_robust_model.load_state_dict(self.node_model_[node].state_dict(), strict=False)
 
             left_robust_model.adversarial_train_model(left_train_data_loader, left_valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
-                                         patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'], attack_type = self.attack_type)
+                                         patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'], attack_type = self.attack_type, 
+                                         warm_start_nominal = False, freeze_weights = False)
             
             # Estimate WC loss and nominal loss
             left_insample_wcloss = left_robust_model.best_val_loss
@@ -457,7 +458,8 @@ class Learn_FiniteAdapt_Robust_Reg(object):
             right_robust_model.load_state_dict(best_new_model.state_dict(), strict=False)
 
             right_robust_model.adversarial_train_model(right_train_data_loader, right_valid_data_loader, optimizer, epochs = self.gd_train_parameters['epochs'], 
-                                         patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'], attack_type = self.attack_type)
+                                         patience = self.gd_train_parameters['patience'], verbose = self.gd_train_parameters['verbose'], attack_type = self.attack_type, 
+                                         warm_start_nominal = False, freeze_weights = False)
 
             
             # Estimate WC loss and nominal loss
