@@ -70,7 +70,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 1
+horizon = 16
 
 config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
@@ -397,8 +397,8 @@ for perc in percentage:
     if config['save']:
         mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
         rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
-        
-    ls_models = ['LR', 'FA-LEARN-LDR-LR-10', 'FA-FIXED-LDR-LR']
+#%%
+    ls_models = ['LR', 'FA-LEARN-LDR-LR-10', 'FA-FIXED-LDR-LR', 'FA-FIXED-LR', 'FA-LEARN-LR-10']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
 
     nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-FIXED-LDR-NN', 'FA-FIXED-NN', 'FA-LEARN-NN-10']
