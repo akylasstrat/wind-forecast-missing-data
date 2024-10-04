@@ -53,7 +53,7 @@ def params():
         
     params['freq'] = '15min'    
     params['target_park'] = 'Noble Clinton'
-    params['horizon'] = 24 # forecast horizon
+    params['horizon'] = 16 # forecast horizon
     params['train'] = True # If True, then train models, else tries to load previous runs
     params['save'] = True # If True, then saves models and results
     
@@ -306,8 +306,13 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-Max_number_splits = [10]
-FA_LEARN_LDR_LR_models_dict = {}
+try:
+    with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)
+except:
+    FA_LEARN_LDR_LR_models_dict = {}
+
+Max_number_splits = [1, 2, 5, 20]
 
 config['train'] = True
 config['save'] = True
@@ -331,8 +336,14 @@ if config['train']:
                 pickle.dump(FA_LEARN_LDR_LR_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 #%%
 ###### NN base model 
-Max_number_splits = [10]
-FA_LEARN_LDR_NN_models_dict = {}
+try:
+    with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_NN_models_dict = pickle.load(handle)
+except:
+    FA_LEARN_LDR_NN_models_dict = {}
+
+Max_number_splits = [1, 2, 5, 20]
+
 
 config['train'] = True
 config['save'] = True
@@ -375,7 +386,7 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -392,7 +403,7 @@ if config['train']:
             pickle.dump(FA_FIXED_LDR_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -424,8 +435,13 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-Max_number_splits = [10]
-FA_LEARN_LR_models_dict = {}
+try:
+    with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LR_models_dict = pickle.load(handle)
+except:
+    FA_LEARN_LR_models_dict = {}
+
+Max_number_splits = [1, 2, 5, 20]
 
 config['train'] = True
 config['save'] = True
@@ -449,8 +465,13 @@ if config['train']:
                 pickle.dump(FA_LEARN_LR_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
-Max_number_splits = [10]
-FA_LEARN_NN_models_dict = {}
+try:
+    with open(f'{trained_models_path}\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_NN_models_dict = pickle.load(handle)
+except:
+    FA_LEARN_NN_models_dict = {}
+
+Max_number_splits = [1, 2, 5, 20]
 
 config['train'] = True
 config['save'] = True
@@ -490,7 +511,7 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
@@ -507,7 +528,7 @@ if config['train']:
             pickle.dump(FA_FIXED_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
-config['train'] = True
+config['train'] = False
 config['save'] = True
 
 if config['train']:    
