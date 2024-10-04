@@ -401,7 +401,7 @@ for perc in percentage:
     ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-FIXED-LDR-LR']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
 #%%
-    nn_models = ['NN', 'FA-LEARN-LDR-NN-5', 'FA-FIXED-LDR-LR']
+    nn_models = ['NN', 'FA-LEARN-LDR-NN-5', 'FA-FIXED-LDR-NN', 'FA-FIXED-NN', 'FA-LEARN-NN-5']
     rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
 stop_here
