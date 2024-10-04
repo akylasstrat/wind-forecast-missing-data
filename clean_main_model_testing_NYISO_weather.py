@@ -316,25 +316,25 @@ for perc in percentage:
         
         ############ Impute-then-Regress
         
-        # #### Persistence
-        # pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
-        # temp_Predictions['Pers'] = pers_pred.reshape(-1)
+        #### Persistence
+        pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
+        temp_Predictions['Pers'] = pers_pred.reshape(-1)
                 
-        # #### LS model
-        # lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
-        # temp_Predictions['LR'] = lr_pred.reshape(-1)
+        #### LS model
+        lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['LR'] = lr_pred.reshape(-1)
                 
-        # #### LASSO
-        # lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
-        # temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
+        #### LASSO
+        lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
     
-        # #### RIDGE
-        # l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
-        # temp_Predictions['Ridge'] = l2_pred.reshape(-1)
+        #### RIDGE
+        l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['Ridge'] = l2_pred.reshape(-1)
             
-        # #### LAD model
-        # lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
-        # temp_Predictions['LAD'] = lad_pred.reshape(-1)
+        #### LAD model
+        lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
+        temp_Predictions['LAD'] = lad_pred.reshape(-1)
 
         #### MLPimp
         mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
@@ -342,19 +342,19 @@ for perc in percentage:
                 
         ######### Adversarial Models
         
-        # #### Finite Adaptability - Fixed Partitions
-        # ## LS model
-        # FA_FIXED_LR_pred = FA_FIXED_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # temp_Predictions['FA-FIXED-LR'] = projection(FA_FIXED_LR_pred).reshape(-1)
+        #### Finite Adaptability - Fixed Partitions
+        ## LS model
+        FA_FIXED_LR_pred = FA_FIXED_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        temp_Predictions['FA-FIXED-LR'] = projection(FA_FIXED_LR_pred).reshape(-1)
 
         ## NN model
         FA_FIXED_NN_pred = FA_FIXED_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
         temp_Predictions['FA-FIXED-NN'] = projection(FA_FIXED_NN_pred).reshape(-1)
 
-        # #### Finite Adaptability - Fixed Partitions - LDR
-        # ## LS model
-        # FA_FIXED_LDR_LR_pred = FA_FIXED_LDR_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        # temp_Predictions['FA-FIXED-LDR-LR'] = projection(FA_FIXED_LDR_LR_pred).reshape(-1)
+        #### Finite Adaptability - Fixed Partitions - LDR
+        ## LS model
+        FA_FIXED_LDR_LR_pred = FA_FIXED_LDR_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        temp_Predictions['FA-FIXED-LDR-LR'] = projection(FA_FIXED_LDR_LR_pred).reshape(-1)
 
         ## NN model
         FA_FIXED_LDR_NN_pred = FA_FIXED_LDR_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
@@ -365,9 +365,9 @@ for perc in percentage:
         
         ### LDR - LS//NN
         
-        # for number_splits in FA_LEARN_LDR_LR_models_dict.keys():            
-        #     temp_FA_LEARN_LDR_LR_pred = FA_LEARN_LDR_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        #     temp_Predictions[f'FA-LEARN-LDR-LR-{number_splits}'] = projection(temp_FA_LEARN_LDR_LR_pred).reshape(-1)
+        for number_splits in FA_LEARN_LDR_LR_models_dict.keys():            
+            temp_FA_LEARN_LDR_LR_pred = FA_LEARN_LDR_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions[f'FA-LEARN-LDR-LR-{number_splits}'] = projection(temp_FA_LEARN_LDR_LR_pred).reshape(-1)
 
         for number_splits in FA_LEARN_LDR_NN_models_dict.keys():            
             temp_FA_LEARN_LDR_NN_pred = FA_LEARN_LDR_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
@@ -375,9 +375,9 @@ for perc in percentage:
         
         # ### Static models, no linear decision rules - LS//NN
         
-        # for number_splits in FA_LEARN_LR_models_dict.keys():            
-        #     temp_FA_LEARN_LR_pred = FA_LEARN_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        #     temp_Predictions[f'FA-LEARN-LR-{number_splits}'] = projection(temp_FA_LEARN_LR_pred).reshape(-1)
+        for number_splits in FA_LEARN_LR_models_dict.keys():            
+            temp_FA_LEARN_LR_pred = FA_LEARN_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions[f'FA-LEARN-LR-{number_splits}'] = projection(temp_FA_LEARN_LR_pred).reshape(-1)
 
         for number_splits in FA_LEARN_NN_models_dict.keys():            
             temp_FA_LEARN_NN_pred = FA_LEARN_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
@@ -397,11 +397,11 @@ for perc in percentage:
     if config['save']:
         mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
         rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
-        #%%
-    ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-FIXED-LDR-LR']
+        
+    ls_models = ['LR', 'FA-LEARN-LDR-LR-10', 'FA-FIXED-LDR-LR']
     rmse_df.groupby(['percentage']).mean()[ls_models].plot()
-#%%
-    nn_models = ['NN', 'FA-LEARN-LDR-NN-5', 'FA-FIXED-LDR-NN', 'FA-FIXED-NN', 'FA-LEARN-NN-5']
+
+    nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-FIXED-LDR-NN', 'FA-FIXED-NN', 'FA-LEARN-NN-10']
     rmse_df.groupby(['percentage']).mean()[nn_models].plot()
 
 stop_here
