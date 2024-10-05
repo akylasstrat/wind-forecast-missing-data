@@ -193,8 +193,8 @@ with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_F
 with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
         FA_lin_fixed_NN_model = pickle.load(handle)
 
-with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
-        v2FA_lin_fixed_NN_model = pickle.load(handle)
+# with open(f'{cd}\\trained-models\\NYISO\\{freq}_{min_lag}_steps\\{target_park}_v2FA_lin_fixed_NN_model_weather.pickle', 'rb') as handle:    
+#         v2FA_lin_fixed_NN_model = pickle.load(handle)
 
 #%% Test models
 target_col = trainPred.columns
@@ -242,6 +242,7 @@ check_length = pd.DataFrame()
 check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
+stop_
 #%%
 
 print('Test for MCAR mechanism')
@@ -347,7 +348,7 @@ for perc in percentage:
         #### LAD model
         lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
         temp_Predictions['LAD'] = lad_pred.reshape(-1)
-
+        
         #### MLPimp
         mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
         temp_Predictions['NN'] = mlp_pred.reshape(-1)
@@ -376,10 +377,10 @@ for perc in percentage:
         FA_lin_fixed_NN_pred = projection(FA_lin_fixed_NN_pred)
         temp_Predictions['FA-lin-fixed-NN'] = FA_lin_fixed_NN_pred.reshape(-1)
 
-        ## NN model// correction in the input layer
-        v2FA_lin_fixed_NN_pred = v2FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        v2FA_lin_fixed_NN_pred = projection(v2FA_lin_fixed_NN_pred)
-        temp_Predictions['v2FA-lin-fixed-NN'] = v2FA_lin_fixed_NN_pred.reshape(-1)
+        # ## NN model// correction in the input layer
+        # v2FA_lin_fixed_NN_pred = v2FA_lin_fixed_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+        # v2FA_lin_fixed_NN_pred = projection(v2FA_lin_fixed_NN_pred)
+        # temp_Predictions['v2FA-lin-fixed-NN'] = v2FA_lin_fixed_NN_pred.reshape(-1)
 
         #### FINITE-RETRAIN-LAD and LS        
         FA_lin_greedy_NN_pred = FA_lin_greedy_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
@@ -465,20 +466,22 @@ for iter_ in range(iterations):
     miss_ind = np.zeros((len(testPred), len(plant_ids)))
     
     if freq in ['15min', '5min']:
-        P_init = np.array([[.999, .001], [0.2, 0.8]])
+        P_init = np.array([[.999, .001], [0.1, 0.9]])
         P_norm = np.array([[1-0.01, 0.01], [0.1, 0.9]])
     elif freq in ['30min']:
         P = np.array([[.999, .001], [0.2, 0.8]])
         P_norm = np.array([[1-0.05, 0.05], [0.2, 0.8]])
-            
+
     for j, series in enumerate(series_missing): 
-        if series == target_park:
-            # Data is MNAR, set values, control the rest within the function 
-            miss_ind[:,j] = make_MNAR_chain(P, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, 'MNAR')
-        else:
-            
-            miss_ind[:,j] = make_chain(P_norm, 0, len(testPred))
-    
+        # Data is MNAR, set values, control the rest within the function 
+        miss_ind[:,j] = make_MNAR_chain(P_init, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, 'MNAR')
+
+        # if series == target_park:
+        #     # Data is MNAR, set values, control the rest within the function 
+        #     miss_ind[:,j] = make_MNAR_chain(P_init, 0, len(testPred), scaled_power_df.copy()[series][split:end].values, 'MNAR')
+        # else:
+        #     miss_ind[:,j] = make_chain(P_norm, 0, len(testPred))
+
     mask_ind = miss_ind==1
     
     if run_counter%iterations==0: print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
@@ -528,7 +531,7 @@ for iter_ in range(iterations):
     #### LS model
     lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
     temp_Predictions['LS'] = lr_pred.reshape(-1)
-            
+
     #### LASSO
     lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
     temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
@@ -600,17 +603,18 @@ for iter_ in range(iterations):
     rmse_df = pd.concat([rmse_df, temp_df])
     
     run_counter += 1
-#%%
+
 if config['save']:
     mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
     rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
     
 ls_models = ['LS', 'FA-greedy-LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-lin-greedy-LS-10']
-rmse_df.groupby(['percentage']).mean()[ls_models].plot()
+rmse_df.groupby(['percentage']).mean()[ls_models].plot(kind='bar')
 
 nn_models = ['NN', 'FA-greedy-NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-lin-greedy-NN']
-rmse_df.groupby(['percentage']).mean()[nn_models].plot()
+rmse_df.groupby(['percentage']).mean()[nn_models].plot(kind='bar')
 
+stop_here
 #%%%%%%%%%% CENSORING: Censor data above a specific threshold
 #### Note: This falls under MNAR, may replace the current MNAR results (TBD)
 
