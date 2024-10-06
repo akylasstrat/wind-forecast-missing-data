@@ -331,17 +331,25 @@ print( (100*temp_df.groupby(['percentage'])[NN_models_to_plot].mean()).round(2))
 
 #%% Sensitivity analysis // LS
 min_lag = 1
-if weather_all_steps or (weather_feat and min_lag>=8):
+if weather_all_steps or (min_lag>=8):
     with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
         FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LR_models_dict = pickle.load(handle)           
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_NN_models_dict = pickle.load(handle)                   
 else:
     with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict.pickle', 'rb') as handle:
         FA_LEARN_LDR_LR_models_dict = pickle.load(handle)
 
+model_dictionary = FA_LEARN_LDR_LR_models_dict
 ### Find WC performance gap
 WC_gap = []
-for q in FA_LEARN_LDR_LR_models_dict.keys():
-    temp_model = FA_LEARN_LDR_LR_models_dict[q]
+Q_array = np.array(list(model_dictionary.keys()))
+for q in np.sort(Q_array):
+    temp_model = model_dictionary[q]
     leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
         
     WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
@@ -397,18 +405,13 @@ mnar_rmse_df = []
 
 ### Load results
 for s in steps_:
-    if (weather_all_steps == False):
-        if s >= 8:
-            temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
-        else:
-            temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{s}_steps_RMSE_results.csv', index_col = 0)            
-    elif (weather_all_steps == True):        
+    if (weather_all_steps) or (s>=8):
         temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
+    else:
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{s}_steps_RMSE_results.csv', index_col = 0)
         
-    temp_df['steps'] = s
-    
+    temp_df['steps'] = s    
     mnar_rmse_df.append(temp_df)
-
 mnar_rmse_df = pd.concat(mnar_rmse_df)
 
 #### Barplot for specific forecast horizon
