@@ -304,8 +304,7 @@ for perc in percentage:
 
         
         error_df = Target.values[max_lag-1:] - temp_Predictions[max_lag-1:]
-        
-        
+                
         for m in new_model:
             mae_df.loc[(mae_df['percentage'] == perc)* (mae_df['iteration'] == iter_), m] = mae(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])
             rmse_df.loc[(rmse_df['percentage'] == perc)* (rmse_df['iteration'] == iter_), m] = rmse(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])

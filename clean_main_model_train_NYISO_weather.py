@@ -53,7 +53,7 @@ def params():
         
     params['freq'] = '15min'    
     params['target_park'] = 'Noble Clinton'
-    params['horizon'] = 16 # forecast horizon
+    params['horizon'] = 24 # forecast horizon
     params['train'] = True # If True, then train models, else tries to load previous runs
     params['save'] = True # If True, then saves models and results
     
@@ -300,7 +300,7 @@ num_epochs = 250
 learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
-decay = 1e-5
+decay = 0
 apply_LDR = True
 LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
@@ -312,14 +312,14 @@ try:
 except:
     FA_LEARN_LDR_LR_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 20]
+Max_number_splits = [1, 2, 5, 10, 20]
 
 config['train'] = True
 config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_LDR_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, D = 1_000, red_threshold = 1e-5, 
+        FA_LEARN_LDR_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, D = 1_000, red_threshold = 1e-5, 
                                                     input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                                                     budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
                 
@@ -342,8 +342,14 @@ try:
 except:
     FA_LEARN_LDR_NN_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 20]
+Max_number_splits = [1, 2, 5, 10, 20]
 
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.15
+decay = 1e-5
 
 config['train'] = True
 config['save'] = True
@@ -380,13 +386,13 @@ num_epochs = 250
 learning_rate = 1e-3
 patience = 15
 val_perc = 0.15
-decay = 1e-5
+decay = 0
 apply_LDR = True
 LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:    
@@ -405,6 +411,13 @@ if config['train']:
 ###### NN base model 
 config['train'] = False
 config['save'] = True
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.15
+decay = 1e-5
 
 if config['train']:    
     FA_FIXED_LDR_NN_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 
@@ -426,10 +439,10 @@ n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-3
+learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
-decay = 1e-5
+decay = 0
 apply_LDR = False
 LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
@@ -441,7 +454,7 @@ try:
 except:
     FA_LEARN_LR_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 20]
+Max_number_splits = [1, 2, 5, 10, 20]
 
 config['train'] = True
 config['save'] = True
@@ -465,13 +478,21 @@ if config['train']:
                 pickle.dump(FA_LEARN_LR_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.15
+decay = 1e-5
+
 try:
     with open(f'{trained_models_path}\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
         FA_LEARN_NN_models_dict = pickle.load(handle)
 except:
     FA_LEARN_NN_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 20]
+Max_number_splits = [1, 2, 5, 10, 20]
 
 config['train'] = True
 config['save'] = True
@@ -502,16 +523,16 @@ n_outputs = tensor_trainY.shape[1]
 
 batch_size = 512
 num_epochs = 250
-learning_rate = 1e-3
+learning_rate = 1e-2
 patience = 15
 val_perc = 0.15
-decay = 1e-5
+decay = 0
 apply_LDR = False
 LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = False
+config['train'] = True
 config['save'] = True
 
 if config['train']:    
@@ -530,6 +551,15 @@ if config['train']:
 ###### NN base model 
 config['train'] = False
 config['save'] = True
+
+batch_size = 512
+num_epochs = 250
+learning_rate = 1e-3
+patience = 15
+val_perc = 0.15
+decay = 1e-5
+apply_LDR = False
+
 
 if config['train']:    
     FA_FIXED_NN_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 

@@ -364,7 +364,7 @@ ax1.set_ylabel('RMSE (%)')
 
 temp_df = all_rmse.query(f'percentage==0.1 and steps == {min_lag}')
 ax1.plot(5*[100*temp_df.mean()['LR']], color='black', marker = '2', label = '$\mathtt{Imp-LS}$', linewidth = 1)
-ax1.plot(5*[100*temp_df.mean()['FA-lin-fixed-LS']], color='tab:brown', marker = 'd', label = '$\mathtt{FLA(fixed)}$', linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = '$\mathtt{FLA(fixed)}$', linewidth = 1)
 
 ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{FLA(learn)}^{Q}$', linewidth = 1)
 

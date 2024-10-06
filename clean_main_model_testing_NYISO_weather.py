@@ -70,8 +70,8 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 24
-test_MCAR = False
+horizon = 16
+test_MCAR = True
 test_MNAR = True
 config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
@@ -209,8 +209,16 @@ models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
     + [f'FA-LEARN-LR-{n_splits}' for n_splits in FA_LEARN_LR_models_dict.keys()] \
     + [f'FA-LEARN-NN-{n_splits}' for n_splits in FA_LEARN_NN_models_dict.keys()] \
 
+# try:
+#     mae_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
+#     rmse_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
+# except:
+#     mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
+#     rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
+
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
 rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
+
 n_series = 4
 # supress warning
 pd.options.mode.chained_assignment = None
