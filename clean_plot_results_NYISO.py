@@ -530,48 +530,6 @@ for s in steps_:
     mnar_rmse_df.append(temp_df)
 mnar_rmse_df = pd.concat(mnar_rmse_df)
 
-#### Barplot for specific forecast horizon
-selected_step = 1
-temp_mnar_df = mnar_rmse_df.query(f'steps == {selected_step}')
-ls_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
-nn_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
-
-fig, ax = plt.subplots(constrained_layout = True)
-plt.bar(np.arange(0, 5*0.25, 0.25), 100*temp_mnar_df[ls_models_to_plot].mean(), width = 0.2, alpha = .3, 
-        yerr = 100*temp_mnar_df[ls_models_to_plot].std(), label = '$\mathtt{LS}$')
-
-plt.xticks(np.arange(0, 5*0.25, 0.25), ['Imp-LS', 'FA(fixed)-LS', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'], rotation = 45)
-
-plt.bar(np.arange(1.5, 1.5+5*0.25, 0.25), 100*temp_mnar_df[nn_models_to_plot].mean(), width = 0.2,
-        yerr = 100*temp_mnar_df[nn_models_to_plot].std(), label = '$\mathtt{NN}$')
-
-plt.xticks(np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25))), 
-           ['$\mathtt{Imp-LS}$', '$\mathtt{FA(fixed)^{\gamma}-LS}$', 'FLA(fixed)-LS', 'FA(greedy)-LS', 'FLA(greedy)-LS'] + ['Imp-NN', 'FA(fixed)-NN', 'FLA(fixed)-NN', 'FA(greedy)-NN', 'FLA(greedy)-NN'], rotation = 45)
-
-
-plt.ylim([100*temp_mnar_df[ls_models_to_plot + nn_models_to_plot].mean().min()*0.8, 100*temp_mnar_df[ls_models_to_plot + nn_models_to_plot].mean().max()*1.1])
-plt.ylabel("RMSE (%)")
-
-xticks_minor = np.concatenate((np.arange(0, 5*0.25, 0.25), np.arange(1.5, 1.5+5*0.25, 0.25)))
-xticks_major = [0.625 + 2]
-xlbls = [ '$\mathtt{Imp}$', '$\mathtt{FA(fixed)^{\gamma}}$', '$\mathtt{FLA(fixed)^{\gamma}}$',
-          '$\mathtt{FA(learn)^{10}}$', '$\mathtt{FLA(learn)^{10}}$'] + [ '$\mathtt{Imp}$', '$\mathtt{FA(fixed)^{\gamma}}$', '$\mathtt{FLA(fixed)^{\gamma}}$',
-                    '$\mathtt{FA(learn)^{10}}$', '$\mathtt{FLA(learn)^{10}}$']
-#%%
-
-# ax.set_xticks( xticks_major )
-ax.set_xticks( xticks_minor, minor=True )
-ax.set_xticklabels( xlbls, rotation = 45, fontsize = 7)
-
-plt.legend(ncol = 2)
-
-if weather_all_steps and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{selected_step}_CENSOR_weather.pdf')
-elif (weather_all_steps == False) and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{selected_step}_CENSOR.pdf')
-plt.show()
-
-
 #### Plot for all the horizons
 ave_mnar_rmse_horizon = 100*(mnar_rmse_df.groupby(['steps']).mean())
 std_mnar_rmse_horizon = (mnar_rmse_df.groupby(['steps']).std())
