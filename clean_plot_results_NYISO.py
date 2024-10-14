@@ -37,35 +37,66 @@ def params():
     
     return params
 
+# models_to_labels = {'LR':'$\mathtt{Imp-LS}$', 
+#                     'FA-FIXED-LR':'$\mathtt{FA(fixed)-LS}$',
+#                     'FA-FIXED-LDR-LR':'$\mathtt{FLA(fixed)-LS}$',
+#                     'FA-LEARN-LDR-LR-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
+#                     'FA-LEARN-LDR-LR-1':'$\mathtt{FLA(learn)^{1}-LS}$', 
+#                     'FA-LEARN-LDR-LR-5':'$\mathtt{FLA(learn)^{5}-LS}$', 
+#                     'FA-LEARN-LDR-LR-2':'$\mathtt{FLA(learn)^{2}-LS}$', 
+#                     'FA-LEARN-LDR-LR-20':'$\mathtt{FLA(learn)^{20}-LS}$', 
+#                     'FA-LEARN-LR-10':'$\mathtt{FA(learn)^{10}-LS}$', 
+#                     'FA-FIXED-NN':'$\mathtt{FA(fixed)-NN}$', 
+#                     'FA-LEARN-NN-10':'$\mathtt{FA(learn)^{10}-NN}$', 
+#                     'FA-FIXED-LDR-NN':'$\mathtt{FLA(fixed)-NN}$', 
+#                     'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}-NN}$',
+#                     'NN':'$\mathtt{Imp-NN}$'}
+
+
+# models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
+#                     'FA-FIXED-LR':'$\mathtt{FA(fixed)}$',
+#                     'FA-FIXED-LDR-LR':'$\mathtt{FLA(fixed)}$',
+#                     'FA-LEARN-LDR-LR-10':'$\mathtt{FLA(learn)^{10}}$', 
+#                     'FA-LEARN-LDR-LR-1':'$\mathtt{FLA(learn)^{1}}$', 
+#                     'FA-LEARN-LDR-LR-5':'$\mathtt{FLA(learn)^{5}}$', 
+#                     'FA-LEARN-LDR-LR-2':'$\mathtt{FLA(learn)^{2}}$', 
+#                     'FA-LEARN-LDR-LR-20':'$\mathtt{FLA(learn)^{20}}$', 
+#                     'FA-LEARN-LR-10':'$\mathtt{FA(learn)^{10}}$', 
+#                     'FA-FIXED-NN':'$\mathtt{FA(fixed)}$', 
+#                     'FA-LEARN-NN-10':'$\mathtt{FA(learn)^{10}}$', 
+#                     'FA-FIXED-LDR-NN':'$\mathtt{FLA(fixed)}$', 
+#                     'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}}$',
+#                     'NN':'$\mathtt{Imp}$'}
+
 models_to_labels = {'LR':'$\mathtt{Imp-LS}$', 
-                    'FA-FIXED-LR':'$\mathtt{FA(fixed)-LS}$',
-                    'FA-FIXED-LDR-LR':'$\mathtt{FLA(fixed)-LS}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{FLA(learn)^{1}-LS}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{FLA(learn)^{5}-LS}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{FLA(learn)^{2}-LS}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{FLA(learn)^{20}-LS}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{FA(learn)^{10}-LS}$', 
-                    'FA-FIXED-NN':'$\mathtt{FA(fixed)-NN}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{FA(learn)^{10}-NN}$', 
-                    'FA-FIXED-LDR-NN':'$\mathtt{FLA(fixed)-NN}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}-NN}$',
+                    'FA-FIXED-LR':'$\mathtt{RR(fixed)-LS}$',
+                    'FA-FIXED-LDR-LR':'$\mathtt{ARR(fixed)-LS}$',
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARR(learn)^{10}-LS}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARR(learn)^{1}-LS}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARR(learn)^{5}-LS}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARR(learn)^{2}-LS}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARR(learn)^{20}-LS}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{RR(learn)^{10}-LS}$', 
+                    'FA-FIXED-NN':'$\mathtt{RR(fixed)-NN}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{RR(learn)^{10}-NN}$', 
+                    'FA-FIXED-LDR-NN':'$\mathtt{ARR(fixed)-NN}$', 
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARR(learn)^{10}-NN}$',
                     'NN':'$\mathtt{Imp-NN}$'}
 
 
 models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
-                    'FA-FIXED-LR':'$\mathtt{FA(fixed)}$',
-                    'FA-FIXED-LDR-LR':'$\mathtt{FLA(fixed)}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{FLA(learn)^{10}}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{FLA(learn)^{1}}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{FLA(learn)^{5}}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{FLA(learn)^{2}}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{FLA(learn)^{20}}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{FA(learn)^{10}}$', 
-                    'FA-FIXED-NN':'$\mathtt{FA(fixed)}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{FA(learn)^{10}}$', 
-                    'FA-FIXED-LDR-NN':'$\mathtt{FLA(fixed)}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}}$',
+                    'FA-FIXED-LR':'$\mathtt{RR(fixed)}$',
+                    'FA-FIXED-LDR-LR':'$\mathtt{ARR(fixed)}$',
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARR(learn)^{10}}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARR(learn)^{1}}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARR(learn)^{5}}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARR(learn)^{2}}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARR(learn)^{20}}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{RR(learn)^{10}}$', 
+                    'FA-FIXED-NN':'$\mathtt{RR(fixed)}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{RR(learn)^{10}}$', 
+                    'FA-FIXED-LDR-NN':'$\mathtt{ARR(fixed)}$', 
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARR(learn)^{10}}$',
                     'NN':'$\mathtt{Imp}$'}
 
 #%% Load data at turbine level, aggregate to park level
@@ -372,9 +403,9 @@ ax1.set_ylabel('RMSE (%)')
 
 temp_df = all_rmse.query(f'percentage==0.1 and steps == {min_lag}')
 ax1.plot(5*[100*temp_df.mean()['LR']], color='black', marker = '2', label = '$\mathtt{Imp-LS}$', linewidth = 1)
-ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = '$\mathtt{FLA(fixed)}$', linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = models_to_common_labels['FA-FIXED-LDR-LR'], linewidth = 1)
 
-ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{FLA(learn)}^{Q}$', linewidth = 1)
+ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{ARR(learn)}^{Q}$', linewidth = 1)
 
 ax1.tick_params(axis='y')
 ax1.set_xticks(range(5), [1, 2, 5, 10, 20])

@@ -72,10 +72,9 @@ freq = '15min'
 target_park = 'Noble Clinton'
 horizon = 1
 test_MCAR = False
-test_MNAR = True
+test_MNAR = False
 test_Censoring = True
-
-config['save'] = True
+config['save'] = False
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 min_lag = horizon
@@ -617,7 +616,7 @@ check_length.groupby('Missing').mean()
 ub_thres = 1
 lb_thres = 0.8
 
-series_missing = ['Noble Clinton']
+series_missing = ['Noble Clinton', 'Marble River', 'Noble Altona']
 
 if test_Censoring:
     print('Test for CENSORING mechanism')
