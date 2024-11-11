@@ -70,11 +70,11 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 1
-test_MCAR = False
+horizon = 24
+test_MCAR = True
 test_MNAR = False
-test_Censoring = True
-config['save'] = False
+test_Censoring = False
+config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 min_lag = horizon
@@ -113,8 +113,8 @@ plt.show()
 
 print(f'target_park:{target_park}')
 
-iterations = 5
-percentage = [0, .001, .005, .01, .05, .1]
+iterations = 50
+percentage = [0, .01, .05, .1]
 
 Y, Predictors, pred_col = create_IDsupervised(target_park, scaled_power_df[plant_ids], min_lag, max_lag)
 
@@ -243,21 +243,37 @@ check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 #%%
 
+rmse_per_missing_df = pd.DataFrame()
+
 if test_MCAR:
     print('Test for MCAR mechanism')
     for perc in percentage:
         for iter_ in range(iterations):
             
             torch.manual_seed(run_counter)
-            # Dataframe to store predictions
-            # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
-            temp_Predictions = pd.DataFrame(data = [], columns = models)
-    
+            
+            if (perc == 0) and (iter_ >0):      
+                temp_mae_df = mae_df.query(f'percentage==0.0 and iteration == 0').iloc[0:1]
+                temp_mae_df['iteration'] = iter_                
+                mae_df = pd.concat([mae_df, temp_mae_df])
+
+                temp_rmse_df = rmse_df.query(f'percentage==0.0 and iteration == 0').iloc[0:1]
+                temp_rmse_df['iteration'] = iter_                
+                rmse_df = pd.concat([rmse_df, temp_rmse_df])
+                
+                run_counter += 1
+                    
+                continue
+            
             # Initialize dataframe to store results
             temp_df = pd.DataFrame()
             temp_df['percentage'] = [perc]
             temp_df['iteration'] = [iter_]
-            
+
+            # Dataframe to store predictions
+            # temp_scale_Predictions = pd.DataFrame(data = [], columns = models)
+            temp_Predictions = pd.DataFrame(data = [], columns = models)
+                
             # generate missing data
             #miss_ind = np.array([make_chain(P, 0, len(testPred)) for i in range(len(target_col))]).T
             miss_ind = np.zeros((len(testPred), len(plant_ids)))
@@ -384,7 +400,7 @@ if test_MCAR:
                 temp_FA_LEARN_NN_pred = FA_LEARN_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
                 temp_Predictions[f'FA-LEARN-NN-{number_splits}'] = projection(temp_FA_LEARN_NN_pred).reshape(-1)
             
-            error_df = Target.values[max_lag-1:] - temp_Predictions[max_lag-1:]
+            temp_error_df = Target.values[max_lag-1:] - temp_Predictions[max_lag-1:]
             
             for m in models:
                 temp_df[m] = [mae(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
@@ -394,10 +410,24 @@ if test_MCAR:
                 temp_df[m] = [rmse(temp_Predictions[m].values[max_lag-1:], Target.values[max_lag-1:])]
             rmse_df = pd.concat([rmse_df, temp_df])
             run_counter += 1
-    
+        
+            # RMSE vs number of missing features per each observation
+            temp_sq_error = np.square(temp_error_df)
+            temp_sq_error['Number missing'] = mask_ind.sum(1)[max_lag-1:]
+            
+            temp_rmse_per_missing = np.sqrt(temp_sq_error.groupby(['Number missing']).mean()).reset_index()
+            
+            temp_rmse_per_missing['Count'] = temp_sq_error.groupby(['Number missing']).count().values[:,0]
+            
+            temp_sq_error.groupby(['Number missing']).mean()       
+            temp_sq_error.groupby(['Number missing']).count()['Pers']
+            rmse_per_missing_df = pd.concat([rmse_per_missing_df, temp_rmse_per_missing])
+            
+        
         if config['save']:
             mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
             rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
+            rmse_per_missing_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_vs_missing_features_weather.csv')
     
         ls_models = ['LR', 'FA-LEARN-LDR-LR-10', 'FA-FIXED-LDR-LR', 'FA-FIXED-LR', 'FA-LEARN-LR-10']
         rmse_df.groupby(['percentage']).mean()[ls_models].plot()
