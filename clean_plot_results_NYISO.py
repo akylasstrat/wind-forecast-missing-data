@@ -148,8 +148,13 @@ nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-gre
 (100*all_rmse.query('percentage>0.001').groupby(['steps']).mean()).round(2).to_clipboard()
 
 #%% RMSE vs number of missing features
-# rmse_missing_feat  = pd.read_csv(f'{cd}\\new_results\\15min_Noble Clinton_MCAR_1_steps_RMSE_vs_missing_features_weather.csv', index_col = 0)
+# rmse_missing_feat  = pd.read_csv(f'{cd}\\new_results\\15min_Noble Clinton_MCAR_24_steps_RMSE_vs_missing_features_weather.csv', index_col = 0)
 # w_rmse_missing_feat = rmse_missing_feat*rmse_missing_feat['Count'].values.reshape(-1,1)
+
+# LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+# NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
+
+# rmse_missing_feat.groupby('Number missing').mean()[LS_models_to_plot].plot(yerr = rmse_missing_feat.groupby('Number missing').std()[LS_models_to_plot])
 
 #%% MCAR plots
 LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
