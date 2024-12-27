@@ -4,8 +4,8 @@ This repository contains the code to recreate the experiments of
 
 ```
 @unpublished{xxxx,
-TITLE = {{Adaptive Robust Optimization for Energy
-Forecasting with Missing Data}}, AUTHOR = {Stratigakos, Akylas and Andrianesis, Panagiotis and Kariniotakis, Georges}}
+TITLE = {{Adaptive Robust Optimization for Energy Forecasting with Missing Data}},
+AUTHOR = {Stratigakos, Akylas and Andrianesis, Panagiotis and Kariniotakis, Georges}}
 ```
 
 which is available [here]().
