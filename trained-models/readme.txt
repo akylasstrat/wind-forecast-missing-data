@@ -1,2 +1,3 @@
-Store trained models. Number of steps indicate the lead horizon.
-For instance: 2-steps ahead == 1-hour ahead forecast (observations have a 30min frequency)
+Save trained models. Number of steps indicate the lead horizon.
+
+Example: 15min_4_steps: 15-min frequency, 4-step ahead forecast horizon (1h ahead)

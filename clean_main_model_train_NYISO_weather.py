@@ -50,7 +50,7 @@ def params():
         
     params['freq'] = '15min'    
     params['target_park'] = 'Noble Clinton'
-    params['horizon'] = 1 # forecast horizon
+    params['horizon'] = 1 # forecast horizon [1, 4, 8, 16, 24]
     params['train'] = True # If True, then train models, else tries to load previous runs
     params['save'] = False # If True, then saves models and results
     
