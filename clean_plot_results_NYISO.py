@@ -110,7 +110,7 @@ horizon = 1
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
-config['save'] = True
+config['save'] = False
 min_lag = horizon
 
 #%% Missing Data Completely at Random (MCAR)

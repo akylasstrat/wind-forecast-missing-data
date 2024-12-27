@@ -1,35 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-Train models/ NYISO data with weather features/ updated code
+Train Robust Regression and Adaptive Robust Regression models/ NYISO data with weather features
 
-@author: astratig
+@author: a.stratigakos@imperial.ac.uk
 """
 
 import pickle
 import os, sys
-import gurobipy as gp
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import gurobipy as gp
-import scipy.sparse as sp
-import time
-import itertools
-import random
+# import scipy.sparse as sp
+# import time
+# import itertools
+# import random
 
 cd = os.path.dirname(__file__)  #Current directory
 sys.path.append(cd)
 
 # import from forecasting libraries
-
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, QuantileRegressor
 from sklearn.model_selection import GridSearchCV
+
 from utility_functions import * 
-from QR_regressor import *
 from clean_torch_custom_layers import * 
 from clean_finite_adaptability_functions import * 
+# from QR_regressor import *
 
 # IEEE plot parameters (not sure about mathfont)
 plt.rcParams['figure.dpi'] = 600
@@ -53,9 +50,9 @@ def params():
         
     params['freq'] = '15min'    
     params['target_park'] = 'Noble Clinton'
-    params['horizon'] = 24 # forecast horizon
+    params['horizon'] = 1 # forecast horizon
     params['train'] = True # If True, then train models, else tries to load previous runs
-    params['save'] = True # If True, then saves models and results
+    params['save'] = False # If True, then saves models and results
     
     return params
 
@@ -181,12 +178,18 @@ lr = LinearRegression(fit_intercept = True)
 lr.fit(trainPred, trainY)
 
 alpha_best = lasso.best_params_['alpha']
+#%%
+# lad = QR_regressor(fit_intercept = True)
+# lad.fit(trainPred, trainY)
 
-lad = QR_regressor(fit_intercept = True)
-lad.fit(trainPred, trainY)
+# lad_l1 = QR_regressor(fit_intercept = True, alpha = alpha_best)
+# lad_l1.fit(trainPred, trainY)
 
-lad_l1 = QR_regressor(fit_intercept = True, alpha = alpha_best)
-lad_l1.fit(trainPred, trainY)
+lad = QuantileRegressor(quantile=0.5, alpha = 0, fit_intercept = True, solver = 'highs')
+lad.fit(trainPred, trainY.reshape(-1))
+
+lad_l1 = QuantileRegressor(quantile=0.5, alpha = alpha_best, fit_intercept = True, solver = 'highs')
+lad_l1.fit(trainPred, trainY.reshape(-1))
 
 lr_pred= projection(lr.predict(testPred).reshape(-1,1))
 lasso_pred = projection(lasso.predict(testPred).reshape(-1,1))
@@ -207,8 +210,7 @@ base_Predictions['LAD-L1'] = lad_l1_pred.reshape(-1)
 base_Predictions['Climatology'] = trainY.mean()
 # base_Predictions['NREL'] = testPred[f'{target_park}_ID_for'].values
 
-#%% Neural Network: train a standard MLP model
-
+# Neural Network: train a standard MLP model
 
 batch_size = 512
 num_epochs = 250
@@ -243,8 +245,9 @@ optimizer = torch.optim.Adam(mlp_model.parameters(), lr = learning_rate, weight_
 mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer, epochs = num_epochs, 
                       patience = patience, verbose = 1)
 base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
-#%%
-# Estimate MAE for base models
+
+
+# Estimate RMSE and MAE for base models without missing data
 print('Base Model Performance, no missing data')
 
 base_mae = pd.DataFrame(data = [], columns = base_Predictions.columns)
@@ -265,7 +268,7 @@ plt.plot(lasso_pred[:60])
 plt.plot(persistence_pred[:60])
 plt.show() 
 
-#%%
+#%% Save trained models
 if config['save']:
     with open(f'{trained_models_path}\\{target_park}_LR_weather.pickle', 'wb') as handle:
         pickle.dump(lr, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -282,15 +285,16 @@ if config['save']:
     with open(f'{trained_models_path}\\{target_park}_MLP_weather.pickle', 'wb') as handle:
         pickle.dump(mlp_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-#%%%%%%%%% Adversarial Models
+#%%%%%%%%% Adversarial Training/ Robust Models
 
 target_pred = Predictors.columns
 fixed_pred = [f'{target_park}_ID_for']
 target_col = [np.where(trainPred.columns == c)[0][0] for c in target_pred]
 fix_col = [np.where(trainPred.columns == c)[0][0] for c in fixed_pred]
         
-###### Finitely Adaptive - LEARN partitions - LDR
 
+#%%%%%% Adaptive Robust Regression + learn partitions
+###### Finitely Adaptive - LEARN partitions - LDR
 
 n_features = tensor_trainPred.shape[1]
 n_outputs = tensor_trainY.shape[1]
@@ -306,6 +310,7 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
+###### ARR-LR(learn)
 try:
     with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
         FA_LEARN_LDR_LR_models_dict = pickle.load(handle)
@@ -314,8 +319,8 @@ except:
 
 Max_number_splits = [1, 2, 5, 10, 20]
 
-config['train'] = True
-config['save'] = True
+# config['train'] = True
+# config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -334,8 +339,9 @@ if config['train']:
 
             with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'wb') as handle:
                 pickle.dump(FA_LEARN_LDR_LR_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-#%%
+
 ###### NN base model 
+###### ARR-NN(learn)
 try:
     with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
         FA_LEARN_LDR_NN_models_dict = pickle.load(handle)
@@ -351,8 +357,8 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
-config['save'] = True
+# config['train'] = True
+# config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -374,7 +380,7 @@ if config['train']:
                 pickle.dump(FA_LEARN_LDR_NN_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-#%%
+#%%%%%% Adaptive Robust Regression + fixed partitions
 
 ###### Finitely Adaptive - FIXED partitions - LDR
 
@@ -392,8 +398,10 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = True
-config['save'] = True
+# config['train'] = True
+# config['save'] = False
+
+###### ARR-LR(fixed)
 
 if config['train']:    
     FA_FIXED_LDR_LR_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 
@@ -409,8 +417,10 @@ if config['train']:
             pickle.dump(FA_FIXED_LDR_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
+###### ARR-NN(fixed)
+
 config['train'] = False
-config['save'] = True
+config['save'] = False
 
 batch_size = 512
 num_epochs = 250
@@ -431,7 +441,7 @@ if config['train']:
         with open(f'{trained_models_path}\\{target_park}_FA_FIXED_LDR_NN_model_weather.pickle', 'wb') as handle:
             pickle.dump(FA_FIXED_LDR_NN_model, handle, protocol=pickle.HIGHEST_PROTOCOL)                
             
-#%%
+#%%%%%% Robust Regression + learn partitions
 ###### Finitely Adaptive - LEARN partitions - Static robust (**no LDR**)
 
 n_features = tensor_trainPred.shape[1]
@@ -448,6 +458,8 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
+###### RR-LR(learn)
+
 try:
     with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
         FA_LEARN_LR_models_dict = pickle.load(handle)
@@ -456,8 +468,8 @@ except:
 
 Max_number_splits = [1, 2, 5, 10, 20]
 
-config['train'] = True
-config['save'] = True
+# config['train'] = False
+# config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -478,6 +490,7 @@ if config['train']:
                 pickle.dump(FA_LEARN_LR_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
+###### RR-NN(learn)
 
 batch_size = 512
 num_epochs = 250
@@ -494,8 +507,8 @@ except:
 
 Max_number_splits = [1, 2, 5, 10, 20]
 
-config['train'] = True
-config['save'] = True
+# config['train'] = False
+# config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -515,7 +528,7 @@ if config['train']:
             with open(f'{trained_models_path}\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'wb') as handle:
                 pickle.dump(FA_LEARN_NN_models_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-#%%
+#%%%%%%% Robust Regression + fixed partitions
 ###### Finitely Adaptive - FIXED partitions - Static Robust (**no LDR**)
 
 n_features = tensor_trainPred.shape[1]
@@ -532,8 +545,10 @@ LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
 ###### LR base model 
-config['train'] = True
-config['save'] = True
+###### RR-LR(fixed)
+
+# config['train'] = False
+# config['save'] = False
 
 if config['train']:    
     FA_FIXED_LR_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 
@@ -549,8 +564,10 @@ if config['train']:
             pickle.dump(FA_FIXED_LR_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 ###### NN base model 
-config['train'] = False
-config['save'] = True
+###### RR-NN(learn)
+
+# config['train'] = True
+# config['save'] = False
 
 batch_size = 512
 num_epochs = 250

@@ -7,28 +7,20 @@ Testing robust forecasting models
 
 import pickle
 import os, sys
-# import gurobipy as gp
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-# import time
 import itertools
-# import random
 
 cd = os.path.dirname(__file__)  #Current directory
 sys.path.append(cd)
 
-# import from forecasting libraries
-
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-# from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
-from sklearn.model_selection import GridSearchCV
+# from sklearn.linear_model import LinearRegression, Ridge, Lasso
+# from sklearn.model_selection import GridSearchCV
 
 
 from utility_functions import * 
-# from FDR_regressor import *
-from QR_regressor import *
 from clean_torch_custom_layers import *
 from clean_finite_adaptability_functions import *
 
@@ -70,11 +62,11 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 24
+horizon = 1
 test_MCAR = True
-test_MNAR = False
+test_MNAR = True
 test_Censoring = False
-config['save'] = True
+config['save'] = False
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 min_lag = horizon

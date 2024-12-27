@@ -8,12 +8,11 @@ Utility functions (probably not used all)
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.ndimage.interpolation import shift
-from statsmodels.tsa.stattools import pacf, acf
-from scipy.ndimage.interpolation import shift
+# from scipy.ndimage.interpolation import shift
+# from statsmodels.tsa.stattools import pacf, acf
 import itertools
 import random
-import gurobipy as gp
+from sklearn.linear_model import LinearRegression
 
 def retrain_model(X, Y, testX, target_col, fix_col, Gamma, base_loss = 'l2'):
     ''' Retrain model without missing features
@@ -143,26 +142,26 @@ def make_MNAR_chain(t_m, start_term, n, series, pattern):
         chain.append(get_next_term(t_m_vary[chain[-1]]))
     return np.array(chain)
 
-def lagged_predictors_pd(df, col_name, freq, d = 200, thres = .1, intraday = True):
-    'Input dataframe, creates lagged predictors of selected column based on PACF'
-    PACF = pacf(df[col_name], nlags = d)
-    ACF = acf(df[col_name], nlags = d)
+# def lagged_predictors_pd(df, col_name, freq, d = 200, thres = .1, intraday = True):
+#     'Input dataframe, creates lagged predictors of selected column based on PACF'
+#     PACF = pacf(df[col_name], nlags = d)
+#     ACF = acf(df[col_name], nlags = d)
 
-    plt.plot(PACF, label = 'PACF')
-    plt.plot(ACF, label = 'ACF')
-    plt.show()
+#     plt.plot(PACF, label = 'PACF')
+#     plt.plot(ACF, label = 'ACF')
+#     plt.show()
     
-    #Lags = np.argwhere(abs(PACF) > thres) - 1
-    Lags = np.where(abs(PACF)>=thres)[0][1:]
-    if intraday == False:
-        Lags = Lags[Lags> (int(freq*24)-1) ]
-    name = col_name+'_'
-    name_list = []
-    for lag in Lags:
-        temp_name = name+str(int(1//freq)*lag)
-        df[temp_name] = shift(df[col_name], lag)
-        name_list.append(temp_name)
-    return df, name_list
+#     #Lags = np.argwhere(abs(PACF) > thres) - 1
+#     Lags = np.where(abs(PACF)>=thres)[0][1:]
+#     if intraday == False:
+#         Lags = Lags[Lags> (int(freq*24)-1) ]
+#     name = col_name+'_'
+#     name_list = []
+#     for lag in Lags:
+#         temp_name = name+str(int(1//freq)*lag)
+#         df[temp_name] = shift(df[col_name], lag)
+#         name_list.append(temp_name)
+#     return df, name_list
 
 def eval_predictions(pred, target, metric = 'mae'):
     ''' Evaluates determinstic forecasts'''
@@ -257,95 +256,3 @@ def brier_score(predictions, actual, digits = None):
     else:
         return round(np.mean(np.square(predictions-actual)), digits)
     
-def VaR(data, quant = .05, digits = 3):
-    ''' Evaluates Value at Risk at quant-level'''
-    if digits is None:
-        return np.quantile(data, q = quant)
-    else:
-        return round(np.quantile(data, q = quant), digits)
-
-def CVaR(data, quant = .05, digits = 3):
-    ''' Evaluates Conditional Value at Risk at quant-level'''
-
-    VaR = np.quantile(data, q = quant)
-    if digits is None:
-        return data[data<=VaR].mean()
-    else:
-        return round(data[data<=VaR].mean(), digits)
-
-
-def newsvendor_cvar(scenarios, weights, quant, e = 0.05, risk_aversion = 0.5):
-
-    ''' Weights SAA:
-        scenarios: support/ fixed locations
-        weights: the learned probabilities'''
-    
-    if scenarios.ndim>1:
-        target_scen = scenarios.copy().reshape(-1)
-    else:
-        target_scen = scenarios.copy()
-
-    n_scen = len(target_scen)
-    m = gp.Model()
-    m.setParam('OutputFlag', 0)
-
-    # target variable
-    offer = m.addMVar(1, vtype = gp.GRB.CONTINUOUS, lb = 0, name = 'offer')
-    loss = m.addMVar(n_scen, vtype = gp.GRB.CONTINUOUS, lb = 0, name = 'aux')
-                    
-    ### CVaR variables (follows Georghiou, Kuhn, et al.)
-    beta = m.addMVar(1, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name='VaR')
-    zeta = m.addMVar(n_scen, vtype = gp.GRB.CONTINUOUS, lb = 0)  # Aux
-    cvar = m.addMVar(1, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY)
-    
-    #m.addConstrs(loss[i] >= quant*(scenarios[i] - offer) for i in range(n_scen))
-    #m.addConstrs(loss[i] >= (quant-1)*(scenarios[i] - offer) for i in range(n_scen))
-
-    m.addConstr(loss >= quant*(target_scen - offer) )
-    m.addConstr(loss >= (quant-1)*(target_scen - offer) )
-
-    # cvar constraints
-    m.addConstr( zeta >=  -beta + loss )
-    m.addConstr( cvar == beta + (1/e)*(zeta@weights))
-    
-    m.setObjective( (1-risk_aversion)*(weights@loss) + risk_aversion*cvar, gp.GRB.MINIMIZE)
-    m.optimize()
-    
-    #plt.plot(loss.X)
-    #plt.plot((quant*(scenarios-offer.X)))
-    #plt.plot(((quant-1)*(scenarios-offer.X)))
-    #plt.show()
-    
-    #print(scenarios)    
-    
-    return offer.X
-
-def reg_trading_opt(scenarios, weights, quant, risk_aversion = 0.5):
-
-    ''' Weights SAA:
-        scenarios: support/ fixed locations
-        weights: the learned probabilities'''
-    
-    if scenarios.ndim>1:
-        target_scen = scenarios.copy().reshape(-1)
-    else:
-        target_scen = scenarios.copy()
-
-    n_scen = len(target_scen)
-    m = gp.Model()
-    m.setParam('OutputFlag', 0)
-
-    # target variable
-    offer = m.addMVar(1, vtype = gp.GRB.CONTINUOUS, lb = 0, name = 'offer')
-    deviation = m.addMVar(n_scen, vtype = gp.GRB.CONTINUOUS, lb = -gp.GRB.INFINITY, name = 'offer')
-    loss = m.addMVar(n_scen, vtype = gp.GRB.CONTINUOUS, lb = 0, name = 'aux')
-
-    m.addConstr(deviation == (target_scen - offer) )
-    
-    m.addConstr(loss >= quant*(target_scen - offer) )
-    m.addConstr(loss >= (quant-1)*(target_scen - offer) )
-    
-    m.setObjective( (1-risk_aversion)*(weights@loss) + risk_aversion*(deviation*deviation)@weights, gp.GRB.MINIMIZE)
-    m.optimize()
-        
-    return offer.X
