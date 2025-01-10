@@ -426,7 +426,7 @@ ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
 color = 'tab:red'
 # ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
-ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
+ax2.set_ylabel(r'Norm. Max. Gap (%)', color=color)  # we already handled the x-label with ax1
 
 ax2.plot((np.array(WC_gap)).round(2), '-.', color=color, linewidth = 2)
 ax2.tick_params(axis='y', labelcolor=color)
