@@ -68,20 +68,20 @@ def params():
 #                     'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}}$',
 #                     'NN':'$\mathtt{Imp}$'}
 
-models_to_labels = {'LR':'$\mathtt{Imp-LS}$', 
-                    'FA-FIXED-LR':'$\mathtt{RF(fixed)-LR}$',
-                    'FA-FIXED-LDR-LR':'$\mathtt{ARF(fixed)-LR}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARF(learn)^{10}-LR}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARF(learn)^{1}-LR}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARF(learn)^{5}-LR}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARF(learn)^{2}-LR}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARF(learn)^{20}-LR}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{RF(learn)^{10}-LR}$', 
-                    'FA-FIXED-NN':'$\mathtt{RF(fixed)-NN}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{RF(learn)^{10}-NN}$', 
-                    'FA-FIXED-LDR-NN':'$\mathtt{ARF(fixed)-NN}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn)^{10}-NN}$',
-                    'NN':'$\mathtt{Imp-NN}$'}
+models_to_labels = {'LR':'$\mathtt{LR-Imp}$', 
+                    'FA-FIXED-LR':'$\mathtt{LR-RF(fixed)}$',
+                    'FA-FIXED-LDR-LR':'$\mathtt{LR-ARF(fixed)}$',
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF(learn)^{10}}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF(learn)^{1}}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF(learn)^{5}}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF(learn)^{2}}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF(learn)^{20}}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{LR-RF(learn)^{10}}$', 
+                    'FA-FIXED-NN':'$\mathtt{NN-RF(fixed)}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{NN-RF(learn)^{10}}$', 
+                    'FA-FIXED-LDR-NN':'$\mathtt{NN-ARF(fixed)}$', 
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF(learn)^{10}}$',
+                    'NN':'$\mathtt{NN-Imp}$'}
 
 
 models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
@@ -411,16 +411,16 @@ ax1.set_xlabel('Number of partitions $Q$')
 ax1.set_ylabel('RMSE (%)')
 
 temp_df = all_rmse.query(f'percentage==0.1 and steps == {min_lag}')
-ax1.plot(5*[100*temp_df.mean()['LR']], color='black', marker = '2', label = '$\mathtt{Imp-LR}$', linewidth = 1)
-ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = models_to_common_labels['FA-FIXED-LDR-LR'], linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['LR']], color='black', marker = '2', label = '$\mathtt{LR-Imp}$', linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = models_to_labels['FA-FIXED-LDR-LR'], linewidth = 1)
 
-ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{ARF(learn)}^{Q}$', linewidth = 1)
+ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF(learn)}^{Q}$', linewidth = 1)
 
 ax1.tick_params(axis='y')
 ax1.set_xticks(range(5), [1, 2, 5, 10, 20])
 
 lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
-                 bbox_to_anchor=(0.15, -0.05))
+                 bbox_to_anchor=(0.1, -0.05))
 
 ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 
