@@ -62,7 +62,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 24
+horizon = 16
 test_MCAR = True
 test_MNAR = False
 test_Censoring = False
@@ -211,19 +211,26 @@ models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
 
 # Parameters
 iterations = range(10)
-Probability_0_1 = [0, .01, .05, .1, .2]
-Probability_1_0 = [0.05, 0.1, 0.2, 0.3, 0.9]
+Probability_0_1 = [.01, .05, .1, .2]
+Probability_1_0 = [0.3, 0.9, 1]
 num_series = [2, 4, len(plant_ids)]
 
 full_experiment_list = list(itertools.product(Probability_0_1, Probability_1_0, num_series, iterations))
 
 #%%
-mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
-rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
+try:
+    mae_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_full.csv', index_col=0)
+    rmse_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_full.csv', index_col=0)
+    run_counter = len(rmse_df)
+
+except:
+    mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
+    rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
+    run_counter = 0
+
 
 # supress warning
 pd.options.mode.chained_assignment = None
-run_counter = 0
 
 #series_missing = [c + str('_1') for c in plant_ids]
 #series_missing_col = [pred_col.index(series) for series in series_missing]
@@ -242,7 +249,6 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 #%%
-
 rmse_per_missing_df = pd.DataFrame()
 
 if test_MCAR:
@@ -449,8 +455,9 @@ if test_MCAR:
         nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-FIXED-LDR-NN', 'FA-FIXED-NN', 'FA-LEARN-NN-10']
         # rmse_df.groupby(['P_0_1', 'P_1_0']).mean()[nn_models].plot()
         
-        
+      
 #%% Test for MNAR missing data
+stop_ 
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
 rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
