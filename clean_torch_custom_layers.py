@@ -182,7 +182,6 @@ def l1_norm_attack(torch_model, X, y, num_iter = 10, randomize=False):
             # Maximize MSE loss == minimize negative loss
             negative_loss = -nn.MSELoss()(pred, y)
             optimizer.zero_grad()
-            
             negative_loss.backward()
             optimizer.step()                
 
