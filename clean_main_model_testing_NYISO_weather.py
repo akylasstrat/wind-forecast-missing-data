@@ -62,11 +62,11 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 1
+horizon = 16
 test_MCAR = True
 test_MNAR = False
 test_Censoring = False
-config['save'] = False
+config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 min_lag = horizon
@@ -105,8 +105,8 @@ plt.show()
 
 print(f'target_park:{target_park}')
 
-iterations = 50
-percentage = [0, .01, .05, .1]
+# iterations = 50
+# percentage = [0, .01, .05, .1]
 
 Y, Predictors, pred_col = create_IDsupervised(target_park, scaled_power_df[plant_ids], min_lag, max_lag)
 
@@ -250,7 +250,7 @@ if test_MCAR:
     
     for prob_0_1, prob_1_0, n_miss_series, iter_ in full_experiment_list:
         
-            
+        print(run_counter)
         torch.manual_seed(run_counter)
         
         if (prob_0_1 == 0) and (iter_ >0):      
