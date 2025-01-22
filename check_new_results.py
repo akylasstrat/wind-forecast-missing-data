@@ -117,7 +117,7 @@ min_lag = horizon
 
 ### Load data for all forecast horizons
 all_rmse = []
-steps_ = [1, 4, 8, 16]
+steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
     if (weather_all_steps == True):            
         temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
