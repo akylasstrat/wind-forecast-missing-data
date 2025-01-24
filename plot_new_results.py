@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Check updated results 
+Plot results
 
 @author: a.stratigakos
 """
@@ -36,37 +36,6 @@ def params():
     params['pattern'] = 'MCAR'
     
     return params
-
-# models_to_labels = {'LR':'$\mathtt{Imp-LS}$', 
-#                     'FA-FIXED-LR':'$\mathtt{FA(fixed)-LS}$',
-#                     'FA-FIXED-LDR-LR':'$\mathtt{FLA(fixed)-LS}$',
-#                     'FA-LEARN-LDR-LR-10':'$\mathtt{FLA(learn)^{10}-LS}$', 
-#                     'FA-LEARN-LDR-LR-1':'$\mathtt{FLA(learn)^{1}-LS}$', 
-#                     'FA-LEARN-LDR-LR-5':'$\mathtt{FLA(learn)^{5}-LS}$', 
-#                     'FA-LEARN-LDR-LR-2':'$\mathtt{FLA(learn)^{2}-LS}$', 
-#                     'FA-LEARN-LDR-LR-20':'$\mathtt{FLA(learn)^{20}-LS}$', 
-#                     'FA-LEARN-LR-10':'$\mathtt{FA(learn)^{10}-LS}$', 
-#                     'FA-FIXED-NN':'$\mathtt{FA(fixed)-NN}$', 
-#                     'FA-LEARN-NN-10':'$\mathtt{FA(learn)^{10}-NN}$', 
-#                     'FA-FIXED-LDR-NN':'$\mathtt{FLA(fixed)-NN}$', 
-#                     'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}-NN}$',
-#                     'NN':'$\mathtt{Imp-NN}$'}
-
-
-# models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
-#                     'FA-FIXED-LR':'$\mathtt{FA(fixed)}$',
-#                     'FA-FIXED-LDR-LR':'$\mathtt{FLA(fixed)}$',
-#                     'FA-LEARN-LDR-LR-10':'$\mathtt{FLA(learn)^{10}}$', 
-#                     'FA-LEARN-LDR-LR-1':'$\mathtt{FLA(learn)^{1}}$', 
-#                     'FA-LEARN-LDR-LR-5':'$\mathtt{FLA(learn)^{5}}$', 
-#                     'FA-LEARN-LDR-LR-2':'$\mathtt{FLA(learn)^{2}}$', 
-#                     'FA-LEARN-LDR-LR-20':'$\mathtt{FLA(learn)^{20}}$', 
-#                     'FA-LEARN-LR-10':'$\mathtt{FA(learn)^{10}}$', 
-#                     'FA-FIXED-NN':'$\mathtt{FA(fixed)}$', 
-#                     'FA-LEARN-NN-10':'$\mathtt{FA(learn)^{10}}$', 
-#                     'FA-FIXED-LDR-NN':'$\mathtt{FLA(fixed)}$', 
-#                     'FA-LEARN-LDR-NN-10':'$\mathtt{FLA(learn)^{10}}$',
-#                     'NN':'$\mathtt{Imp}$'}
 
 models_to_labels = {'LR':'$\mathtt{LR-Imp}$', 
                     'FA-FIXED-LR':'$\mathtt{LR-RF(fixed)}$',
@@ -106,11 +75,10 @@ config = params()
 # max_lag: number of historical observations to include
 weather_all_steps = True
 
-horizon = 1
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
-config['save'] = True
+config['save'] = False
 min_lag = horizon
 
 #%% Missing Data Completely at Random (MCAR)
@@ -119,169 +87,34 @@ min_lag = horizon
 all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
-    if (weather_all_steps == True):            
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
-    temp_df['steps'] = s    
+    # mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
+    # rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
+    temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
+    temp_df['steps'] = s
+    
     all_rmse.append(temp_df)
 
-all_rmse = pd.concat(all_rmse)
-print('RMSE without missing data')
-print((100*all_rmse.query('P_0_1==0').groupby(['steps']).mean()).round(2))
 
-all_rmse.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_all_RMSE_results_full.csv')
+all_rmse = pd.concat(all_rmse)
+
+print('RMSE without missing data')
+print((100*all_rmse.query(f'percentage==0').groupby(['steps']).mean()).round(2))
     
 ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
 nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
 
 #%%
-LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
-NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
+(100*all_rmse.query('percentage>0.001').groupby(['steps']).mean()).round(2).to_clipboard()
 
+#%% RMSE vs number of missing features
+# rmse_missing_feat  = pd.read_csv(f'{cd}\\new_results\\15min_Noble Clinton_MCAR_24_steps_RMSE_vs_missing_features_weather.csv', index_col = 0)
+# w_rmse_missing_feat = rmse_missing_feat*rmse_missing_feat['Count'].values.reshape(-1,1)
 
-(100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LS_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
+# LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+# NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
 
-#%% Randomly missing data plots
+# rmse_missing_feat.groupby('Number missing').mean()[LS_models_to_plot].plot(yerr = rmse_missing_feat.groupby('Number missing').std()[LS_models_to_plot])
 
-# dictionary for subplots
-ax_lbl = [[0, 1], 
-          [2, 3], 
-          [4, 5]]
-
-p_0_1_list = [0.05, 0.1]
-p_1_0_list = [0.1, 0.2, 1]
-step_list = [1, 4, 8, 16, 24]
-
-# axis ratio
-gs_kw = dict(width_ratios=[1, 1], height_ratios=[1, 1, 1])
-
-fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (2*3.5, 1.5*3), 
-                             gridspec_kw = gs_kw, sharex = True, sharey = True)
-
-# loop over series
-
-
-# full_experiment_list = list(itertools.product(Probability_0_1, Probability_1_0, num_series, iterations))
-
-marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
-colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
-
-# print('Improvement over Imputation')
-# print( (100*((ave_improve_horizon['LR']-ave_improve_horizon['FA-LEARN-LDR-LR-10'])/ave_improve_horizon['LR'])).round(2) )
-
-# props = dict(boxstyle='round', facecolor='white', alpha=0.5)
-
-
-# fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-#                          sharey = True, figsize = (3.5, 2.8))
-# plt.sca(axes[0])
-# axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-
-# for i,m in enumerate(LS_models_to_plot):
-
-#     plt.errorbar(np.arange(len(steps_))+i*0.1, 
-#                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
-
-cnt = 0
-for i, p_1_0 in enumerate(p_1_0_list):
-    for j, p_0_1 in enumerate(p_0_1_list):
-        temp_df = all_rmse.query(f'P_0_1=={p_0_1} and P_1_0=={p_1_0} and num_series==8')
-
-        std_bar = 100*(temp_df.groupby(['steps'])[LS_models_to_plot + NN_models_to_plot].std())
-        x_val = temp_df['steps'].unique().astype(int)
-        
-        current_axis = ax[cnt]
-        plt.sca(current_axis)
-        current_axis.title.set_text(rf'$P_{{1,0}}={p_1_0}$, $P_{{0,1}}={p_0_1}$')
-        # plt.plot(100*temp_df.groupby(['steps'])[LS_models_to_plot].mean())        
-        
-        for k,m in enumerate(LS_models_to_plot):
-            # Line plots
-            
-            y_val = 100*temp_df.groupby(['steps'])[m].mean()
-            
-            plt.plot(x_val, y_val, color = colors[k], marker = marker[k], linestyle = '-', linewidth = 1)
-            plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
-
-            # plt.plot(100*temp_df.groupby(['steps'])[m].mean(), label = m, marker = marker[k], color = colors[k])        
-            # plt.errorbar(np.arange(len(steps_))+i*0.1, 
-            #              ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
-        
-        cnt+=1
-        
-        # base_no_missing_data = 100*all_rmse.query('P_0_1 == 0').groupby(['steps'])['LR'].mean()
-        # plt.plot(x_val, base_no_missing_data, linestyle = '--', linewidth = 2, 
-        #          color = 'black')
-        
-        # if current_axis in [4,5]:
-        plt.xticks(x_val, x_val)
-            
-            # ax[4].set_xticks(x_val)
-            # ax[5].set_xticklabels(x_val)
-
-# fig.set_xticks(x_val, np.arange(5))
-fig.supxlabel('RMSE (%)')
-fig.supxlabel(r'Horizon $h$')
-        # if current_axis in [0,2,4]:
-        #     plt.ylabel('RMSE (%)')
-        # if current_axis in []
-        # plt.xlabel(r'Horizon $h$')
-    
-# for s, series in enumerate(series_dict.keys()):
-#     temp_df = df_total[s].copy()
-#     # set current axis
-#     plt.sca( ax[series] )
-        
-#     # loop over models      
-#     line_plots = []
-#     for i, m in enumerate(models_to_plot):
-#         if m=='BASE-retrain':
-#             style = 'dashed'
-#         else: style='solid'
-        
-#         x_val = temp_df['feat_del'].unique()
-#         values = temp_df.groupby(['feat_del'])[m].mean()
-#         if series in ['solar', 'wind', 'load']:
-#             values = values*100
-            
-#         #std = temp_df.groupby(['feat_del'])[m].std()
-#         # Main plot
-#         temp_line_plot = plt.plot(x_val, values, marker = marker[i], color = colors[i], label = labels[i], linestyle = style,
-#                  markersize = 4, linewidth = .75)
-
-#         line_plots.append(temp_line_plot)
-
-#     # axis details
-#     ax[series].annotate(series_dict[series]['title'], (0.2, 0.85), color = 'black', 
-#                         xycoords = 'axes fraction', fontsize = 8,
-#                    bbox=dict(facecolor='none', edgecolor='black', boxstyle='square'))
-#     #plt.title(series_dict[series]['title'])
-#     plt.ylabel(series_dict[series]['ylabel'])
-
-#     # specific details per series
-#     if series == 'prices':
-#         plt.xlabel('# of missing features')
-#         plt.xticks(x_val, x_val.astype(int))
-
-#     elif series == 'solar':        
-#         plt.xticks(x_val[::2], x_val.astype(int)[::2])
-#         plt.xlabel('# of missing features')
-#     elif series == 'wind':
-#         plt.xlabel('# of missing groups')
-#         plt.xticks(x_val, x_val.astype(int))
-#         ax[series].yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}')) # No decimal places
-
-#     elif series == 'load':
-#         plt.xlabel('# of missing groups')
-#         plt.xticks(x_val, x_val.astype(int))
-#         plt.ylim([2.5,22.5])
-
-# # common legend
-# #ax['prices'].legend(loc='upper left', fontsize = 8, ncol=2)
-# lgd = fig.legend([l[0] for l in line_plots], labels, fontsize=6, ncol=4, loc = (1, .8), 
-#                  bbox_to_anchor=(0.1, -0.125))
-# if config['save']: 
-#     fig.savefig(cd+'\\figures\\accuracy-vs-num_del_feat.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
-# plt.show()
 #%% MCAR plots
 LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
 NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
