@@ -62,7 +62,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 #%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 16
+horizon = 24
 test_MCAR = True
 test_MNAR = False
 test_Censoring = False
@@ -212,7 +212,7 @@ models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
 # Parameters
 iterations = range(10)
 Probability_0_1 = [.01, .05, .1, .2]
-Probability_1_0 = [0.3, 0.9, 1]
+Probability_1_0 = [1]
 num_series = [2, 4, len(plant_ids)]
 
 full_experiment_list = list(itertools.product(Probability_0_1, Probability_1_0, num_series, iterations))
