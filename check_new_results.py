@@ -133,155 +133,106 @@ all_rmse.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_all_RMSE_results_
 ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
 nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
 
-#%%
-LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+#%% Randomly missing data plots
+
+LR_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
 NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
 
 
-(100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LS_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
+(100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
 
-#%% Randomly missing data plots
+
+import itertools
+
+markers = {
+    "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
+    "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
+    "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
+    "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
+    "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'},
+    "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
+    "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
+    "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
+    "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
+    "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'}}
+
 
 # dictionary for subplots
-ax_lbl = [[0, 1], 
-          [2, 3], 
-          [4, 5]]
+ax_lbl = np.arange(9).reshape(3,3)
 
-p_0_1_list = [0.05, 0.1]
-p_1_0_list = [0.1, 0.2, 1]
-step_list = [1, 4, 8, 16, 24]
+p_0_1_list = [0.05, 0.1, 0.2]
+p_1_0_list = [1, 0.2, 0.1]
+step_list = [1, 4, 8, 16]
+base_model = 'NN'
+delta_step = 0.2
+markersize = 4.5
+fontsize = 7
+props = dict(boxstyle='round', facecolor='white', alpha=0.3)
+
+full_experiment_list = list(itertools.product(p_1_0_list, p_0_1_list))
 
 # axis ratio
-gs_kw = dict(width_ratios=[1, 1], height_ratios=[1, 1, 1])
+gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1, 1])
 
-fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (2*3.5, 1.5*3), 
+fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.3*3), 
                              gridspec_kw = gs_kw, sharex = True, sharey = True)
 
-# loop over series
+# RMSE without missing data per horizon
+nominal_rmse_horizon = (100*all_rmse.query('P_0_1==0').groupby(['steps'])[['LR', 'NN']].mean()).round(2)
 
 
-# full_experiment_list = list(itertools.product(Probability_0_1, Probability_1_0, num_series, iterations))
+if base_model == 'LR': models_to_plot = LR_models_to_plot
+elif base_model =='NN': models_to_plot = NN_models_to_plot
 
-marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
-colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
+for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
+    
+    temp_df = all_rmse.query(f'P_0_1=={p_0_1} and P_1_0=={p_1_0} and num_series==8 and steps in {step_list}')
 
-# print('Improvement over Imputation')
-# print( (100*((ave_improve_horizon['LR']-ave_improve_horizon['FA-LEARN-LDR-LR-10'])/ave_improve_horizon['LR'])).round(2) )
+    std_bar = 100*(temp_df.groupby(['steps'])[LR_models_to_plot + NN_models_to_plot].std())
+    x_val = temp_df['steps'].unique().astype(int)
+    y_val_horizon = 100*(temp_df.groupby(['steps'])[LR_models_to_plot + NN_models_to_plot].mean())
+    
+    current_axis = ax[cnt]
+    plt.sca(current_axis)
 
-# props = dict(boxstyle='round', facecolor='white', alpha=0.5)
+    # # Suptitle
+    text_title = rf'$P_{{1,1}}={1-p_1_0}$' +'\n'+ rf'$P_{{0,1}}={p_0_1}$'
+    # current_axis.title.set_text(text_title)
 
+    # Text to indicate forecasting model for each subplot
+    current_axis.text(0.025, 0.97, text_title, transform = current_axis.transAxes, 
+                      fontsize=fontsize, verticalalignment='top', bbox=props)
+    
+    line_list = []
 
-# fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-#                          sharey = True, figsize = (3.5, 2.8))
-# plt.sca(axes[0])
-# axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-
-# for i,m in enumerate(LS_models_to_plot):
-
-#     plt.errorbar(np.arange(len(steps_))+i*0.1, 
-#                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
-
-cnt = 0
-for i, p_1_0 in enumerate(p_1_0_list):
-    for j, p_0_1 in enumerate(p_0_1_list):
-        temp_df = all_rmse.query(f'P_0_1=={p_0_1} and P_1_0=={p_1_0} and num_series==8')
-
-        std_bar = 100*(temp_df.groupby(['steps'])[LS_models_to_plot + NN_models_to_plot].std())
-        x_val = temp_df['steps'].unique().astype(int)
+    for k,m in enumerate(models_to_plot):
+        # Line plots
+        y_val = 100*temp_df.groupby(['steps'])[m].mean()
+        plt.plot(np.arange(len(step_list))+k*delta_step, 
+                     y_val_horizon[m].values, linestyle = '', **markers[m], markersize = markersize)
         
-        current_axis = ax[cnt]
-        plt.sca(current_axis)
-        current_axis.title.set_text(rf'$P_{{1,0}}={p_1_0}$, $P_{{0,1}}={p_0_1}$')
-        # plt.plot(100*temp_df.groupby(['steps'])[LS_models_to_plot].mean())        
-        
-        for k,m in enumerate(LS_models_to_plot):
-            # Line plots
-            
-            y_val = 100*temp_df.groupby(['steps'])[m].mean()
-            
-            plt.plot(x_val, y_val, color = colors[k], marker = marker[k], linestyle = '-', linewidth = 1)
-            plt.fill_between(x_val, y_val- std_bar[m], y_val+ std_bar[m], alpha = 0.2, color = colors[i])    
+    for l, s in enumerate(step_list):
+        nom_line = current_axis.plot( np.arange(l, 5*delta_step + l, delta_step), 5*[nominal_rmse_horizon.loc[s][base_model]], 
+                 '--', color = 'black', markersize = markersize)
+        nom_line[0].set_dashes([3,1])
 
-            # plt.plot(100*temp_df.groupby(['steps'])[m].mean(), label = m, marker = marker[k], color = colors[k])        
-            # plt.errorbar(np.arange(len(steps_))+i*0.1, 
-            #              ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
-        
-        cnt+=1
-        
-        # base_no_missing_data = 100*all_rmse.query('P_0_1 == 0').groupby(['steps'])['LR'].mean()
-        # plt.plot(x_val, base_no_missing_data, linestyle = '--', linewidth = 2, 
-        #          color = 'black')
-        
-        # if current_axis in [4,5]:
-        plt.xticks(x_val, x_val)
-            
-            # ax[4].set_xticks(x_val)
-            # ax[5].set_xticklabels(x_val)
+    plt.xticks(np.arange(len(step_list))+0.25, x_val)
+
+lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
+lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
 
 # fig.set_xticks(x_val, np.arange(5))
-fig.supxlabel('RMSE (%)')
-fig.supxlabel(r'Horizon $h$')
-        # if current_axis in [0,2,4]:
-        #     plt.ylabel('RMSE (%)')
-        # if current_axis in []
-        # plt.xlabel(r'Horizon $h$')
-    
-# for s, series in enumerate(series_dict.keys()):
-#     temp_df = df_total[s].copy()
-#     # set current axis
-#     plt.sca( ax[series] )
-        
-#     # loop over models      
-#     line_plots = []
-#     for i, m in enumerate(models_to_plot):
-#         if m=='BASE-retrain':
-#             style = 'dashed'
-#         else: style='solid'
-        
-#         x_val = temp_df['feat_del'].unique()
-#         values = temp_df.groupby(['feat_del'])[m].mean()
-#         if series in ['solar', 'wind', 'load']:
-#             values = values*100
-            
-#         #std = temp_df.groupby(['feat_del'])[m].std()
-#         # Main plot
-#         temp_line_plot = plt.plot(x_val, values, marker = marker[i], color = colors[i], label = labels[i], linestyle = style,
-#                  markersize = 4, linewidth = .75)
+ysuplabel = fig.supylabel('RMSE (%)')
+fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
 
-#         line_plots.append(temp_line_plot)
+lgd = fig.legend(lines[:5], labels[:5], fontsize=fontsize, ncol = 3, loc = (1, .8), 
+                 bbox_to_anchor=(0.25, -0.1))
 
-#     # axis details
-#     ax[series].annotate(series_dict[series]['title'], (0.2, 0.85), color = 'black', 
-#                         xycoords = 'axes fraction', fontsize = 8,
-#                    bbox=dict(facecolor='none', edgecolor='black', boxstyle='square'))
-#     #plt.title(series_dict[series]['title'])
-#     plt.ylabel(series_dict[series]['ylabel'])
+if config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat.pdf',  
+                bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
+plt.show()
 
-#     # specific details per series
-#     if series == 'prices':
-#         plt.xlabel('# of missing features')
-#         plt.xticks(x_val, x_val.astype(int))
-
-#     elif series == 'solar':        
-#         plt.xticks(x_val[::2], x_val.astype(int)[::2])
-#         plt.xlabel('# of missing features')
-#     elif series == 'wind':
-#         plt.xlabel('# of missing groups')
-#         plt.xticks(x_val, x_val.astype(int))
-#         ax[series].yaxis.set_major_formatter(StrMethodFormatter('{x:,.0f}')) # No decimal places
-
-#     elif series == 'load':
-#         plt.xlabel('# of missing groups')
-#         plt.xticks(x_val, x_val.astype(int))
-#         plt.ylim([2.5,22.5])
-
-# # common legend
-# #ax['prices'].legend(loc='upper left', fontsize = 8, ncol=2)
-# lgd = fig.legend([l[0] for l in line_plots], labels, fontsize=6, ncol=4, loc = (1, .8), 
-#                  bbox_to_anchor=(0.1, -0.125))
-# if config['save']: 
-#     fig.savefig(cd+'\\figures\\accuracy-vs-num_del_feat.pdf', bbox_extra_artists=(lgd,), bbox_inches='tight')
-# plt.show()
 #%% MCAR plots
 LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
 NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
