@@ -140,11 +140,11 @@ NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', '
 
 
 (100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
-
+#%%
 
 import itertools
 
-markers = {
+marker_dict = {
     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
     "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
     "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
@@ -163,7 +163,7 @@ ax_lbl = np.arange(9).reshape(3,3)
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'NN'
+base_model = 'LR'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
@@ -174,7 +174,7 @@ full_experiment_list = list(itertools.product(p_1_0_list, p_0_1_list))
 # axis ratio
 gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1, 1])
 
-fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.3*3), 
+fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.05*3), 
                              gridspec_kw = gs_kw, sharex = True, sharey = True)
 
 # RMSE without missing data per horizon
@@ -195,21 +195,36 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
     current_axis = ax[cnt]
     plt.sca(current_axis)
 
-    # # Suptitle
-    text_title = rf'$P_{{1,1}}={1-p_1_0}$' +'\n'+ rf'$P_{{0,1}}={p_0_1}$'
+    # Suptitle or Text to indicate forecasting model for each subplot
+    text_title = rf'$P_{{0,1}}={p_0_1}$'+'\n'+rf'$P_{{1,1}}={1-p_1_0}$'  
     # current_axis.title.set_text(text_title)
-
-    # Text to indicate forecasting model for each subplot
-    current_axis.text(0.025, 0.97, text_title, transform = current_axis.transAxes, 
+    # current_axis.text(0.025, 0.97, text_title, transform = current_axis.transAxes, 
+    #                   fontsize=fontsize, verticalalignment='top', bbox=props)
+    current_axis.text(0.65, 0.35, text_title, transform = current_axis.transAxes, 
                       fontsize=fontsize, verticalalignment='top', bbox=props)
-    
-    line_list = []
+        
+    # model_lists = ([[base_model], ['FA-FIXED-'+base_model, 'FA-LEARN-'+base_model+'-10'], 
+    #                       ['FA-FIXED-LDR-'+base_model, 'FA-LEARN-LDR-'+base_model+'-10']])
+    # for k, sublist in enumerate(model_lists):
+    #     # Line plots
+    #     for m in sublist:
+    #         y_val = 100*temp_df.groupby(['steps'])[m].mean()
+    #         plt.plot(np.arange(len(step_list))+k*delta_step, 
+    #                      y_val_horizon[m].values, linestyle = '', **marker_dict[m], markersize = markersize)
+
+    # for l, s in enumerate(step_list):
+        
+    #     nom_line = current_axis.plot( np.arange(l, len(model_lists)*delta_step + l, delta_step), 
+    #                                  len(model_lists)*[nominal_rmse_horizon.loc[s][base_model]], 
+    #              '--', color = 'black', markersize = markersize)
+    #     nom_line[0].set_dashes([3,1])
 
     for k,m in enumerate(models_to_plot):
         # Line plots
         y_val = 100*temp_df.groupby(['steps'])[m].mean()
-        plt.plot(np.arange(len(step_list))+k*delta_step, 
-                     y_val_horizon[m].values, linestyle = '', **markers[m], markersize = markersize)
+        x_val = np.arange(len(step_list))+k*delta_step
+        plt.plot(x_val, y_val_horizon[m].values, 
+                 linestyle = '', **marker_dict[m], markersize = markersize)
         
     for l, s in enumerate(step_list):
         nom_line = current_axis.plot( np.arange(l, 5*delta_step + l, delta_step), 5*[nominal_rmse_horizon.loc[s][base_model]], 
@@ -224,8 +239,9 @@ lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
 # fig.set_xticks(x_val, np.arange(5))
 ysuplabel = fig.supylabel('RMSE (%)')
 fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
+plt.ylim([1.5, 20.5])
 
-lgd = fig.legend(lines[:5], labels[:5], fontsize=fontsize, ncol = 3, loc = (1, .8), 
+lgd = fig.legend(lines[:5], [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:5]], fontsize=fontsize, ncol = 3, loc = (1, .8), 
                  bbox_to_anchor=(0.25, -0.1))
 
 if config['save']:
@@ -233,78 +249,247 @@ if config['save']:
                 bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
 plt.show()
 
-#%% MCAR plots
-LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
-NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
+#%% Sensitivity analysis // LS
+min_lag = 1
 
-#### RMSE vs forecast horizon, both LS & NN, specific probability
-nominal_rmse_LS = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['LR'].mean()).round(2)
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_NN_models_dict = pickle.load(handle)                   
 
-ave_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).mean())
-std_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).std())
+model_dictionary = FA_LEARN_LDR_LR_models_dict
+### Find WC performance gap
+WC_gap = []
+Q_array = np.array(list(model_dictionary.keys()))
+for q in np.sort(Q_array):
+    temp_model = model_dictionary[q]
+    leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
+        
+    WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
 
-marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
-colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
+### Sensitivity analysis table results
+models_to_plot = ['LR', 'FA-FIXED-LDR-LR','FA-LEARN-LDR-LR-1', 'FA-LEARN-LDR-LR-2', 'FA-LEARN-LDR-LR-5', 
+                  'FA-LEARN-LDR-LR-10', 'FA-LEARN-LDR-LR-20']
 
-print('Improvement over Imputation')
-print( (100*((ave_improve_horizon['LR']-ave_improve_horizon['FA-LEARN-LDR-LR-10'])/ave_improve_horizon['LR'])).round(2) )
+print( 100*all_rmse.query(f'P_0_1==0.1 and P_0_1 == 0.2 and steps == {min_lag}').mean()[models_to_plot] )
+print('WC Gap, percentage')
+print((np.array(WC_gap)).round(2))
+
+### Sensitivity plot
+fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 1.5))
+ax1.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
+color = 'tab:red'
+ax1.set_xlabel('Number of partitions $Q$')
+ax1.set_ylabel('RMSE (%)')
+
+temp_df = all_rmse.query(f'P_0_1==0.1 and P_1_0 == 0.1 and steps == {min_lag} and num_series == 8')
+
+# Lines
+ax1.plot(5*[100*temp_df.mean()['LR']],  color = 'black', linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color = 'black', linewidth = 1)
+ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', linewidth = 1)
+
+# Markers
+ax1.plot(5*[100*temp_df.mean()['LR']], marker = marker_dict['LR']['marker'],  color = marker_dict['LR']['color'],
+         markeredgewidth = marker_dict['LR']['markeredgewidth'], label = '$\mathtt{LR-Imp}$', linestyle = '')
+
+ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], marker = marker_dict['FA-FIXED-LDR-LR']['marker'],  color = marker_dict['FA-FIXED-LDR-LR']['color'],
+         markeredgewidth = marker_dict['FA-FIXED-LDR-LR']['markeredgewidth'], 
+         markerfacecolor = marker_dict['FA-FIXED-LDR-LR']['markerfacecolor'], 
+         label = '$\mathtt{LR-ARF(fixed)}$', linestyle = '')
+
+ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', 
+         marker = marker_dict['FA-LEARN-LDR-LR-10']['marker'],
+         markeredgewidth = marker_dict['FA-LEARN-LDR-LR-10']['markeredgewidth'], 
+         markerfacecolor = 'white',
+         label = '$\mathtt{LR-ARF(learn)}^{Q}$', linestyle = '')
+
+ax1.tick_params(axis='y')
+ax1.set_xticks(range(5), [1, 2, 5, 10, 20])
+
+lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
+                 bbox_to_anchor=(0.1, -0.05))
+
+ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
+
+color = 'tab:red'
+# ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
+ax2.set_ylabel(r'Norm. Max. Gap (%)', color=color)  # we already handled the x-label with ax1
+
+ax2.plot((np.array(WC_gap)).round(2), '-.', color=color, linewidth = 2)
+ax2.tick_params(axis='y', labelcolor=color)
+
+fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+if weather_all_steps and config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+elif (weather_all_steps == False) and config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+plt.show()
+
+#%% Censored missing data// adversarial missingness mechanism
+
+mnar_rmse_df = []
+weather_all_steps = True
+step_list = [1,4,8,16]
+delta_step = 0.15
+### Load results
+for s in steps_:
+    if (weather_all_steps) or (s>=8):
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
+    else:
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{s}_steps_RMSE_results.csv', index_col = 0)
+        
+    temp_df['steps'] = s    
+    mnar_rmse_df.append(temp_df)
+mnar_rmse_df = pd.concat(mnar_rmse_df)
+
+#### Plot for all the horizons
+ave_mnar_rmse_horizon = 100*(mnar_rmse_df.groupby(['steps']).mean())
+std_mnar_rmse_horizon = (mnar_rmse_df.groupby(['steps']).std())
 
 props = dict(boxstyle='round', facecolor='white', alpha=0.5)
-
-
 fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 2.8))
+                         sharey = True, figsize = (3.5, 2.2))
+
 plt.sca(axes[0])
 axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
-for i,m in enumerate(LS_models_to_plot):
+for i,m in enumerate(LR_models_to_plot):
+    plt.plot(np.arange(len(step_list))+i*delta_step, 
+                 ave_mnar_rmse_horizon.loc[step_list][m].values, 
+                 linestyle = '', **marker_dict[m])
 
-    plt.errorbar(np.arange(len(steps_))+i*0.1, 
-                 ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
+    # plt.errorbar(np.arange(len(step_list))+i*0.1, 
+    #              ave_mnar_rmse_horizon[m].values, yerr=std_mnar_rmse_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
 
 # BASE CASE MODEL (no missing data)
-for i, s in enumerate(steps_):
-    plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_LS.loc[s]], '--', color = 'black')
+for i, s in enumerate(step_list):
+    plt.plot( np.arange(i, 5*delta_step + i, delta_step), 5*[nominal_rmse_horizon.loc[s]['LR']], '--', color = 'black')
     
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
-
-nominal_rmse_NN = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['NN'].mean()).round(2)
 
 plt.sca(axes[1])
 axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 for i,m in enumerate(NN_models_to_plot):
 
-    plt.errorbar(np.arange(len(steps_))+i*0.1, 
-                 ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
-                 label = models_to_common_labels[m])
+    plt.plot(np.arange(len(step_list))+i*delta_step, 
+                 ave_mnar_rmse_horizon.loc[step_list][m].values, 
+                 linestyle = '', **marker_dict[m])
+    
+    # plt.errorbar(np.arange(len(steps_))+i*0.1, 
+    #              ave_mnar_rmse_horizon[m].values, yerr=std_mnar_rmse_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+    #              label = models_to_common_labels[m])
 
 # BASE CASE MODEL (no missing data)    
-for i, s in enumerate(steps_):
-    # if i ==0:
-    #     plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black', label = '$\mathtt{NN}$')
-    # else:
-    plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black')
+for i, s in enumerate(step_list):
+    plt.plot( np.arange(i, 5*delta_step + i, delta_step), 5*[nominal_rmse_horizon.loc[s]['NN']], '--', color = 'black')
 
 plt.ylabel('RMSE (%)')
-plt.xticks(np.arange(len(steps_))+0.25, steps_)
+plt.xticks(np.arange(len(step_list))+0.25, step_list)
 plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
 
 # Text to indicate forecasting model for each subplot
-axes[0].text(0.05, 0.95, 'Forecasting model: $\mathtt{LR}$', transform=axes[0].transAxes, fontsize=6,
+axes[0].text(0.02, 0.95, 'Forecasting model: $\mathtt{LR}$', transform=axes[0].transAxes, fontsize=6,
         verticalalignment='top', bbox=props)
 
-axes[1].text(0.05, 0.95, 'Forecasting model: $\mathtt{NN}$', transform=axes[1].transAxes, fontsize=6,
+axes[1].text(0.02, 0.95, 'Forecasting model: $\mathtt{NN}$', transform=axes[1].transAxes, fontsize=6,
         verticalalignment='top', bbox=props)
 
-lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
-                 bbox_to_anchor=(0.15, -0.1))
+lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
+lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+
+lgd = fig.legend(lines[:5], labels[:5], ncol = 3, loc = (1, .8), 
+                 bbox_to_anchor=(0.15, -0.125), fontsize = 6)
+
+# lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
+#                  bbox_to_anchor=(0.15, -0.1))
 
 if weather_all_steps and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_LS_NN_abs_RMSE_vs_horizon_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_CENSOR_vs_horizon_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 elif (weather_all_steps == False) and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_LS_NN_abs_RMSE_vs_horizon.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_CENSOR_vs_horizon.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
+
+
+#%% MCAR plots
+# LS_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+# NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
+
+# #### RMSE vs forecast horizon, both LS & NN, specific probability
+# nominal_rmse_LS = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['LR'].mean()).round(2)
+
+# ave_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).mean())
+# std_improve_horizon = 100*(all_rmse.query(f'percentage==0.1').groupby(['steps']).std())
+
+# marker = ['2', 'o', 'd', '^', '8', '1', '+', 's', 'v', '*', '^', 'p', '3', '4']
+# colors = ['black', 'tab:blue', 'tab:brown', 'tab:orange', 'tab:green']
+
+# print('Improvement over Imputation')
+# print( (100*((ave_improve_horizon['LR']-ave_improve_horizon['FA-LEARN-LDR-LR-10'])/ave_improve_horizon['LR'])).round(2) )
+
+# props = dict(boxstyle='round', facecolor='white', alpha=0.5)
+
+
+# fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
+#                          sharey = True, figsize = (3.5, 2.8))
+# plt.sca(axes[0])
+# axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
+# for i,m in enumerate(LS_models_to_plot):
+
+#     plt.errorbar(np.arange(len(steps_))+i*0.1, 
+#                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
+
+# # BASE CASE MODEL (no missing data)
+# for i, s in enumerate(steps_):
+#     plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_LS.loc[s]], '--', color = 'black')
+    
+# plt.ylabel('RMSE (%)')
+# plt.xticks(np.arange(len(steps_))+0.25, steps_)
+
+# nominal_rmse_NN = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['NN'].mean()).round(2)
+
+# plt.sca(axes[1])
+# axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+# for i,m in enumerate(NN_models_to_plot):
+
+#     plt.errorbar(np.arange(len(steps_))+i*0.1, 
+#                  ave_improve_horizon[m].values, yerr=std_improve_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
+#                  label = models_to_common_labels[m])
+
+# # BASE CASE MODEL (no missing data)    
+# for i, s in enumerate(steps_):
+#     # if i ==0:
+#     #     plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black', label = '$\mathtt{NN}$')
+#     # else:
+#     plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black')
+
+# plt.ylabel('RMSE (%)')
+# plt.xticks(np.arange(len(steps_))+0.25, steps_)
+# plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
+
+# # Text to indicate forecasting model for each subplot
+# axes[0].text(0.05, 0.95, 'Forecasting model: $\mathtt{LR}$', transform=axes[0].transAxes, fontsize=6,
+#         verticalalignment='top', bbox=props)
+
+# axes[1].text(0.05, 0.95, 'Forecasting model: $\mathtt{NN}$', transform=axes[1].transAxes, fontsize=6,
+#         verticalalignment='top', bbox=props)
+
+# lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
+#                  bbox_to_anchor=(0.15, -0.1))
+
+# if weather_all_steps and config['save']:
+#     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_LS_NN_abs_RMSE_vs_horizon_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+# elif (weather_all_steps == False) and config['save']:
+#     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_LS_NN_abs_RMSE_vs_horizon.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+# plt.show()
 
 #%% Detailed RMSE for a specific horizon, across all probabilities
 
@@ -446,75 +631,7 @@ print( (100*temp_df.groupby(['percentage'])[NN_models_to_plot].mean()).round(2))
 (100*temp_df.groupby(['percentage'])[NN_models_to_plot].mean()).round(2).to_clipboard()
 
 
-#%% Sensitivity analysis // LS
-min_lag = 1
-if weather_all_steps or (min_lag>=8):
-    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
-        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
-    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
-        FA_LEARN_LR_models_dict = pickle.load(handle)           
-    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
-        FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
-    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
-        FA_LEARN_NN_models_dict = pickle.load(handle)                   
-else:
-    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict.pickle', 'rb') as handle:
-        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)
 
-model_dictionary = FA_LEARN_LDR_LR_models_dict
-### Find WC performance gap
-WC_gap = []
-Q_array = np.array(list(model_dictionary.keys()))
-for q in np.sort(Q_array):
-    temp_model = model_dictionary[q]
-    leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
-        
-    WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
-
-### Sensitivity analysis table results
-models_to_plot = ['LR', 'FA-FIXED-LDR-LR','FA-LEARN-LDR-LR-1', 'FA-LEARN-LDR-LR-2', 'FA-LEARN-LDR-LR-5', 
-                  'FA-LEARN-LDR-LR-10', 'FA-LEARN-LDR-LR-20']
-
-print( 100*all_rmse.query(f'percentage==0.1 and steps == {min_lag}').mean()[models_to_plot] )
-print('WC Gap, percentage')
-print((np.array(WC_gap)).round(2))
-
-### Sensitivity plot
-fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 1.5))
-ax1.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-
-color = 'tab:red'
-ax1.set_xlabel('Number of partitions $Q$')
-ax1.set_ylabel('RMSE (%)')
-
-temp_df = all_rmse.query(f'percentage==0.1 and steps == {min_lag}')
-ax1.plot(5*[100*temp_df.mean()['LR']], color='black', marker = '2', label = '$\mathtt{LR-Imp}$', linewidth = 1)
-ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = models_to_labels['FA-FIXED-LDR-LR'], linewidth = 1)
-
-ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF(learn)}^{Q}$', linewidth = 1)
-
-ax1.tick_params(axis='y')
-ax1.set_xticks(range(5), [1, 2, 5, 10, 20])
-
-lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
-                 bbox_to_anchor=(0.1, -0.05))
-
-ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
-
-color = 'tab:red'
-# ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
-ax2.set_ylabel(r'Norm. Max. Gap (%)', color=color)  # we already handled the x-label with ax1
-
-ax2.plot((np.array(WC_gap)).round(2), '-.', color=color, linewidth = 2)
-ax2.tick_params(axis='y', labelcolor=color)
-
-fig.tight_layout()  # otherwise the right y-label is slightly clipped
-
-if weather_all_steps and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
-elif (weather_all_steps == False) and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
-plt.show()
 
 #%% Missing Not at Random plots // all horizons
 
@@ -632,75 +749,3 @@ elif (weather_all_steps == False) and config['save']:
 plt.show()
 
 
-#%% Censored missing data// adversarial missingness mechanism
-
-mnar_rmse_df = []
-
-### Load results
-for s in steps_:
-    if (weather_all_steps) or (s>=8):
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{s}_steps_RMSE_results_weather.csv', index_col = 0)
-    else:
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{s}_steps_RMSE_results.csv', index_col = 0)
-        
-    temp_df['steps'] = s    
-    mnar_rmse_df.append(temp_df)
-mnar_rmse_df = pd.concat(mnar_rmse_df)
-
-#### Plot for all the horizons
-ave_mnar_rmse_horizon = 100*(mnar_rmse_df.groupby(['steps']).mean())
-std_mnar_rmse_horizon = (mnar_rmse_df.groupby(['steps']).std())
-
-
-props = dict(boxstyle='round', facecolor='white', alpha=0.5)
-fig, axes = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
-                         sharey = True, figsize = (3.5, 2.8))
-
-plt.sca(axes[0])
-axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-
-for i,m in enumerate(ls_models_to_plot):
-
-    plt.errorbar(np.arange(len(steps_))+i*0.1, 
-                 ave_mnar_rmse_horizon[m].values, yerr=std_mnar_rmse_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i])
-
-# BASE CASE MODEL (no missing data)
-for i, s in enumerate(steps_):
-    plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_LS.loc[s]], '--', color = 'black')
-    
-plt.ylabel('RMSE (%)')
-plt.xticks(np.arange(len(steps_))+0.25, steps_)
-
-nominal_rmse_NN = (100*all_rmse.query(f'percentage==0').groupby(['steps'])['NN'].mean()).round(2)
-
-plt.sca(axes[1])
-axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-for i,m in enumerate(nn_models_to_plot):
-
-    plt.errorbar(np.arange(len(steps_))+i*0.1, 
-                 ave_mnar_rmse_horizon[m].values, yerr=std_mnar_rmse_horizon[m].values, linestyle = '', marker = marker[i], color = colors[i], 
-                 label = models_to_common_labels[m])
-
-# BASE CASE MODEL (no missing data)    
-for i, s in enumerate(steps_):
-    plt.plot( np.arange(i, 5*0.1 + i, 0.1), 5*[nominal_rmse_NN.loc[s]], '--', color = 'black')
-
-plt.ylabel('RMSE (%)')
-plt.xticks(np.arange(len(steps_))+0.25, steps_)
-plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
-
-# Text to indicate forecasting model for each subplot
-axes[0].text(0.05, 0.95, 'Forecasting model: $\mathtt{LR}$', transform=axes[0].transAxes, fontsize=6,
-        verticalalignment='top', bbox=props)
-
-axes[1].text(0.05, 0.95, 'Forecasting model: $\mathtt{NN}$', transform=axes[1].transAxes, fontsize=6,
-        verticalalignment='top', bbox=props)
-
-lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
-                 bbox_to_anchor=(0.15, -0.1))
-
-if weather_all_steps and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_CENSOR_vs_horizon_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
-elif (weather_all_steps == False) and config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_CENSOR_vs_horizon.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
-plt.show()
