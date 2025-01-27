@@ -377,6 +377,7 @@ for i, s in enumerate(step_list):
     
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
+plt.ylim([1.5, 20.5])
 
 plt.sca(axes[1])
 axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
@@ -397,6 +398,7 @@ for i, s in enumerate(step_list):
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(step_list))+0.25, step_list)
 plt.xlabel(r'Forecast horizon $h$ (15 minutes)')
+plt.ylim([1.5, 20.5])
 
 # Text to indicate forecasting model for each subplot
 axes[0].text(0.02, 0.95, 'Forecasting model: $\mathtt{LR}$', transform=axes[0].transAxes, fontsize=6,
@@ -410,6 +412,7 @@ lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
 
 lgd = fig.legend(lines[:5], labels[:5], ncol = 3, loc = (1, .8), 
                  bbox_to_anchor=(0.15, -0.125), fontsize = 6)
+
 
 # lgd = fig.legend(fontsize=6, ncol=3, loc = (1, .8), 
 #                  bbox_to_anchor=(0.15, -0.1))
