@@ -59,13 +59,12 @@ config = params()
 power_df = pd.read_csv(f'{cd}\\data\\2018_wind_site_5min.csv', index_col = 0, parse_dates=True)
 metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
-#%%
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 1
-test_MCAR = True
+horizon = 24
+test_MCAR = False
 test_MNAR = False
-test_Censoring = False
+test_Censoring = True
 config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -92,7 +91,6 @@ for c in scaled_power_df.columns:
 # scale between [0,1]/ or divide by total capacity
 
 # Select zone
-
 plant_ids = list(metadata_df[metadata_df['load_zone']==target_zone].index)
 
 print('Number of plants per zone')
@@ -101,7 +99,6 @@ print(metadata_df.groupby(['load_zone'])['config'].count())
 fig, ax = plt.subplots(constrained_layout = True)
 metadata_df.plot(kind='scatter', x = 'longitude', y = 'latitude', ax = ax)
 plt.show()
-
 
 print(f'target_park:{target_park}')
 
@@ -457,7 +454,6 @@ if test_MCAR:
         
       
 #%% Test for MNAR missing data
-stop_ 
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
 rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -645,8 +641,8 @@ if test_MNAR:
 #%%%%%%%%%% CENSORING: Censor data above a specific threshold
 #### Note: This falls under MNAR, may replace the current MNAR results (TBD)
 
-mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
-rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
+mae_df = pd.DataFrame(data = [], columns = models+['upper_bound', 'lower_bound', 'num_series', 'total_missing'])
+rmse_df = pd.DataFrame(data = [], columns = models+['upper_bound', 'lower_bound', 'num_series', 'total_missing'])
 # supress warning
 pd.options.mode.chained_assignment = None
 run_counter = 0
@@ -665,152 +661,163 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-ub_thres = 1
-lb_thres = 0.8
+threholds = [ [1, 0.9], [1, 0.8], [1, 0.7], 
+                   [0.2, 0], [0.1, 0], [0.05, 0]]
 
-series_missing = ['Noble Clinton', 'Marble River', 'Noble Altona']
+num_series = [1]
+series_missing = ['Noble Clinton']
+
+full_experiment_list = list(itertools.product(threholds, num_series))
 
 if test_Censoring:
-    print('Test for CENSORING mechanism')
+    print('Test for CENSORING mechanism')    
+    
+    for temp_threshold, n_series in full_experiment_list:
+        ub = temp_threshold[0]
+        lb = temp_threshold[1]
         
-    # Dataframe to store predictions
-    temp_Predictions = pd.DataFrame(data = [], columns = models)
-
-    # Initialize dataframe to store results
-    temp_df = pd.DataFrame()
-    temp_df['threshold'] = [np.nan]
+        print(f'Censor between {lb} and {ub}')
+        
+        # Dataframe to store predictions
+        temp_Predictions = pd.DataFrame(data = [], columns = models)
     
-    # Target series
-
-    measurement_df = scaled_power_df[split:end].copy()[plant_ids]
-    miss_ind = np.zeros(measurement_df.shape)
+        # Initialize dataframe to store results
+        temp_df = pd.DataFrame()
+        temp_df['upper_bound'] = [ub]
+        temp_df['lower_bound'] = [lb]
+        temp_df['num_series'] = [n_series]
+        
+        # Target series
+        measurement_df = scaled_power_df[split:end].copy()[plant_ids]
+        miss_ind = np.zeros(measurement_df.shape)
+        
+        for j, col in enumerate(measurement_df.columns):
+            if col in series_missing:
+               miss_ind[:,j] =  (measurement_df.copy()[col][split:end].values >= lb) * (measurement_df.copy()[col][split:end].values <= ub)
     
-    for j, col in enumerate(measurement_df.columns):
-        if col in series_missing:
-           miss_ind[:,j] =  (measurement_df.copy()[col][split:end].values >= lb_thres) * (measurement_df.copy()[col][split:end].values <= ub_thres)
-
-    mask_ind = miss_ind==1
+        mask_ind = miss_ind==1
     
-    if run_counter%iterations==0: print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
+        print('Percentage of missing values: ', mask_ind.sum()/mask_ind.size)
+        temp_df['total_missing'] = [100*(mask_ind.sum()/mask_ind.size)]
     
-    # Predictors w missing values
-    miss_X = measurement_df.copy()
-    miss_X[mask_ind] = np.nan
+        # Predictors w missing values
+        miss_X = measurement_df.copy()
+        miss_X[mask_ind] = np.nan
+        
+        miss_X = create_feat_matrix(miss_X, min_lag, max_lag)
+        
+        # Add weather features 
+        miss_X = pd.merge(miss_X, id_forecasts_df[split:end], how='inner', left_index=True, right_index=True)
     
-    miss_X = create_feat_matrix(miss_X, min_lag, max_lag)
+        final_mask_ind = (miss_X.isna().values).astype(int)
+        # Predictors w missing values
+        miss_X_zero = miss_X.copy()
+        miss_X_zero = miss_X_zero.fillna(0)
     
-    # Add weather features 
-    miss_X = pd.merge(miss_X, id_forecasts_df[split:end], how='inner', left_index=True, right_index=True)
-
-    final_mask_ind = (miss_X.isna().values).astype(int)
-    # Predictors w missing values
-    miss_X_zero = miss_X.copy()
-    miss_X_zero = miss_X_zero.fillna(0)
-
-    # Predictors w mean imputation
-    if config['impute'] != True:
-        imp_X = miss_X_zero.copy()
-    else:
-        imp_X = miss_X.copy()
-        # imputation with persistence or mean            
-        if imputation == 'persistence':
+        # Predictors w mean imputation
+        if config['impute'] != True:
+            imp_X = miss_X_zero.copy()
+        else:
             imp_X = miss_X.copy()
-            # forward fill == imputation with persistence
-            # imp_X = imp_X.fillna(method = 'ffill')
-            imp_X = imp_X.ffill()
-            
-            # fill initial missing values with previous data
-            for c in imp_X.columns:
-                imp_X[c].loc[imp_X[c].isna()] = trainPred[c].mean()
-                            
-        elif imputation == 'mean':
-            for j in range(imp_X.shape[1]):
-                imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
-    
-
-        #### Persistence
-        pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
-        temp_Predictions['Pers'] = pers_pred.reshape(-1)
+            # imputation with persistence or mean            
+            if imputation == 'persistence':
+                imp_X = miss_X.copy()
+                # forward fill == imputation with persistence
+                # imp_X = imp_X.fillna(method = 'ffill')
+                imp_X = imp_X.ffill()
                 
-        #### LS model
-        lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['LR'] = lr_pred.reshape(-1)
-
-        #### LASSO
-        lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
+                # fill initial missing values with previous data
+                for c in imp_X.columns:
+                    imp_X[c].loc[imp_X[c].isna()] = trainPred[c].mean()
+                                
+            elif imputation == 'mean':
+                for j in range(imp_X.shape[1]):
+                    imp_X[np.where(miss_ind[:,j] == 1), j] = mean_imput_values[j]
+        
     
-        #### RIDGE
-        l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['Ridge'] = l2_pred.reshape(-1)
-            
-        #### LAD model
-        lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
-        temp_Predictions['LAD'] = lad_pred.reshape(-1)
-
-        #### MLPimp
-        mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
-        temp_Predictions['NN'] = mlp_pred.reshape(-1)
+            #### Persistence
+            pers_pred = imp_X[f'{target_park}_{min_lag}'].values.reshape(-1,1)
+            temp_Predictions['Pers'] = pers_pred.reshape(-1)
+                    
+            #### LS model
+            lr_pred = projection(lr_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['LR'] = lr_pred.reshape(-1)
+    
+            #### LASSO
+            lasso_pred = projection(lasso_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['Lasso'] = lasso_pred.reshape(-1)
+        
+            #### RIDGE
+            l2_pred = projection(ridge_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['Ridge'] = l2_pred.reshape(-1)
                 
-        ######### Adversarial Models
-        
-        #### Finite Adaptability - Fixed Partitions
-        ## LS model
-        FA_FIXED_LR_pred = FA_FIXED_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        temp_Predictions['FA-FIXED-LR'] = projection(FA_FIXED_LR_pred).reshape(-1)
-
-        ## NN model
-        FA_FIXED_NN_pred = FA_FIXED_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        temp_Predictions['FA-FIXED-NN'] = projection(FA_FIXED_NN_pred).reshape(-1)
-
-        #### Finite Adaptability - Fixed Partitions - LDR
-        ## LS model
-        FA_FIXED_LDR_LR_pred = FA_FIXED_LDR_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        temp_Predictions['FA-FIXED-LDR-LR'] = projection(FA_FIXED_LDR_LR_pred).reshape(-1)
-
-        ## NN model
-        FA_FIXED_LDR_NN_pred = FA_FIXED_LDR_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-        temp_Predictions['FA-FIXED-LDR-NN'] = projection(FA_FIXED_LDR_NN_pred).reshape(-1)
-
-
-        #### Finite Adaptability - Learned Partitions
-        
-        ### LDR - LS//NN
-        
-        for number_splits in FA_LEARN_LDR_LR_models_dict.keys():            
-            temp_FA_LEARN_LDR_LR_pred = FA_LEARN_LDR_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            temp_Predictions[f'FA-LEARN-LDR-LR-{number_splits}'] = projection(temp_FA_LEARN_LDR_LR_pred).reshape(-1)
-
-        for number_splits in FA_LEARN_LDR_NN_models_dict.keys():            
-            temp_FA_LEARN_LDR_NN_pred = FA_LEARN_LDR_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            temp_Predictions[f'FA-LEARN-LDR-NN-{number_splits}'] = projection(temp_FA_LEARN_LDR_NN_pred).reshape(-1)
-        
-        # ### Static models, no linear decision rules - LS//NN
-        
-        for number_splits in FA_LEARN_LR_models_dict.keys():            
-            temp_FA_LEARN_LR_pred = FA_LEARN_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            temp_Predictions[f'FA-LEARN-LR-{number_splits}'] = projection(temp_FA_LEARN_LR_pred).reshape(-1)
-
-        for number_splits in FA_LEARN_NN_models_dict.keys():            
-            temp_FA_LEARN_NN_pred = FA_LEARN_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
-            temp_Predictions[f'FA-LEARN-NN-{number_splits}'] = projection(temp_FA_LEARN_NN_pred).reshape(-1)
+            #### LAD model
+            lad_pred = projection(lad_model.predict(imp_X).reshape(-1,1))
+            temp_Predictions['LAD'] = lad_pred.reshape(-1)
     
-        for m in models:
-            temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
-        mae_df = pd.concat([mae_df, temp_df])
+            #### MLPimp
+            mlp_pred = mlp_model.predict(torch.FloatTensor(imp_X.values)).reshape(-1,1)
+            temp_Predictions['NN'] = mlp_pred.reshape(-1)
+                    
+            ######### Adversarial Models
+            
+            #### Finite Adaptability - Fixed Partitions
+            ## LS model
+            FA_FIXED_LR_pred = FA_FIXED_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions['FA-FIXED-LR'] = projection(FA_FIXED_LR_pred).reshape(-1)
+    
+            ## NN model
+            FA_FIXED_NN_pred = FA_FIXED_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions['FA-FIXED-NN'] = projection(FA_FIXED_NN_pred).reshape(-1)
+    
+            #### Finite Adaptability - Fixed Partitions - LDR
+            ## LS model
+            FA_FIXED_LDR_LR_pred = FA_FIXED_LDR_LR_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions['FA-FIXED-LDR-LR'] = projection(FA_FIXED_LDR_LR_pred).reshape(-1)
+    
+            ## NN model
+            FA_FIXED_LDR_NN_pred = FA_FIXED_LDR_NN_model.predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+            temp_Predictions['FA-FIXED-LDR-NN'] = projection(FA_FIXED_LDR_NN_pred).reshape(-1)
+    
+    
+            #### Finite Adaptability - Learned Partitions
+            
+            ### LDR - LS//NN
+            
+            for number_splits in FA_LEARN_LDR_LR_models_dict.keys():            
+                temp_FA_LEARN_LDR_LR_pred = FA_LEARN_LDR_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+                temp_Predictions[f'FA-LEARN-LDR-LR-{number_splits}'] = projection(temp_FA_LEARN_LDR_LR_pred).reshape(-1)
+    
+            for number_splits in FA_LEARN_LDR_NN_models_dict.keys():            
+                temp_FA_LEARN_LDR_NN_pred = FA_LEARN_LDR_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+                temp_Predictions[f'FA-LEARN-LDR-NN-{number_splits}'] = projection(temp_FA_LEARN_LDR_NN_pred).reshape(-1)
+            
+            # ### Static models, no linear decision rules - LS//NN
+            
+            for number_splits in FA_LEARN_LR_models_dict.keys():            
+                temp_FA_LEARN_LR_pred = FA_LEARN_LR_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+                temp_Predictions[f'FA-LEARN-LR-{number_splits}'] = projection(temp_FA_LEARN_LR_pred).reshape(-1)
+    
+            for number_splits in FA_LEARN_NN_models_dict.keys():            
+                temp_FA_LEARN_NN_pred = FA_LEARN_NN_models_dict[number_splits].predict(miss_X_zero.values, miss_X.isna().values.astype(int))
+                temp_Predictions[f'FA-LEARN-NN-{number_splits}'] = projection(temp_FA_LEARN_NN_pred).reshape(-1)
         
-        for m in models:
-            temp_df[m] = [rmse(temp_Predictions[m].values, Target.values)]
-        rmse_df = pd.concat([rmse_df, temp_df])
- 
-    if config['save']:        
-        mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_MAE_results_weather.csv')
-        rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_RMSE_results_weather.csv')
-
-    ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-LEARN-LR-10', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR']
-    rmse_df.mean()[ls_models].plot(kind='bar')
-    plt.show()
-
-    nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-LEARN-NN-10', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN']
-    rmse_df.mean()[nn_models].plot(kind='bar')
-    plt.show()
+            for m in models:
+                temp_df[m] = [mae(temp_Predictions[m].values, Target.values)]
+            mae_df = pd.concat([mae_df, temp_df])
+            
+            for m in models:
+                temp_df[m] = [rmse(temp_Predictions[m].values, Target.values)]
+            rmse_df = pd.concat([rmse_df, temp_df])
+     
+        if config['save']:        
+            mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_MAE_results_full.csv')
+            rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_RMSE_results_full.csv')
+    
+        ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-LEARN-LR-10', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR']
+        rmse_df.mean()[ls_models].plot(kind='bar')
+        plt.show()
+    
+        nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-LEARN-NN-10', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN']
+        rmse_df.mean()[nn_models].plot(kind='bar')
+        plt.show()

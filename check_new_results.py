@@ -163,7 +163,7 @@ ax_lbl = np.arange(9).reshape(3,3)
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'LR'
+base_model = 'NN'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
@@ -228,7 +228,8 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
         
     for l, s in enumerate(step_list):
         nom_line = current_axis.plot( np.arange(l, 5*delta_step + l, delta_step), 5*[nominal_rmse_horizon.loc[s][base_model]], 
-                 '--', color = 'black', markersize = markersize)
+                 '--', color = 'black', markersize = markersize, 
+                 label = rf'$\mathtt{{{base_model}}}$')
         nom_line[0].set_dashes([3,1])
 
     plt.xticks(np.arange(len(step_list))+0.25, x_val)
@@ -241,7 +242,9 @@ ysuplabel = fig.supylabel('RMSE (%)')
 fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
 plt.ylim([1.5, 20.5])
 
-lgd = fig.legend(lines[:5], [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:5]], fontsize=fontsize, ncol = 3, loc = (1, .8), 
+label_list = [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:5]] + [rf'$\mathtt{{{base_model}}}$ (no missing data)']
+
+lgd = fig.legend(lines[:6], label_list, fontsize=fontsize, ncol = 3, loc = (1, .8), 
                  bbox_to_anchor=(0.25, -0.1))
 
 if config['save']:
