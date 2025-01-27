@@ -232,7 +232,7 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
                  label = rf'$\mathtt{{{base_model}}}$')
         nom_line[0].set_dashes([3,1])
 
-    plt.xticks(np.arange(len(step_list))+0.25, x_val)
+    plt.xticks(np.arange(len(step_list))+0.25, step_list)
 
 lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
 lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
@@ -255,6 +255,8 @@ plt.show()
 #%% Sensitivity analysis // LS
 min_lag = 1
 
+temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0} and num_series==8 and steps=={min_lag}')
+
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
@@ -263,6 +265,60 @@ with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_par
     FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_NN_models_dict = pickle.load(handle)                   
+
+model_dictionary = FA_LEARN_LDR_LR_models_dict
+### Find WC performance gap
+WC_gap = []
+abs_gap = []
+max_UB = []
+best_LB = []
+Q_array = np.array(list(model_dictionary.keys()))
+for q in np.sort(Q_array):
+    temp_model = model_dictionary[q]
+    leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
+        
+    WC_gap.append(np.array(temp_model.Loss_gap_perc)[leaf_ind].max())
+    abs_gap.append(np.array(temp_model.Loss_gap)[leaf_ind].max())
+    max_UB.append(np.array(temp_model.UB_Loss)[leaf_ind].max())
+    best_LB.append(np.array(temp_model.LB_Loss)[leaf_ind].max())
+### Sensitivity analysis table results
+models_to_plot = ['LR', 'FA-FIXED-LDR-LR','FA-LEARN-LDR-LR-1', 'FA-LEARN-LDR-LR-2', 'FA-LEARN-LDR-LR-5', 
+                  'FA-LEARN-LDR-LR-10', 'FA-LEARN-LDR-LR-20']
+
+print( 100*all_rmse.query(f'P_0_1 == 0.2 and P_1_0 == 0.2 and steps == {min_lag}').mean()[models_to_plot] )
+print('WC Gap, percentage')
+print((np.array(WC_gap)).round(2))
+
+text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'tab:red', 
+                  alpha=0.5)
+
+
+### Absolute gap plot
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 1.5))
+
+plt.plot([1,2,5,10,20], np.array(WC_gap), linestyle = '-', marker = '+')
+plt.xticks([1,2,5,10,20], [1,2,5,10,20])
+plt.ylabel('RMSE (%)')
+plt.show()
+
+#%% Sensitivity analysis // LS
+min_lag = 1
+
+temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0.1} and num_series==8 and steps=={min_lag}')
+
+if weather_all_steps or (min_lag>=8):
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LR_models_dict = pickle.load(handle)           
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_NN_models_dict = pickle.load(handle)                   
+else:
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict.pickle', 'rb') as handle:
+        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)
 
 model_dictionary = FA_LEARN_LDR_LR_models_dict
 ### Find WC performance gap
@@ -278,7 +334,6 @@ for q in np.sort(Q_array):
 models_to_plot = ['LR', 'FA-FIXED-LDR-LR','FA-LEARN-LDR-LR-1', 'FA-LEARN-LDR-LR-2', 'FA-LEARN-LDR-LR-5', 
                   'FA-LEARN-LDR-LR-10', 'FA-LEARN-LDR-LR-20']
 
-print( 100*all_rmse.query(f'P_0_1==0.1 and P_0_1 == 0.2 and steps == {min_lag}').mean()[models_to_plot] )
 print('WC Gap, percentage')
 print((np.array(WC_gap)).round(2))
 
@@ -290,27 +345,10 @@ color = 'tab:red'
 ax1.set_xlabel('Number of partitions $Q$')
 ax1.set_ylabel('RMSE (%)')
 
-temp_df = all_rmse.query(f'P_0_1==0.1 and P_1_0 == 0.1 and steps == {min_lag} and num_series == 8')
+ax1.plot(5*[100*temp_df.mean()['LR']], color='black', marker = '2', label = '$\mathtt{LR-Imp}$', linewidth = 1)
+ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color='tab:brown', marker = 'd', label = models_to_labels['FA-FIXED-LDR-LR'], linewidth = 1)
 
-# Lines
-ax1.plot(5*[100*temp_df.mean()['LR']],  color = 'black', linewidth = 1)
-ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color = 'black', linewidth = 1)
-ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', linewidth = 1)
-
-# Markers
-ax1.plot(5*[100*temp_df.mean()['LR']], marker = marker_dict['LR']['marker'],  color = marker_dict['LR']['color'],
-         markeredgewidth = marker_dict['LR']['markeredgewidth'], label = '$\mathtt{LR-Imp}$', linestyle = '')
-
-ax1.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], marker = marker_dict['FA-FIXED-LDR-LR']['marker'],  color = marker_dict['FA-FIXED-LDR-LR']['color'],
-         markeredgewidth = marker_dict['FA-FIXED-LDR-LR']['markeredgewidth'], 
-         markerfacecolor = marker_dict['FA-FIXED-LDR-LR']['markerfacecolor'], 
-         label = '$\mathtt{LR-ARF(fixed)}$', linestyle = '')
-
-ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', 
-         marker = marker_dict['FA-LEARN-LDR-LR-10']['marker'],
-         markeredgewidth = marker_dict['FA-LEARN-LDR-LR-10']['markeredgewidth'], 
-         markerfacecolor = 'white',
-         label = '$\mathtt{LR-ARF(learn)}^{Q}$', linestyle = '')
+ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF(learn)}^{Q}$', linewidth = 1)
 
 ax1.tick_params(axis='y')
 ax1.set_xticks(range(5), [1, 2, 5, 10, 20])
@@ -333,6 +371,133 @@ if weather_all_steps and config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 elif (weather_all_steps == False) and config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+plt.show()
+
+#%%
+
+# Lines
+plt.plot(5*[100*temp_df.mean()['LR']],  color = 'black', linewidth = 1)
+
+plt.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color = 'black', linewidth = 1)
+plt.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', linewidth = 1)
+
+# Markers
+plt.plot(5*[100*temp_df.mean()['LR']], marker = marker_dict['LR']['marker'],  color = marker_dict['LR']['color'],
+         markeredgewidth = marker_dict['LR']['markeredgewidth'], label = '$\mathtt{LR-Imp}$', linestyle = '')
+
+plt.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], marker = marker_dict['FA-FIXED-LDR-LR']['marker'],  color = marker_dict['FA-FIXED-LDR-LR']['color'],
+         markeredgewidth = marker_dict['FA-FIXED-LDR-LR']['markeredgewidth'], 
+         markerfacecolor = marker_dict['FA-FIXED-LDR-LR']['markerfacecolor'], 
+         label = '$\mathtt{LR-ARF(fixed)}$', linestyle = '')
+
+plt.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', 
+         marker = marker_dict['FA-LEARN-LDR-LR-10']['marker'],
+         markeredgewidth = marker_dict['FA-LEARN-LDR-LR-10']['markeredgewidth'], 
+         markerfacecolor = 'white',
+         label = '$\mathtt{LR-ARF(learn)}^{Q}$', linestyle = '')
+
+plt.plot(5*[nominal_rmse_horizon.loc[min_lag]['LR']],  color = 'black', linewidth = 1, linestyle = '--' ,
+             label = 'No missing data')
+
+plt.ylabel('RMSE (%)')
+plt.tick_params(axis='y')
+plt.xticks(range(5), [1, 2, 5, 10, 20])
+
+# Text to indicate forecasting model for each subplot
+target_yval = 100*temp_df.mean()[models_to_plot[2:]].values
+for i in range(len(WC_gap)):
+    plt.text(i-0.15, .85*target_yval[i], f'${(np.array(WC_gap)).round(1)[i]}$%', fontsize=6,
+            verticalalignment='top', bbox=text_props, color = 'tab:red')
+
+lgd = plt.legend(fontsize=6, ncol=2, loc = (0.1, .5), 
+                 bbox_to_anchor=(0.1, -.75))
+
+plt.xticks(range(5), [1, 2, 5, 10, 20])
+plt.xlabel('Number of subsets $Q$')
+
+# fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+if weather_all_steps and config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+elif (weather_all_steps == False) and config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+    
+plt.show()
+#%%
+### Sensitivity plot
+
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 1.5))
+# fig, ax1 = plt.subplots(constrained_layout = True, figsize = (3.5, 1.5))
+# ax1.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
+# color = 'tab:red'
+# ax1.set_xlabel('Number of partitions $Q$')
+# ax1.set_ylabel('RMSE (%)')
+
+temp_df = all_rmse.query(f'P_0_1==0.1 and P_1_0 == 0.1 and steps == {min_lag} and num_series == 8')
+
+# Lines
+plt.plot(5*[100*temp_df.mean()['LR']],  color = 'black', linewidth = 1)
+
+plt.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], color = 'black', linewidth = 1)
+plt.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', linewidth = 1)
+
+# Markers
+plt.plot(5*[100*temp_df.mean()['LR']], marker = marker_dict['LR']['marker'],  color = marker_dict['LR']['color'],
+         markeredgewidth = marker_dict['LR']['markeredgewidth'], label = '$\mathtt{LR-Imp}$', linestyle = '')
+
+plt.plot(5*[100*temp_df.mean()['FA-FIXED-LDR-LR']], marker = marker_dict['FA-FIXED-LDR-LR']['marker'],  color = marker_dict['FA-FIXED-LDR-LR']['color'],
+         markeredgewidth = marker_dict['FA-FIXED-LDR-LR']['markeredgewidth'], 
+         markerfacecolor = marker_dict['FA-FIXED-LDR-LR']['markerfacecolor'], 
+         label = '$\mathtt{LR-ARF(fixed)}$', linestyle = '')
+
+plt.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='black', 
+         marker = marker_dict['FA-LEARN-LDR-LR-10']['marker'],
+         markeredgewidth = marker_dict['FA-LEARN-LDR-LR-10']['markeredgewidth'], 
+         markerfacecolor = 'white',
+         label = '$\mathtt{LR-ARF(learn)}^{Q}$', linestyle = '')
+
+plt.plot(5*[nominal_rmse_horizon.loc[min_lag]['LR']],  color = 'black', linewidth = 1, linestyle = '--' ,
+             label = 'No missing data')
+
+plt.ylabel('RMSE (%)')
+plt.tick_params(axis='y')
+plt.xticks(range(5), [1, 2, 5, 10, 20])
+
+# (np.array(WC_gap)).round(2)
+
+# Text to indicate forecasting model for each subplot
+target_yval = 100*temp_df.mean()[models_to_plot[2:]].values
+for i in range(len(WC_gap)):
+    plt.text(i-0.15, .825*target_yval[i], f'${(np.array(WC_gap)).round(1)[i]}$%', fontsize=6,
+            verticalalignment='top', bbox=text_props, color = 'tab:red')
+
+lgd = plt.legend(fontsize=6, ncol=2, loc = (0.1, .5), 
+                 bbox_to_anchor=(0.1, -.75))
+
+# ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
+# plt.ylim([1.5, 20.5])
+# ax2.set_ylim([0, 75])
+
+# color = 'tab:red'
+# ax2.set_ylabel(r'$100\times\frac{\mathtt{UB-LB}}{\mathtt{LB}}$ (%)', color=color)  # we already handled the x-label with ax1
+
+# axes[1].plot((np.array(WC_gap)).round(2), '-.', color=color, linewidth = 2)
+# axes[1].tick_params(axis='y', labelcolor=color)
+# axes[1].set_ylabel(r'Norm. Max. Gap (%)', color=color)  # we already handled the x-label with ax1
+
+
+plt.xticks(range(5), [1, 2, 5, 10, 20])
+plt.xlabel('Number of subsets $Q$')
+
+# fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+if weather_all_steps and config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+elif (weather_all_steps == False) and config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+    
 plt.show()
 
 #%% Censored missing data// adversarial missingness mechanism
@@ -373,7 +538,8 @@ for i,m in enumerate(LR_models_to_plot):
 
 # BASE CASE MODEL (no missing data)
 for i, s in enumerate(step_list):
-    plt.plot( np.arange(i, 5*delta_step + i, delta_step), 5*[nominal_rmse_horizon.loc[s]['LR']], '--', color = 'black')
+    plt.plot( np.arange(i, 5*delta_step + i, delta_step), 5*[nominal_rmse_horizon.loc[s]['LR']], '--', color = 'black', 
+             label = 'No missing data')
     
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(steps_))+0.25, steps_)
@@ -393,7 +559,8 @@ for i,m in enumerate(NN_models_to_plot):
 
 # BASE CASE MODEL (no missing data)    
 for i, s in enumerate(step_list):
-    plt.plot( np.arange(i, 5*delta_step + i, delta_step), 5*[nominal_rmse_horizon.loc[s]['NN']], '--', color = 'black')
+    plt.plot( np.arange(i, 5*delta_step + i, delta_step), 5*[nominal_rmse_horizon.loc[s]['NN']], '--', color = 'black', 
+             label = 'No missing data')
 
 plt.ylabel('RMSE (%)')
 plt.xticks(np.arange(len(step_list))+0.25, step_list)
@@ -410,7 +577,7 @@ axes[1].text(0.02, 0.95, 'Forecasting model: $\mathtt{NN}$', transform=axes[1].t
 lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
 lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
 
-lgd = fig.legend(lines[:5], labels[:5], ncol = 3, loc = (1, .8), 
+lgd = fig.legend(lines[:6], labels[:6], ncol = 3, loc = (1, .8), 
                  bbox_to_anchor=(0.15, -0.125), fontsize = 6)
 
 
