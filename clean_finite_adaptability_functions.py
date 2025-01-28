@@ -57,7 +57,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
         self.adapt_regr_param['apply_LDR'] = True
 
 
-  def fit(self, X, Y, tree_grow_algo = 'leaf-wise', max_gap_treshold = 0.001, val_split = 0.05, **kwargs):
+  def fit(self, X, Y, tree_grow_algo = 'leaf-wise', max_gap_threshold = 0.001, val_split = 0.05, **kwargs):
     ''' Learn tree-based partitions
     
     Paremeters:
@@ -86,7 +86,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
         
     # store robust and adaptive robust models
     self.Robust_models = []
-    self.max_gap_treshold = max_gap_treshold
+    self.max_gap_threshold = max_gap_threshold
 
     # keyword arguments for standard class object resilient_MLP
     num_features = X.shape[1]    #Number of features
@@ -233,7 +233,7 @@ class Learn_FiniteAdapt_Robust_Reg(object):
         
         # Depth-first: grow the leaf with the highest WC loss        
         print(f'Node = {node}')
-        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_splits) or (self.Loss_gap_perc[node] <= self.max_gap_treshold):
+        if (self.Depth_id[node] >= self.D) or (self.total_models >= self.Max_splits) or (self.Loss_gap_perc[node] <= self.max_gap_threshold):
             # remove node from list to check (only used for best-first growth)
             
             list_nodes_candidates.remove(node)

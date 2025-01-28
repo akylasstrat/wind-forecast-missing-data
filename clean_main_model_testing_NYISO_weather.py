@@ -62,9 +62,9 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 freq = '15min'
 target_park = 'Noble Clinton'
 horizon = 24
-test_MCAR = False
+test_MCAR = True
 test_MNAR = False
-test_Censoring = True
+test_Censoring = False
 config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
@@ -210,7 +210,7 @@ models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
 iterations = range(10)
 Probability_0_1 = [.01, .05, .1, .2]
 Probability_1_0 = [0.4, 0.5, 0.6, 0.7, 0.8]
-num_series = [len(plant_ids)]
+num_series = [1]
 
 full_experiment_list = list(itertools.product(Probability_0_1, Probability_1_0, num_series, iterations))
 
@@ -292,7 +292,11 @@ if test_MCAR:
         Prob_matrix = np.array([[1-prob_0_1, prob_0_1], [prob_1_0, 1-prob_1_0]])
         
         # Sample missing series 
-        series_missing = np.random.choice(plant_ids, n_miss_series, replace = False)
+        if n_miss_series > 1:
+            series_missing = np.random.choice(plant_ids, n_miss_series, replace = False)
+        elif n_miss_series == 1:
+            # pick target series
+            series_missing = [target_park]
 
         for series_name in series_missing:
             # find its column index

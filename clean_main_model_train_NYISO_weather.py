@@ -52,7 +52,7 @@ def params():
     params['target_park'] = 'Noble Clinton'
     params['horizon'] = 1 # forecast horizon [1, 4, 8, 16, 24]
     params['train'] = True # If True, then train models, else tries to load previous runs
-    params['save'] = False # If True, then saves models and results
+    params['save'] = True # If True, then saves models and results
     
     return params
 
@@ -317,18 +317,20 @@ try:
 except:
     FA_LEARN_LDR_LR_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 10, 20]
+Max_number_splits = [50]
 
-# config['train'] = True
-# config['save'] = False
+config['train'] = True
+config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_LDR_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, D = 1_000, red_threshold = 1e-5, 
-                                                    input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                                                    budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
-                
-        FA_LEARN_LDR_LR_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+        FA_LEARN_LDR_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, 
+                                                             D = 1e5, red_threshold = -1e5, 
+                                                            input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                                                            budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
+                        
+        FA_LEARN_LDR_LR_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', 
+                                  max_gap = -1e5, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                              lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False)
             
         FA_LEARN_LDR_LR_models_dict[number_splits] = FA_LEARN_LDR_LR_model
@@ -348,7 +350,7 @@ try:
 except:
     FA_LEARN_LDR_NN_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 10, 20]
+Max_number_splits = [50]
 
 batch_size = 512
 num_epochs = 250
@@ -357,19 +359,21 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-# config['train'] = True
-# config['save'] = True
+config['train'] = True
+config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_LDR_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, D = 1_000, red_threshold = 1e-5, 
-                                                    input_size = n_features, hidden_sizes = [50,50,50], output_size = n_outputs, 
-                                                    budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
+        FA_LEARN_LDR_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, 
+                                                             D = 1e5, red_threshold = -1e5, 
+                                                            input_size = n_features, hidden_sizes = [50,50,50], output_size = n_outputs, 
+                                                            budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
+                        
+        FA_LEARN_LDR_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', 
+                                  max_gap = -1e5, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                                 lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False, 
+                                 warm_start_nominal = False)
                 
-        FA_LEARN_LDR_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                             lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False, 
-                             warm_start_nominal = False)
-            
         FA_LEARN_LDR_NN_models_dict[number_splits] = FA_LEARN_LDR_NN_model
     
         if config['save']:
@@ -402,6 +406,8 @@ NN_hidden_size = [50, 50, 50]
 # config['save'] = False
 
 ###### ARR-LR(fixed)
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     FA_FIXED_LDR_LR_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 
@@ -466,19 +472,21 @@ try:
 except:
     FA_LEARN_LR_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 10, 20]
+Max_number_splits = [50]
 
-# config['train'] = False
-# config['save'] = False
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, D = 1_000, red_threshold = 1e-5, 
-                                                    input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
-                                                    budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
+        FA_LEARN_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, 
+                                                         D = 1e5, red_threshold = -1e5, 
+                                                         input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
+                                                         budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
                 
-        FA_LEARN_LR_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
-                             lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False)
+        FA_LEARN_LR_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', 
+                              max_gap = -1e5, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+                              lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False)
             
         FA_LEARN_LR_models_dict[number_splits] = FA_LEARN_LR_model
     
@@ -505,18 +513,20 @@ try:
 except:
     FA_LEARN_NN_models_dict = {}
 
-Max_number_splits = [1, 2, 5, 10, 20]
+Max_number_splits = [50]
 
-# config['train'] = False
-# config['save'] = False
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, D = 1_000, red_threshold = 1e-5, 
-                                                    input_size = n_features, hidden_sizes = [50,50,50], output_size = n_outputs, 
-                                                    budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
+        FA_LEARN_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, 
+                                                            D = 1e5, red_threshold = -1e5, 
+                                                            input_size = n_features, hidden_sizes = [50,50,50], output_size = n_outputs, 
+                                                            budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
                 
-        FA_LEARN_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', max_gap = 1e-3, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
+        FA_LEARN_NN_model.fit(trainPred.values, trainY, val_split = val_perc, tree_grow_algo = 'leaf-wise', 
+                              max_gap = -1e5, epochs = num_epochs, patience = patience, verbose = 0, optimizer = 'Adam', 
                              lr = learning_rate, batch_size = batch_size, weight_decay = decay, freeze_weights = False)
             
         FA_LEARN_NN_models_dict[number_splits] = FA_LEARN_NN_model
@@ -547,8 +557,8 @@ NN_hidden_size = [50, 50, 50]
 ###### LR base model 
 ###### RR-LR(fixed)
 
-# config['train'] = False
-# config['save'] = False
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     FA_FIXED_LR_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 
@@ -577,6 +587,8 @@ val_perc = 0.15
 decay = 1e-5
 apply_LDR = False
 
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     FA_FIXED_NN_model = Fixed_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, 
