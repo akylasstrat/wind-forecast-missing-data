@@ -163,7 +163,7 @@ ax_lbl = np.arange(9).reshape(3,3)
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'NN'
+base_model = 'LR'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
@@ -256,18 +256,11 @@ plt.show()
 
 import itertools
 
-marker_dict = {
-    "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
-    "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
-    "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-    "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
-    "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'},
-    "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
-    "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
-    "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-    "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
-    "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'}}
+# LR_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+# NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
 
+LR_models_to_plot = ['LR', 'FA-LEARN-LDR-LR-10']
+NN_models_to_plot = ['NN', 'FA-LEARN-LDR-NN-10']
 
 # dictionary for subplots
 ax_lbl = np.arange(9).reshape(3,3)
@@ -276,7 +269,7 @@ p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
 base_model = 'LR'
-delta_step = 0.2
+delta_step = 0.25
 markersize = 4.5
 fontsize = 7
 props = dict(boxstyle='round', facecolor='white', alpha=0.3)
@@ -339,7 +332,8 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
                  linestyle = '', **marker_dict[m], markersize = markersize)
         
     for l, s in enumerate(step_list):
-        nom_line = current_axis.plot( np.arange(l, 5*delta_step + l, delta_step), 5*[nominal_rmse_horizon.loc[s][base_model]], 
+        nom_line = current_axis.plot( np.arange(l, len(LR_models_to_plot)*delta_step + l, delta_step), 
+                                     len(LR_models_to_plot)*[nominal_rmse_horizon.loc[s][base_model]], 
                  '--', color = 'black', markersize = markersize, 
                  label = rf'$\mathtt{{{base_model}}}$')
         nom_line[0].set_dashes([3,1])
