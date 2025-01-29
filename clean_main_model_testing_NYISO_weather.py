@@ -208,11 +208,11 @@ models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
 
 # Parameters
 iterations = range(10)
-Probability_0_1 = [.01, .05, .1, .2]
-Probability_1_0 = [0.4, 0.5, 0.6, 0.7, 0.8]
+Probability_0_1 = [.05, .1, .2]
+Probability_1_0 = [.1, .2, 1]
 num_series = [1]
 
-full_experiment_list = list(itertools.product(Probability_0_1, Probability_1_0, num_series, iterations))
+full_experiment_list = list(itertools.product(iterations, Probability_0_1, Probability_1_0, num_series))
 
 #%%
 try:
@@ -224,7 +224,6 @@ except:
     mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
     rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
     run_counter = 0
-
 
 # supress warning
 pd.options.mode.chained_assignment = None
@@ -251,7 +250,7 @@ rmse_per_missing_df = pd.DataFrame()
 if test_MCAR:
     print('Test for MCAR mechanism')
     
-    for prob_0_1, prob_1_0, n_miss_series, iter_ in full_experiment_list:
+    for iter_, prob_0_1, prob_1_0, n_miss_series in full_experiment_list:
         
         print(run_counter)
         torch.manual_seed(run_counter)
