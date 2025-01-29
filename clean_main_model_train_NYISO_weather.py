@@ -291,7 +291,7 @@ target_pred = Predictors.columns
 fixed_pred = [f'{target_park}_ID_for']
 target_col = [np.where(trainPred.columns == c)[0][0] for c in target_pred]
 fix_col = [np.where(trainPred.columns == c)[0][0] for c in fixed_pred]
-        
+
 
 #%%%%%% Adaptive Robust Regression + learn partitions
 ###### Finitely Adaptive - LEARN partitions - LDR
@@ -364,7 +364,7 @@ config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_LDR_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, 
+        FA_LEARN_LDR_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, 
                                                              D = 1e5, red_threshold = -1e5, 
                                                             input_size = n_features, hidden_sizes = [50,50,50], output_size = n_outputs, 
                                                             budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
@@ -479,7 +479,7 @@ config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, 
+        FA_LEARN_LR_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, 
                                                          D = 1e5, red_threshold = -1e5, 
                                                          input_size = n_features, hidden_sizes = [], output_size = n_outputs, 
                                                          budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
@@ -520,7 +520,7 @@ config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
-        FA_LEARN_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_models = number_splits, 
+        FA_LEARN_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, 
                                                             D = 1e5, red_threshold = -1e5, 
                                                             input_size = n_features, hidden_sizes = [50,50,50], output_size = n_outputs, 
                                                             budget_constraint = 'inequality', attack_type = 'greedy', apply_LDR = apply_LDR)
