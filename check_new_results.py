@@ -334,8 +334,23 @@ if config['save']:
 plt.show()
 #%% Sensitivity plot// connected scatterplot
 
+# load results
+
+all_rmse = []
+steps_ = [1]
 min_lag = 1
-temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0.9} and num_series==8 and steps=={min_lag}')
+
+for s in steps_:
+    if (weather_all_steps == True):            
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_updated.csv', index_col = 0)
+    temp_df['steps'] = s    
+    all_rmse.append(temp_df)
+
+all_rmse = pd.concat(all_rmse)
+print('RMSE without missing data')
+print((100*all_rmse.query('P_0_1==0').groupby(['steps']).mean()).round(2))
+
+temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0.1} and num_series==8 and steps=={min_lag}')
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
@@ -375,7 +390,7 @@ WC_gap = np.array(WC_gap)
 models_to_plot = ['LR', 'FA-FIXED-LDR-LR','FA-LEARN-LDR-LR-1', 'FA-LEARN-LDR-LR-2', 'FA-LEARN-LDR-LR-5', 
                   'FA-LEARN-LDR-LR-10', 'FA-LEARN-LDR-LR-20']
 
-print( 100*all_rmse.query(f'P_0_1 == 0.2 and P_1_0 == 0.2 and steps == {min_lag}').mean()[models_to_plot] )
+print( 100*all_rmse.query(f'P_0_1 == 0.2 and P_1_0 == 0.1 and steps == {min_lag}').mean()[models_to_plot] )
 print('WC Gap, percentage')
 print((np.array(WC_gap)).round(2))
 
@@ -387,14 +402,14 @@ text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'tab:red',
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
                          sharey = False, figsize = (3.5, 1.5))
 
-plt.plot([1,2,5,10,20], np.array(WC_gap), linestyle = '-', marker = '+')
-plt.xticks([1,2,5,10,20], [1,2,5,10,20])
+plt.plot([1,2,5,10,20, 50], np.array(WC_gap), linestyle = '-', marker = '+')
+plt.xticks([1,2,5,10,20, 50], [1,2,5,10,20, 50])
 plt.ylabel('RMSE (%)')
 plt.show()
 
 ### Sensitivity plot
-#%%
-Q_values_to_plot = [ 1,  2,  5, 10, 20]
+
+Q_values_to_plot = [ 1,  2,  5, 10, 20, 50]
 base_model = 'LR'
 model_list = [f'FA-LEARN-LDR-{base_model}-{q}' for q in Q_values_to_plot]
 
@@ -412,13 +427,15 @@ plt.plot(xval, yval, marker = 'o',
 
 # Text to indicate forecasting model for each subplot
 for i, q in enumerate(Q_values_to_plot):
-    if q == 10: continue
-    plt.text(xval[i]-2.5, yval[i]+1.5, f'$Q={q}$', fontsize=6, verticalalignment='top', bbox=text_props, color = 'black')
+    if q == 20: continue
+    plt.text(xval[i]-2.5, yval[i] + 2.5, f'$Q={q}$', fontsize=6, verticalalignment='top', bbox=text_props, color = 'black')
     
 plt.ylabel('RMSE (%)', fontsize = 7)
 plt.xlabel('Max. $\mathtt{RelGap}$ (%)', fontsize = 7)
 plt.xticks(-np.arange(0, 70, 10), np.arange(0, 70, 10))
-plt.ylim([2.5, 10])
+# plt.ylim([2.5, 20])
+plt.ylim([5, 20.5])
+
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 
 if config['save']:
