@@ -61,11 +61,11 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 4
+horizon = 8
 test_MCAR = True
 test_MNAR = False
 test_Censoring = False
-config['save'] = False
+config['save'] = True
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 min_lag = horizon
