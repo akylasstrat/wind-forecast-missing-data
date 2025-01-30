@@ -50,7 +50,7 @@ def params():
         
     params['freq'] = '15min'    
     params['target_park'] = 'Noble Clinton'
-    params['horizon'] = 1 # forecast horizon [1, 4, 8, 16, 24]
+    params['horizon'] = 8 # forecast horizon [1, 4, 8, 16, 24]
     params['train'] = True # If True, then train models, else tries to load previous runs
     params['save'] = True # If True, then saves models and results
     
@@ -319,10 +319,10 @@ try:
 except:
     FA_LEARN_LDR_LR_models_dict = {}
 
-Max_number_splits = [100]
+Max_number_splits = []
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -361,8 +361,8 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = False
-config['save'] = False
+config['train'] = True
+config['save'] = True
 
 if config['train']:    
     print('Training NN-ARF(learn)')
@@ -477,8 +477,8 @@ except:
 
 Max_number_splits = [10]
 
-config['train'] = False
-config['save'] = False
+config['train'] = True
+config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -518,8 +518,8 @@ except:
 
 Max_number_splits = [10]
 
-config['train'] = False
-config['save'] = False
+config['train'] = True
+config['save'] = True
 
 if config['train']:    
     for number_splits in Max_number_splits:
