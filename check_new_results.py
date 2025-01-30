@@ -133,7 +133,11 @@ all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
     # if (weather_all_steps == True):            
-    temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_updated.csv', index_col = 0)
+    try:
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_updated.csv', index_col = 0)
+    except:
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
+        
     temp_df['steps'] = s    
     all_rmse.append(temp_df)
 
@@ -152,7 +156,7 @@ all_rmse.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_all_RMSE_results_
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'LR'
+base_model = 'NN'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
