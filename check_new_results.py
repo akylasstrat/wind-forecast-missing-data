@@ -124,7 +124,7 @@ config = params()
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
-config['save'] = False
+config['save'] = True
 
 #%% Missing Data Completely at Random (MCAR)
 
@@ -133,7 +133,7 @@ all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
 for s in steps_:
     # if (weather_all_steps == True):            
-    temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
+    temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_updated.csv', index_col = 0)
     temp_df['steps'] = s    
     all_rmse.append(temp_df)
 
@@ -243,7 +243,7 @@ lgd = fig.legend(lines[:6], label_list, fontsize=fontsize, ncol = 3, loc = (1, .
                  bbox_to_anchor=(0.25, -0.1))
 
 if config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat.pdf',  
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_upd.pdf',  
                 bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
 plt.show()
 
