@@ -131,10 +131,11 @@ config['save'] = True
 ### Load data for all forecast horizons
 all_rmse = []
 steps_ = [1, 4, 8, 16, 24]
+dataset = 'updated'
 for s in steps_:
     # if (weather_all_steps == True):            
     try:
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_updated.csv', index_col = 0)
+        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_{dataset}.csv', index_col = 0)
     except:
         temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
         
@@ -149,22 +150,24 @@ all_rmse.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_all_RMSE_results_
     
 # ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
 # nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+#%%
+LR_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
 
+(all_rmse.groupby(['P_0_1', 'P_1_0', 'num_series', 'steps']).mean())[LR_models_to_plot + NN_models_to_plot].to_clipboard()
 #%% RMSE vs probabilities, grid with subplots
 
 # Select parameters for subplots
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'NN'
+base_model = 'LR'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
 
 full_experiment_list = list(itertools.product(p_1_0_list, p_0_1_list))
 
-LR_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
-NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
 
 (100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
 
@@ -247,7 +250,7 @@ lgd = fig.legend(lines[:6], label_list, fontsize=fontsize, ncol = 3, loc = (1, .
                  bbox_to_anchor=(0.25, -0.1))
 
 if config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_upd.pdf',  
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}.pdf',  
                 bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
 plt.show()
 
@@ -329,7 +332,7 @@ lgd = fig.legend(lines[:6], labels[:6], ncol = 3, loc = (1, .8),
 
 
 if config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_RMSE_single_farm.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_RMSE_single_farm_{dataset}.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
 
 #%% Sensitivity plot// connected scatterplot
@@ -470,7 +473,7 @@ plt.show()
 
 #%% Interpreting performance/ subsection
 
-target_model = FA_LEARN_LR_models_dict[10]
+target_model = FA_LEARN_LDR_LR_models_dict[10]
 
 target_node = 0
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
@@ -493,7 +496,7 @@ plt.show()
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
                          sharey = False, figsize = (3.5, 1.5))
 
-plt.plot( target_model.wc_node_model_[target_node].model[0].W[3].detach().numpy().T, label = r'$\omega^{\text{adv}}$')
+plt.plot( target_model.wc_node_model_[target_node].model[0].W[:,3].detach().numpy().T, label = r'$D^{\text{adv}}_{[3,:]}$')
 
 plt.ylabel('Coef. magnitude')
 plt.xlabel('Features')
