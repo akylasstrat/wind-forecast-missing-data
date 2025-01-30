@@ -10,6 +10,7 @@ import os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import itertools
 
 cd = os.path.dirname(__file__)  #Current directory
 sys.path.append(cd)
@@ -99,51 +100,6 @@ models_to_common_labels = {'LR':'$\mathtt{Imp}$',
                     'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn)^{10}}$',
                     'NN':'$\mathtt{Imp}$'}
 
-#%% Load data at turbine level, aggregate to park level
-config = params()
-
-# min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
-# max_lag: number of historical observations to include
-weather_all_steps = True
-
-horizon = 1
-freq = '15min'
-nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
-target_park = 'Noble Clinton'
-config['save'] = False
-min_lag = horizon
-
-#%% Missing Data Completely at Random (MCAR)
-
-### Load data for all forecast horizons
-all_rmse = []
-steps_ = [1, 4, 8, 16, 24]
-for s in steps_:
-    if (weather_all_steps == True):            
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
-    temp_df['steps'] = s    
-    all_rmse.append(temp_df)
-
-all_rmse = pd.concat(all_rmse)
-print('RMSE without missing data')
-print((100*all_rmse.query('P_0_1==0').groupby(['steps']).mean()).round(2))
-
-all_rmse.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_all_RMSE_results_full.csv')
-    
-ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
-nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
-
-#%% Randomly missing data plots
-
-LR_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
-NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
-
-
-(100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
-#%% RMSE vs probabilities, grid with subplots
-
-import itertools
-
 marker_dict = {
     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
     "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
@@ -156,10 +112,43 @@ marker_dict = {
     "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
     "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'}}
 
+#%% Load data at turbine level, aggregate to park level
+config = params()
 
-# dictionary for subplots
-ax_lbl = np.arange(9).reshape(3,3)
+# min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
+# max_lag: number of historical observations to include
+# weather_all_steps = True
+# horizon = 1
+# min_lag = horizon
 
+freq = '15min'
+nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
+target_park = 'Noble Clinton'
+config['save'] = False
+
+#%% Missing Data Completely at Random (MCAR)
+
+### Load data for all forecast horizons
+all_rmse = []
+steps_ = [1, 4, 8, 16, 24]
+for s in steps_:
+    # if (weather_all_steps == True):            
+    temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
+    temp_df['steps'] = s    
+    all_rmse.append(temp_df)
+
+all_rmse = pd.concat(all_rmse)
+print('RMSE without missing data')
+print((100*all_rmse.query('P_0_1==0').groupby(['steps']).mean()).round(2))
+
+all_rmse.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_all_RMSE_results_full.csv')
+    
+# ls_models = ['LS', 'FA-fixed-LS', 'FA-lin-fixed-LS', 'FA-greedy-LS', 'FA-lin-greedy-LS-1', 'FA-lin-greedy-LS-5', 'FA-lin-greedy-LS-10','FA-lin-greedy-LS-20']
+# nn_models = ['NN', 'FA-fixed-NN', 'FA-lin-fixed-NN', 'FA-greedy-NN', 'FA-lin-greedy-NN']
+
+#%% RMSE vs probabilities, grid with subplots
+
+# Select parameters for subplots
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
@@ -167,10 +156,17 @@ base_model = 'LR'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
-props = dict(boxstyle='round', facecolor='white', alpha=0.3)
 
 full_experiment_list = list(itertools.product(p_1_0_list, p_0_1_list))
 
+LR_models_to_plot = ['LR', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
+
+(100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
+
+# dictionary for subplots
+ax_lbl = np.arange(9).reshape(3,3)
+props = dict(boxstyle='round', facecolor='white', alpha=0.3)
 # axis ratio
 gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1, 1])
 
@@ -179,7 +175,6 @@ fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 
 
 # RMSE without missing data per horizon
 nominal_rmse_horizon = (100*all_rmse.query('P_0_1==0').groupby(['steps'])[['LR', 'NN']].mean()).round(2)
-
 
 if base_model == 'LR': models_to_plot = LR_models_to_plot
 elif base_model =='NN': models_to_plot = NN_models_to_plot
@@ -332,8 +327,8 @@ lgd = fig.legend(lines[:6], labels[:6], ncol = 3, loc = (1, .8),
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_RMSE_single_farm.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
-#%% Sensitivity plot// connected scatterplot
 
+#%% Sensitivity plot// connected scatterplot
 # load results
 
 all_rmse = []
@@ -468,6 +463,39 @@ if weather_all_steps and config['save']:
 elif (weather_all_steps == False) and config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
+
+#%% Interpreting performance/ subsection
+
+target_model = FA_LEARN_LR_models_dict[10]
+
+target_node = 0
+n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+### Coefficients
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 2))
+
+plt.bar(np.arange(n_feat)-0.2, target_model.node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
+        width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.bar(np.arange(n_feat)+0.2, target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
+        width = 0.4, label = fr'$\omega^{{\text{{adv}}}}_{{{target_node}}}$')
+plt.title(f'LR-RF (node: {target_node})')
+plt.ylabel('Coef. magnitude')
+plt.xlabel('Features')
+plt.legend()
+plt.show()
+
+#%%
+### 
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 1.5))
+
+plt.plot( target_model.wc_node_model_[target_node].model[0].W[3].detach().numpy().T, label = r'$\omega^{\text{adv}}$')
+
+plt.ylabel('Coef. magnitude')
+plt.xlabel('Features')
+plt.legend()
+plt.show()
+
 
 #%% Sensitivity analysis // LS
 min_lag = 1

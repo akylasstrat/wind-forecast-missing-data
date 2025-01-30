@@ -61,7 +61,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 1
+horizon = 4
 test_MCAR = True
 test_MNAR = False
 test_Censoring = False
@@ -229,12 +229,19 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-models_to_add = ['FA-LEARN-LDR-LR-50']
+models_to_add = ['FA-LEARN-LDR-NN-10', 'FA-LEARN-NN-10', 
+                 'FA-LEARN-LR-10']
 
 models_to_add_dict = {}
 
-with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_model_50_weather.pickle', 'rb') as handle:
-    models_to_add_dict['FA-LEARN-LDR-LR-50'] = pickle.load(handle)
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_NN_model_10_weather.pickle', 'rb') as handle:
+    models_to_add_dict['FA-LEARN-LDR-NN-10'] = pickle.load(handle)
+
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_NN_model_10_weather.pickle', 'rb') as handle:
+    models_to_add_dict['FA-LEARN-NN-10'] = pickle.load(handle)
+
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LR_model_10_weather.pickle', 'rb') as handle:
+    models_to_add_dict['FA-LEARN-LR-10'] = pickle.load(handle)
     
 for m in models_to_add:
     if m not in rmse_df.columns:
