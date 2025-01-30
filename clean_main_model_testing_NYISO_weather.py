@@ -61,7 +61,7 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 
 freq = '15min'
 target_park = 'Noble Clinton'
-horizon = 24
+horizon = 1
 test_MCAR = True
 test_MNAR = False
 test_Censoring = False

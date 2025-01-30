@@ -309,6 +309,8 @@ apply_LDR = True
 LR_hidden_size = []
 NN_hidden_size = [50, 50, 50]
 
+print('Training models for horizon')
+print(config['horizon'])
 ###### LR base model 
 ###### ARR-LR(learn)
 try:
@@ -317,7 +319,7 @@ try:
 except:
     FA_LEARN_LDR_LR_models_dict = {}
 
-Max_number_splits = [50]
+Max_number_splits = [100]
 
 config['train'] = True
 config['save'] = True
@@ -350,7 +352,7 @@ try:
 except:
     FA_LEARN_LDR_NN_models_dict = {}
 
-Max_number_splits = [50]
+Max_number_splits = [10]
 
 batch_size = 512
 num_epochs = 250
@@ -359,10 +361,11 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
+    print('Training NN-ARF(learn)')
     for number_splits in Max_number_splits:
         FA_LEARN_LDR_NN_model = Learn_FiniteAdapt_Robust_Reg(target_col = target_col, fix_col = fix_col, Max_splits = number_splits, 
                                                              D = 1e5, red_threshold = -1e5, 
@@ -472,7 +475,7 @@ try:
 except:
     FA_LEARN_LR_models_dict = {}
 
-Max_number_splits = [50]
+Max_number_splits = [10]
 
 config['train'] = False
 config['save'] = False
@@ -513,7 +516,7 @@ try:
 except:
     FA_LEARN_NN_models_dict = {}
 
-Max_number_splits = [50]
+Max_number_splits = [10]
 
 config['train'] = False
 config['save'] = False
