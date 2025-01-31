@@ -50,7 +50,7 @@ def params():
         
     params['freq'] = '15min'    
     params['target_park'] = 'Noble Clinton'
-    params['horizon'] = 16 # forecast horizon [1, 4, 8, 16, 24]
+    params['horizon'] = 1 # forecast horizon [1, 4, 8, 16, 24]
     params['train'] = True # If True, then train models, else tries to load previous runs
     params['save'] = True # If True, then saves models and results
     
@@ -177,6 +177,9 @@ lasso.fit(trainPred, trainY)
 lr = LinearRegression(fit_intercept = True)
 lr.fit(trainPred, trainY)
 
+lr_pos = LinearRegression(fit_intercept = True, positive = True)
+lr_pos.fit(trainPred, trainY)
+
 alpha_best = lasso.best_params_['alpha']
 #%%
 # lad = QR_regressor(fit_intercept = True)
@@ -191,7 +194,9 @@ lad.fit(trainPred, trainY.reshape(-1))
 lad_l1 = QuantileRegressor(quantile=0.5, alpha = alpha_best, fit_intercept = True, solver = 'highs')
 lad_l1.fit(trainPred, trainY.reshape(-1))
 
-lr_pred= projection(lr.predict(testPred).reshape(-1,1))
+lr_pred = projection(lr.predict(testPred).reshape(-1,1))
+lr_pos_pred = projection(lr_pos.predict(testPred).reshape(-1,1))
+
 lasso_pred = projection(lasso.predict(testPred).reshape(-1,1))
 ridge_pred = projection(ridge.predict(testPred).reshape(-1,1))
 lad_pred = projection(lad.predict(testPred).reshape(-1,1))
@@ -203,13 +208,15 @@ for i in range(config['min_lag']):
 
 base_Predictions['Persistence'] = persistence_pred.reshape(-1)
 base_Predictions['LS'] = lr_pred.reshape(-1)
+base_Predictions['LS_pos'] = lr_pos_pred.reshape(-1)
 base_Predictions['Lasso'] = lasso_pred.reshape(-1)
 base_Predictions['Ridge'] = ridge_pred.reshape(-1)
 base_Predictions['LAD'] = lad_pred.reshape(-1)
 base_Predictions['LAD-L1'] = lad_l1_pred.reshape(-1)
 base_Predictions['Climatology'] = trainY.mean()
-# base_Predictions['NREL'] = testPred[f'{target_park}_ID_for'].values
 
+# base_Predictions['NREL'] = testPred[f'{target_park}_ID_for'].values
+#%%
 # Neural Network: train a standard MLP model
 
 batch_size = 512
@@ -246,7 +253,7 @@ mlp_model.train_model(train_base_data_loader, valid_base_data_loader, optimizer,
                       patience = patience, verbose = 1)
 base_Predictions['NN'] = projection(mlp_model.predict(testPred.values))
 
-
+#%%
 # Estimate RMSE and MAE for base models without missing data
 print('Base Model Performance, no missing data')
 

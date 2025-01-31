@@ -361,8 +361,8 @@ with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_par
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
-    FA_LEARN_NN_models_dict = pickle.load(handle)                   
-
+    FA_LEARN_NN_models_dict = pickle.load(handle)               
+    
 model_dictionary = FA_LEARN_LDR_LR_models_dict
 
 Q_list = np.array(list(model_dictionary.keys()))
@@ -485,7 +485,7 @@ plt.bar(np.arange(n_feat)-0.2, target_model.node_model_[target_node].model[0].we
         width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
 plt.bar(np.arange(n_feat)+0.2, target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
         width = 0.4, label = fr'$\omega^{{\text{{adv}}}}_{{{target_node}}}$')
-plt.title(f'LR-RF (node: {target_node})')
+plt.title(f'LR-ARF (node: {target_node})')
 plt.ylabel('Coef. magnitude')
 plt.xlabel('Features')
 plt.legend()
