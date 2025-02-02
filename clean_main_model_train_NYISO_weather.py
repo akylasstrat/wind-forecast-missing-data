@@ -111,6 +111,14 @@ max_lag = 3 + min_lag
 power_df = power_df
 Y, Predictors, pred_col = create_IDsupervised(target_park, scaled_power_df[plant_ids], min_lag, max_lag)
 #%%
+
+plt.matshow(scaled_power_df[plant_ids].corr())
+plt.colorbar()
+plt.ylabel(plant_ids, rotation = 90)
+plt.xlabel(plant_ids)
+plt.show()
+
+#%%
 target_scaler = MinMaxScaler()
 pred_scaler = MinMaxScaler()
 

@@ -130,14 +130,11 @@ config['save'] = True
 
 ### Load data for all forecast horizons
 all_rmse = []
-steps_ = [1, 4, 8, 16, 24]
+steps_ = [1, 4, 8, 16]
 dataset = 'updated'
 for s in steps_:
     # if (weather_all_steps == True):            
-    try:
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_{dataset}.csv', index_col = 0)
-    except:
-        temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_full.csv', index_col = 0)
+    temp_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{s}_steps_RMSE_results_{dataset}.csv', index_col = 0)
         
     temp_df['steps'] = s    
     all_rmse.append(temp_df)
@@ -404,14 +401,14 @@ text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'tab:red',
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
                          sharey = False, figsize = (3.5, 1.5))
 
-plt.plot([1,2,5,10,20, 50], np.array(WC_gap), linestyle = '-', marker = '+')
-plt.xticks([1,2,5,10,20, 50], [1,2,5,10,20, 50])
+plt.plot([1,2,5,10,20, 50, 100], np.array(WC_gap), linestyle = '-', marker = '+')
+plt.xticks([1,2,5,10,20, 50, 100], [1,2,5,10,20, 50, 100])
 plt.ylabel('RMSE (%)')
 plt.show()
-
+#%%
 ### Sensitivity plot
 
-Q_values_to_plot = [ 1,  2,  5, 10, 20, 50]
+Q_values_to_plot = [ 1,  2,  5, 10, 20, 50, 100]
 base_model = 'LR'
 model_list = [f'FA-LEARN-LDR-{base_model}-{q}' for q in Q_values_to_plot]
 
@@ -473,34 +470,253 @@ plt.show()
 
 #%% Interpreting performance/ subsection
 
+all_rmse = []
+steps_ = [1]
+min_lag = 1
+
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_FIXED_LDR_LR_model_weather.pickle', 'rb') as handle:
+    FA_FIXED_LDR_LR_model = pickle.load(handle)           
+# with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+#     FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
+# with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
+#     FA_LEARN_NN_models_dict = pickle.load(handle)               
+#%%
+plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
+             'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
+
 target_model = FA_LEARN_LDR_LR_models_dict[10]
 
 target_node = 0
+leaf_ind = np.where(np.array(target_model.feature)==-1)
+
+print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+print(f'Feature selected for split: {target_model.feature[target_node]}')
+
+largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+
+print(f'Feature with highest absolute weight: {largest_magn_ind}')
+print(f'Feature with highest positive weight: {largest_pos_ind}')
+
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
 ### Coefficients
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
                          sharey = False, figsize = (3.5, 2))
 
-plt.bar(np.arange(n_feat)-0.2, target_model.node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
+
+
+w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
+
+plt.bar(np.arange(n_feat)-0.2, w_opt,
         width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
-plt.bar(np.arange(n_feat)+0.2, target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
+plt.bar(np.arange(n_feat)+0.2, w_adv,
         width = 0.4, label = fr'$\omega^{{\text{{adv}}}}_{{{target_node}}}$')
 plt.title(f'LR-ARF (node: {target_node})')
+plt.ylabel('Coef. magnitude')
+
+
+
+# Major labels (Categories)
+feat_labels = ['$WP^{0}_{t}$', '$WP^{0}_{t-1}$', '$WP^{0}_{t-2}$', 
+               '$WP^{1}_{t}$', '$WP^{1}_{t-1}$', '$WP^{1}_{t-2}$',
+               '$WP^{2}_{t}$', '$WP^{2}_{t-1}$', '$WP^{2}_{t-2}$',
+               '$WP^{3}_{t}$', '$WP^{3}_{t-1}$', '$WP^{3}_{t-2}$',
+               '$WP^{4}_{t}$', '$WP^{4}_{t-1}$', '$WP^{4}_{t-2}$',
+               '$WP^{5}_{t}$', '$WP^{5}_{t-1}$', '$WP^{5}_{t-2}$',
+               '$WP^{6}_{t}$', '$WP^{6}_{t-1}$', '$WP^{6}_{t-2}$',
+               '$WP^{7}_{t}$', '$WP^{7}_{t-1}$', '$WP^{7}_{t-2}$',
+               '$WF']
+
+sub_labels = 8*['${t}$', '${t-1}$', '${t-2}$']
+
+plt.xticks(np.arange(24), sub_labels, rotation = 45)
+
+# wp_positions = np.arange(1, len(plant_ids)*3, 3)
+
+# t_subcat = [0,1,2]
+# ax.set_xticks(wp_positions + (len(t_subcat) - 1) / 2)  # Centered under groups
+# ax.set_xticklabels(wp_positions, fontsize=12, fontweight='bold')
+
+# # Minor labels (Subcategories)
+# for i, cat in enumerate(wp_positions):
+#     for j, sub in enumerate(t_subcat):
+#         xpos = i * len(t_subcat) + j
+#         ax.text(xpos, -0.1, sub, ha='center', va='top', fontsize=10, transform=ax.get_xaxis_transform())
+
+# plt.xlabel('Features')
+plt.legend()
+plt.show()
+
+# Reshape into a (3, 8) matrix (3 lags, 8 farms)
+w_opt_matrix = w_opt[:-1].reshape(8,-1).T 
+D_feat_matrix = D[:,3][:-1].reshape(8,-1).T
+
+#%%
+
+# Define labels
+farms = [f'Farm {i+1}' for i in range(8)]  # X-axis (Farms)
+time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
+
+vmin = -.5
+vmax = 1.25
+
+vmin = w_opt_matrix.min()
+vmax=w_opt_matrix.max()
+
+# Create the heatmap
+fig, ax = plt.subplots(constrained_layout = True, nrows = 2, sharex = True, 
+                         sharey = True, figsize = (3.5, 2*1.2))
+
+##### Colorbar 1
+current_ax = ax[0]
+plt.sca(current_ax)
+cax = current_ax.imshow(w_opt_matrix, cmap="coolwarm", aspect="auto", vmin = vmin, vmax=vmax)
+cbar = fig.colorbar(cax, ax=current_ax, format="%.2f")
+cbar.set_label("Magnitude")
+plt.yticks([0,1,2], [r'$t$', r'$t-1$', r'$t-2$'], fontsize = 6)
+plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.ylabel("Time lag")
+
+##### Colorbar 2
+current_ax = ax[1]
+plt.sca(current_ax)
+cax = current_ax.imshow(D_feat_matrix, aspect="auto")
+cbar = fig.colorbar(cax, ax=current_ax, format="%.2f")
+cbar.set_label("Magnitude")
+
+# Labels and title
+plt.xlabel("Wind plant")
+plt.ylabel("Time lag")
+plt.yticks([0,1,2], [r'$t$', r'$t-1$', r'$t-2$'], fontsize = 6)
+plt.xticks(np.arange(8), np.arange(1,9), fontsize = 6)
+plt.title(r'$\mathbf{D}^{\text{adv}}_{0,[3,:]}$')
+
+if config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_heatmap.pdf')
+plt.show()
+
+#%%
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 2))
+
+
+plt.bar(np.arange(n_feat)-0.2, target_model.node_model_[0].model[0].weight.detach().numpy().T.reshape(-1),
+        width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.bar(np.arange(n_feat)+0.2, target_model.node_model_[2].model[0].weight.detach().numpy().T.reshape(-1),
+        width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.title(f'LR-ARF (node: {target_node})')
+plt.ylabel('Coef. magnitude')
+plt.legend()
+plt.show()
+
+
+#%%
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 1.5))
+
+plt.plot( target_model.wc_node_model_[target_node].model[0].W[:,12].detach().numpy().T, label = r'$D^{\text{adv}}_{[3,:]}$')
+
 plt.ylabel('Coef. magnitude')
 plt.xlabel('Features')
 plt.legend()
 plt.show()
 
 #%%
-### 
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
-                         sharey = False, figsize = (3.5, 1.5))
+                         sharey = False, figsize = (3.5, 2))
 
-plt.plot( target_model.wc_node_model_[target_node].model[0].W[:,3].detach().numpy().T, label = r'$D^{\text{adv}}_{[3,:]}$')
 
-plt.ylabel('Coef. magnitude')
+# plt.bar(np.arange(n_feat)-0.2, target_model.node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
+#         width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.bar(np.arange(n_feat)-0.2, target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1),
+        width = 0.4, label = fr'$\omega^{{\text{{adv}}}}_{{{target_node}}}$')
+plt.bar(np.arange(n_feat)+0.2, target_model.wc_node_model_[target_node].model[0].W[:,3].detach().numpy().T,
+        width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+
+plt.title(f'LR-ARF (node: {target_node})')
+plt.ylabel('Weight magnitude')
 plt.xlabel('Features')
 plt.legend()
+plt.show()
+
+#%% Feature plot
+
+plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
+             'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
+
+target_model = FA_LEARN_LDR_LR_models_dict[10]
+
+target_node = 0
+leaf_ind = np.where(np.array(target_model.feature)==-1)
+
+print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+print(f'Feature selected for split: {target_model.feature[target_node]}')
+
+largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+
+print(f'Feature with highest absolute weight: {largest_magn_ind}')
+print(f'Feature with highest positive weight: {largest_pos_ind}')
+
+n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+
+# Pick top 10 features to plot
+feat_ind = np.argsort(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))[::-1]
+feat_list = list(feat_ind[:5])
+
+w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
+
+### Coefficients
+fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
+                         sharey = False, figsize = (3.5, 2))
+
+plt.bar(np.arange(len(feat_list))-0.2, w_opt[feat_list],
+        width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+# plt.bar(np.arange(len(feat_list))+0.2, w_adv[feat_list],
+#         width = 0.4, label = fr'$\omega^{{\text{{adv}}}}_{{{target_node}}}$')
+plt.bar(np.arange(len(feat_list))+0.2, D[:,3][feat_list],
+        width = 0.4, label = r'$D^{\text{adv}}_{[3,:]}$')
+
+plt.title(f'LR-ARF (node: {target_node})')
+plt.ylabel('Weight magnitude')
+
+# Major labels (Categories)
+feat_labels = ['$WP^{0}_{t}$', '$WP^{0}_{t-1}$', '$WP^{0}_{t-2}$', 
+               '$WP^{1}_{t}$', '$WP^{1}_{t-1}$', '$WP^{1}_{t-2}$',
+               '$WP^{2}_{t}$', '$WP^{2}_{t-1}$', '$WP^{2}_{t-2}$',
+               '$WP^{3}_{t}$', '$WP^{3}_{t-1}$', '$WP^{3}_{t-2}$',
+               '$WP^{4}_{t}$', '$WP^{4}_{t-1}$', '$WP^{4}_{t-2}$',
+               '$WP^{5}_{t}$', '$WP^{5}_{t-1}$', '$WP^{5}_{t-2}$',
+               '$WP^{6}_{t}$', '$WP^{6}_{t-1}$', '$WP^{6}_{t-2}$',
+               '$WP^{7}_{t}$', '$WP^{7}_{t-1}$', '$WP^{7}_{t-2}$',
+               '$WF']
+
+sub_labels = 8*['${t}$', '${t-1}$', '${t-2}$']
+
+# plt.xticks(np.arange(24), sub_labels, rotation = 45)
+
+# wp_positions = np.arange(1, len(plant_ids)*3, 3)
+
+plt.legend()
+plt.show()
+
+#%%
+from sklearn import tree
+import matplotlib.pyplot as plt
+
+# Assume clf is your trained decision tree classifier
+fig, ax = plt.subplots(figsize=(6, 4))  # Control size for space constraints
+tree.plot_tree(clf, filled=True, fontsize=8, ax=ax, feature_names=['X1', 'X2'], class_names=['A', 'B'])
+plt.tight_layout()
+plt.savefig("decision_tree.pdf", bbox_inches="tight", dpi=300)  # For journal quality
 plt.show()
 
 
