@@ -484,7 +484,7 @@ with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_par
 #     FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
 # with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_NN_models_dict_weather.pickle', 'rb') as handle:
 #     FA_LEARN_NN_models_dict = pickle.load(handle)               
-#%%
+
 plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
              'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
 
@@ -512,7 +512,72 @@ fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True,
 w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
+D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,3]
 
+plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
+time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
+
+fig, axes = plt.subplots(constrained_layout = True, ncols = 2, sharex = False, 
+                         sharey = True, figsize = (3.5, 3))
+
+current_ax = axes[0]
+plt.sca(current_ax)
+
+height_ = 0.61
+delta_step = 0.3
+for i in range(0, 24, 3):
+    t_i = np.arange(i, i+3)
+    plt.barh( t_i[0] + delta_step, w_opt[t_i[0]], height = height_, color = 'black')
+    plt.barh( t_i[1], w_opt[t_i[1]], height =height_, color = 'black')
+    plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
+
+plt.barh(24, w_opt[-1], height = height_, color = 'black')
+    
+# plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}$')
+plt.xlabel('Magnitude')
+
+current_ax = axes[1]
+plt.sca(current_ax)
+
+for i in range(0, 24, 3):
+    t_i = np.arange(i, i+3)
+    plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
+    plt.barh( t_i[1], D_wc_row[t_i[1]], height = height_, color = 'black')
+    plt.barh( t_i[2] - delta_step, D_wc_row[t_i[2]], height = height_, color = 'black')
+
+plt.barh(24, D[-1,3], height = height_, color = 'black')
+
+# plt.barh(np.arange(n_feat)+0.2, D[:,3][::-1],
+#         height = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+
+plt.title(r'$\mathbf{D}^{\text{adv}}_{[3,:]}$')
+plt.xlabel('Magnitude')
+
+text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
+                  alpha=0.25)
+arrow_props = dict(arrowstyle="->", linewidth=0.7)
+
+# axes[0].text(0.5, 0., '$\mathtt{t}$', fontsize=5, verticalalignment='top', bbox=text_props)
+# axes[0].text(0.5, 1.25, '$\mathtt{t-1}$', fontsize=5, verticalalignment='top', bbox=text_props)
+# axes[0].text(0.5, 2.5, '$\mathtt{t-2}$', fontsize=5, verticalalignment='top', bbox=text_props)
+
+axes[0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
+            arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+
+axes[0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
+            arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+
+axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
+            arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+
+plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
+# plt.title(f'LR-ARF (node: {target_node})')
+
+if config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot.pdf')
+plt.show()
+#%%
 plt.bar(np.arange(n_feat)-0.2, w_opt,
         width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
 plt.bar(np.arange(n_feat)+0.2, w_adv,
@@ -537,19 +602,6 @@ sub_labels = 8*['${t}$', '${t-1}$', '${t-2}$']
 
 plt.xticks(np.arange(24), sub_labels, rotation = 45)
 
-# wp_positions = np.arange(1, len(plant_ids)*3, 3)
-
-# t_subcat = [0,1,2]
-# ax.set_xticks(wp_positions + (len(t_subcat) - 1) / 2)  # Centered under groups
-# ax.set_xticklabels(wp_positions, fontsize=12, fontweight='bold')
-
-# # Minor labels (Subcategories)
-# for i, cat in enumerate(wp_positions):
-#     for j, sub in enumerate(t_subcat):
-#         xpos = i * len(t_subcat) + j
-#         ax.text(xpos, -0.1, sub, ha='center', va='top', fontsize=10, transform=ax.get_xaxis_transform())
-
-# plt.xlabel('Features')
 plt.legend()
 plt.show()
 
@@ -557,7 +609,7 @@ plt.show()
 w_opt_matrix = w_opt[:-1].reshape(8,-1).T 
 D_feat_matrix = D[:,3][:-1].reshape(8,-1).T
 
-#%%
+#%% Heatmaps
 
 # Define labels
 farms = [f'Farm {i+1}' for i in range(8)]  # X-axis (Farms)
@@ -600,20 +652,45 @@ plt.title(r'$\mathbf{D}^{\text{adv}}_{0,[3,:]}$')
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_heatmap.pdf')
 plt.show()
-
 #%%
-fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
-                         sharey = False, figsize = (3.5, 2))
-
-
-plt.bar(np.arange(n_feat)-0.2, target_model.node_model_[0].model[0].weight.detach().numpy().T.reshape(-1),
+plt.bar(np.arange(n_feat)-0.2, w_opt,
         width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
-plt.bar(np.arange(n_feat)+0.2, target_model.node_model_[2].model[0].weight.detach().numpy().T.reshape(-1),
-        width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
+plt.bar(np.arange(n_feat)+0.2, w_adv,
+        width = 0.4, label = fr'$\omega^{{\text{{adv}}}}_{{{target_node}}}$')
 plt.title(f'LR-ARF (node: {target_node})')
 plt.ylabel('Coef. magnitude')
-plt.legend()
+
+
+
+
+
+#%%
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Sample data
+categories = ["A", "B", "C", "D", "E"]
+values1 = [5, 7, 3, 8, 6]
+values2 = [6, 4, 9, 2, 5]
+
+# Create a figure with two vertical subplots
+fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(6, 8), sharex=True)
+
+# First Bar Chart
+axes[0].bar(categories, values1, color="skyblue", edgecolor="black")
+axes[0].set_title("Bar Chart 1")
+axes[0].set_ylabel("Value 1")
+
+# Second Bar Chart
+axes[1].bar(categories, values2, color="salmon", edgecolor="black")
+axes[1].set_title("Bar Chart 2")
+axes[1].set_ylabel("Value 2")
+axes[1].set_xlabel("Categories")  # Only set xlabel on the bottom subplot
+
+# Adjust layout
+plt.tight_layout()
 plt.show()
+
 
 
 #%%
