@@ -798,8 +798,8 @@ plt.show()
 
 
 #%% Sensitivity analysis // LS
-min_lag = 1
-temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0} and num_series==8 and steps=={min_lag}')
+min_lag = 4
+# temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0} and num_series==8 and steps=={min_lag}')
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
