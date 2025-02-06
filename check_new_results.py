@@ -336,8 +336,8 @@ plt.show()
 # load results
 
 all_rmse = []
-steps_ = [1]
-min_lag = 1
+steps_ = [1, 4, 8, 16]
+min_lag = 16
 
 for s in steps_:
     if (weather_all_steps == True):            
@@ -369,9 +369,15 @@ Q_list = np.sort(Q_list)
 WC_gap = []
 WC_gap_dict = {}
 abs_gap = []
+
 max_UB = []
 best_LB = []
-Q_array = np.array(list(model_dictionary.keys()))
+
+# Upper and lower bound (RMSE) at index with worst-case gap
+UB_wc_ind = []
+LB_wc_ind = []
+
+
 for q in Q_list:
     temp_model = model_dictionary[q]
     leaf_ind = np.where(np.array(temp_model.feature) == -1)[0]
@@ -382,7 +388,13 @@ for q in Q_list:
     abs_gap.append(np.array(temp_model.Loss_gap)[leaf_ind].max())
     max_UB.append(np.array(temp_model.UB_Loss)[leaf_ind].max())
     best_LB.append(np.array(temp_model.LB_Loss)[leaf_ind].max())
-    
+    # find leaf index with highest gap
+    ind_wc = np.argmax(np.array(temp_model.Loss_gap_perc)[leaf_ind])
+    UB_wc_ind.append(100*np.sqrt(np.array(temp_model.UB_Loss)[leaf_ind][ind_wc]))
+    LB_wc_ind.append(100*np.sqrt(np.array(temp_model.LB_Loss)[leaf_ind][ind_wc]))
+
+UB_wc_ind = np.array(UB_wc_ind)
+LB_wc_ind = np.array(LB_wc_ind)
 WC_gap = np.array(WC_gap)
 
 ### Sensitivity analysis table results
@@ -401,8 +413,8 @@ text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'tab:red',
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
                          sharey = False, figsize = (3.5, 1.5))
 
-plt.plot([1,2,5,10,20, 50, 100], np.array(WC_gap), linestyle = '-', marker = '+')
-plt.xticks([1,2,5,10,20, 50, 100], [1,2,5,10,20, 50, 100])
+plt.plot(Q_list, np.array(WC_gap), linestyle = '-', marker = '+')
+plt.xticks(Q_list, Q_list)
 plt.ylabel('RMSE (%)')
 plt.show()
 #%%
@@ -490,7 +502,7 @@ plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
 
 target_model = FA_LEARN_LDR_LR_models_dict[10]
 
-target_node = 0
+target_node = 1
 leaf_ind = np.where(np.array(target_model.feature)==-1)
 
 print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
@@ -505,14 +517,14 @@ print(f'Feature with highest positive weight: {largest_pos_ind}')
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
 ### Coefficients
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
-                         sharey = False, figsize = (3.5, 2))
+                         sharey = False, figsize = (3.5, 1.75))
 
 
 
 w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
-D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,3]
+D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,target_model.feature[target_node]]
 
 plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
 time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
@@ -532,7 +544,12 @@ for i in range(0, 24, 3):
     plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
 
 plt.barh(24, w_opt[-1], height = height_, color = 'black')
-    
+
+# Marker to show selected feature
+plt.scatter(1.1*w_opt[target_model.feature[target_node]], target_model.feature[target_node] + delta_step, color = 'black', 
+            marker = '*')
+
+
 # plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
 plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}$')
 plt.xlabel('Magnitude')
@@ -546,12 +563,13 @@ for i in range(0, 24, 3):
     plt.barh( t_i[1], D_wc_row[t_i[1]], height = height_, color = 'black')
     plt.barh( t_i[2] - delta_step, D_wc_row[t_i[2]], height = height_, color = 'black')
 
-plt.barh(24, D[-1,3], height = height_, color = 'black')
+plt.barh(24, D[-1,target_model.feature[target_node]], height = height_, color = 'black')
 
 # plt.barh(np.arange(n_feat)+0.2, D[:,3][::-1],
 #         height = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
-
-plt.title(r'$\mathbf{D}^{\text{adv}}_{[3,:]}$')
+index = target_model.feature[target_node]
+plt.title(fr'$\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+# plt.title(r'$\mathbf{D}^{\text{adv}}_{[3,:]}$')
 plt.xlabel('Magnitude')
 
 text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
@@ -562,20 +580,20 @@ arrow_props = dict(arrowstyle="->", linewidth=0.7)
 # axes[0].text(0.5, 1.25, '$\mathtt{t-1}$', fontsize=5, verticalalignment='top', bbox=text_props)
 # axes[0].text(0.5, 2.5, '$\mathtt{t-2}$', fontsize=5, verticalalignment='top', bbox=text_props)
 
-axes[0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
+axes[0].annotate('$t$', xy=(0.0, 21.25), xytext=(0.75, 20),
             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
 
-axes[0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
+axes[0].annotate('$t-1$', xy=(0.1, 22), xytext=(0.75, 21.75),
             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
 
-axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
+axes[0].annotate('$t-2$', xy=(0.0, 22.75), xytext=(0.75, 23.75),
             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
 
 plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
 # plt.title(f'LR-ARF (node: {target_node})')
 
 if config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot.pdf')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot_{target_node}.pdf')
 plt.show()
 
 #%% Feature weight grid plots
