@@ -577,6 +577,96 @@ plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot.pdf')
 plt.show()
+
+#%% Feature weight grid plots
+
+target_model = FA_LEARN_LDR_LR_models_dict[10]
+
+plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
+time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
+
+fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 2, sharex = True, 
+                         sharey = True, figsize = (3.5, 6))
+
+height_ = 0.61
+delta_step = 0.3
+
+text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
+                  alpha=0.25)
+arrow_props = dict(arrowstyle="->", linewidth=0.7)
+
+for row, target_node in enumerate([0,1]):
+
+    leaf_ind = np.where(np.array(target_model.feature)==-1)
+    
+    print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+    print(f'Feature selected for split: {target_model.feature[target_node]}')
+    
+    largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+    largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+    
+    print(f'Feature with highest absolute weight: {largest_magn_ind}')
+    print(f'Feature with highest positive weight: {largest_pos_ind}')
+    
+    n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+    ### Coefficients
+
+    w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+    w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+    D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
+    D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,3]
+
+
+
+    current_ax = axes[row,0]
+    plt.sca(current_ax)
+
+    for i in range(0, 24, 3):
+        t_i = np.arange(i, i+3)
+        plt.barh( t_i[0] + delta_step, w_opt[t_i[0]], height = height_, color = 'black')
+        plt.barh( t_i[1], w_opt[t_i[1]], height =height_, color = 'black')
+        plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
+    
+    plt.barh(24, w_opt[-1], height = height_, color = 'black')
+    
+    # plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
+    plt.title(fr'$\mathcal{{U}}_{target_node}: \mathbf{{w}}^{{\text{{opt}}}}$')
+    plt.xlabel('Magnitude')
+
+    current_ax = axes[row,1]
+    plt.sca(current_ax)
+
+    for i in range(0, 24, 3):
+        t_i = np.arange(i, i+3)
+        plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
+        plt.barh( t_i[1], D_wc_row[t_i[1]], height = height_, color = 'black')
+        plt.barh( t_i[2] - delta_step, D_wc_row[t_i[2]], height = height_, color = 'black')
+
+    plt.barh(24, D_wc_row[-1], height = height_, color = 'black')
+
+    plt.title(fr'$\mathcal{{U}}_{target_node}: \mathbf{{D}}^{{\text{{adv}}}}_{{[3,:]}}$')
+    plt.xlabel('Magnitude')
+    
+    if target_node == 0:
+
+        axes[0,0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
+                    arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+        
+        axes[0,0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
+                    arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+        
+        axes[0,0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
+                    arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+
+plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
+# plt.title(f'LR-ARF (node: {target_node})')
+
+asdf
+if config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot.pdf')
+plt.show()
+
+
 #%%
 plt.bar(np.arange(n_feat)-0.2, w_opt,
         width = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
@@ -798,7 +888,7 @@ plt.show()
 
 
 #%% Sensitivity analysis // LS
-min_lag = 4
+min_lag = 1
 # temp_df = all_rmse.query(f'P_0_1=={0.2} and P_1_0=={0} and num_series==8 and steps=={min_lag}')
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
