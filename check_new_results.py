@@ -558,16 +558,20 @@ plt.sca(current_ax)
 
 for i in range(0, 24, 3):
     t_i = np.arange(i, i+3)
+    # plt.barh( t_i[0] + delta_step, w_adv[t_i[0]] + D_wc_row[t_i[0]], height = height_, color = 'black')
+    # plt.barh( t_i[1], w_adv[t_i[1]] + D_wc_row[t_i[1]], height = height_, color = 'black')
+    # plt.barh( t_i[2] - delta_step, w_adv[t_i[2]] + D_wc_row[t_i[2]], height = height_, color = 'black')
     plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
-    plt.barh( t_i[1], D_wc_row[t_i[1]], height = height_, color = 'black')
-    plt.barh( t_i[2] - delta_step, D_wc_row[t_i[2]], height = height_, color = 'black')
+    plt.barh( t_i[1],  D_wc_row[t_i[1]], height = height_, color = 'black')
+    plt.barh( t_i[2] - delta_step,  D_wc_row[t_i[2]], height = height_, color = 'black')
 
 plt.barh(24, D[-1,target_model.feature[target_node]], height = height_, color = 'black')
 
 # plt.barh(np.arange(n_feat)+0.2, D[:,3][::-1],
 #         height = 0.4, label = fr'$\omega^{{\text{{opt}}}}_{{{target_node}}}$')
 index = target_model.feature[target_node]
-plt.title(fr'$\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+plt.title(fr'\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+# plt.title(fr'$\mathbf{{w}}^{{\text{{adv}}}} + \mathbf{{\alpha}}^{{\top}}\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
 # plt.title(r'$\mathbf{D}^{\text{adv}}_{[3,:]}$')
 plt.xlabel('Magnitude')
 
