@@ -501,6 +501,7 @@ plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
              'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
 
 target_model = FA_LEARN_LDR_LR_models_dict[10]
+fixed_model = FA_FIXED_LDR_LR_model
 
 target_node = 0
 leaf_ind = np.where(np.array(target_model.feature)==-1)
@@ -515,6 +516,7 @@ print(f'Feature with highest absolute weight: {largest_magn_ind}')
 print(f'Feature with highest positive weight: {largest_pos_ind}')
 
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+
 ### Coefficients
 fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
                          sharey = False, figsize = (3.5, 1.75))
@@ -606,8 +608,11 @@ target_model = FA_LEARN_LDR_LR_models_dict[10]
 plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
 time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
 
-fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 2, sharex = False, 
-                         sharey = True, figsize = (3.5, 5.5))
+
+### Plot w_opt for two subsets
+
+fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex = False, 
+                         sharey = True, figsize = (3.5, 2.5))
 
 height_ = 0.61
 delta_step = 0.3
@@ -616,11 +621,11 @@ text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white',
                   alpha=0.25)
 arrow_props = dict(arrowstyle="->", linewidth=0.7)
 
-for row, target_node in enumerate([0,2]):
+for col, target_node in enumerate([0,2]):
     index = target_model.feature[target_node]
 
     leaf_ind = np.where(np.array(target_model.feature)==-1)
-    
+    split_feat = target_model.feature[target_node]
     print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
     print(f'Feature selected for split: {target_model.feature[target_node]}')
     
@@ -634,13 +639,13 @@ for row, target_node in enumerate([0,2]):
     ### Coefficients
 
     w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+    bias_opt = target_model.node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
     w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+    bias_adv = target_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
     D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
     D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,index]
 
-
-
-    current_ax = axes[row,0]
+    current_ax = axes[col]
     plt.sca(current_ax)
 
     for i in range(0, 24, 3):
@@ -650,53 +655,137 @@ for row, target_node in enumerate([0,2]):
         plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
     
     plt.barh(24, w_opt[-1], height = height_, color = 'black')
+    plt.barh(26, bias_opt, height = height_, color = 'black')
     
     # plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
     plt.title(fr'$\mathcal{{U}}_{target_node}: \mathbf{{w}}^{{\text{{opt}}}}$')
     plt.xlabel('Magnitude')
 
-
     # Marker to show selected feature
     plt.scatter(1.1*w_opt[target_model.feature[target_node]], target_model.feature[target_node] + delta_step, color = 'black', 
                 marker = '*')
 
-    plt.xlim([-1.1,1.5])
+    # plt.xlim([-1.1,1.5])
+    # current_ax = axes[col]
+    # plt.sca(current_ax)
 
-    current_ax = axes[row,1]
-    plt.sca(current_ax)
-    
+    # for i in range(0, 24, 3):
+    #     t_i = np.arange(i, i+3)
+    #     plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
+    #     plt.barh( t_i[1], D_wc_row[t_i[1]], height = height_, color = 'black')
+    #     plt.barh( t_i[2] - delta_step, D_wc_row[t_i[2]], height = height_, color = 'black')
 
+    # plt.barh(24, D_wc_row[-1], height = height_, color = 'black')
 
-    for i in range(0, 24, 3):
-        t_i = np.arange(i, i+3)
-        plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
-        plt.barh( t_i[1], D_wc_row[t_i[1]], height = height_, color = 'black')
-        plt.barh( t_i[2] - delta_step, D_wc_row[t_i[2]], height = height_, color = 'black')
-
-    plt.barh(24, D_wc_row[-1], height = height_, color = 'black')
-
-    plt.title(fr'$\mathcal{{U}}_{target_node}: \mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
-    plt.xlabel('Magnitude')
+    # plt.title(fr'$\mathcal{{U}}_{target_node}: \mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+    # plt.xlabel('Magnitude')
     
     if target_node == 0:
-
-        axes[0,0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
+        axes[0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
                     arrowprops=arrow_props, bbox=text_props, fontsize = 5)
         
-        axes[0,0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
+        axes[0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
                     arrowprops=arrow_props, bbox=text_props, fontsize = 5)
         
-        axes[0,0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
+        axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
                     arrowprops=arrow_props, bbox=text_props, fontsize = 5)
     
-    plt.xlim([0,0.11])
-plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
-# plt.title(f'LR-ARF (node: {target_node})')
+    plt.xlim([-1.1,1.5])
+    
+plt.yticks(list(range(1,25,3))+[24, 26], plant_list + ['Weather', 'Bias'])
 
 if config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot_nodes.pdf')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.pdf')
 plt.show()
 
+#%%
+### For a given subset, plot w_adv for ARF RF model
+### Plot w_opt for two subsets
+
+target_ARF_model = FA_LEARN_LDR_LR_models_dict[10]
+target_RF_model = FA_LEARN_LR_models_dict[10]
+
+
+fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex = False, 
+                         sharey = True, figsize = (3.5, 2.5))
+
+height_ = 0.61
+delta_step = 0.3
+target_node = 0
+text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
+                  alpha=0.25)
+arrow_props = dict(arrowstyle="->", linewidth=0.7)
+
+# Tree parameters
+index = target_ARF_model.feature[target_node]
+
+leaf_ind = np.where(np.array(target_ARF_model.feature)==-1)
+split_feat = target_ARF_model.feature[target_node]
+print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+print(f'Feature selected for split: {target_model.feature[target_node]}')
+
+n_feat = len(target_ARF_model.target_features[0]) + len(target_ARF_model.fixed_features[0])
+
+## RF model
+RF_w_adv = target_RF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+RF_bias_adv = target_RF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
+
+current_ax = axes[0]
+plt.sca(current_ax)
+for i in range(0, 24, 3):
+    t_i = np.arange(i, i+3)
+    plt.barh( t_i[0] + delta_step, RF_w_adv[t_i[0]], height = height_, color = 'black')
+    plt.barh( t_i[1], RF_w_adv[t_i[1]], height =height_, color = 'black')
+    plt.barh( t_i[2] - delta_step, RF_w_adv[t_i[2]], height = height_, color = 'black')
+plt.barh(24, RF_w_adv[-1], height = height_, color = 'black')
+plt.barh(26, RF_bias_adv, height = height_, color = 'black')
+
+plt.title(fr'$\mathtt{{RF}}: \mathbf{{w}}^{{\text{{adv}}}}$')
+plt.xlabel('Magnitude')
+plt.xlim([-1.1,1.5])
+
+## RF model
+ARF_w_adv = target_ARF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+ARF_bias_adv = target_ARF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
+D = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().numpy()
+D_wc_row = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,index]
+
+# Fix alpha adversarial with 0 everywhere and 1 at split feature
+alpha_adv = np.zeros(ARF_w_adv.shape)
+alpha_adv[split_feat] = 1
+w_adv_corrected = ARF_w_adv + alpha_adv*D_wc_row
+
+current_ax = axes[1]
+plt.sca(current_ax)
+
+for i in range(0, 24, 3):
+    t_i = np.arange(i, i+3)
+    plt.barh( t_i[0] + delta_step, w_adv_corrected[t_i[0]], height = height_, color = 'black')
+    plt.barh( t_i[1], w_adv_corrected[t_i[1]], height =height_, color = 'black')
+    plt.barh( t_i[2] - delta_step, w_adv_corrected[t_i[2]], height = height_, color = 'black')
+    
+plt.barh(24, w_adv_corrected[-1], height = height_, color = 'black')
+plt.barh(26, ARF_bias_adv, height = height_, color = 'black')
+
+plt.title(fr'$\mathtt{{ARF}}: \mathbf{{w}}^{{\text{{adv}}}} + \mathbf{{\alpha}}^{{\text{{adv}}^{{\top}} }} \mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+plt.xlabel('Magnitude')
+plt.xlim([-1.1,1.5])
+
+# if target_node == 0:
+#     axes[0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
+#                 arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+    
+#     axes[0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
+#                 arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+    
+#     axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
+#                 arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+        
+plt.yticks(list(range(1,25,3))+[24, 26], plant_list + ['Weather', 'Bias'])
+
+if config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.pdf')
+plt.show()
 
 #%%
 plt.bar(np.arange(n_feat)-0.2, w_opt,
