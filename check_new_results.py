@@ -337,7 +337,7 @@ plt.show()
 
 all_rmse = []
 steps_ = [1, 4, 8, 16]
-min_lag = 16
+min_lag = 1
 
 for s in steps_:
     if (weather_all_steps == True):            

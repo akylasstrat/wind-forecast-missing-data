@@ -376,8 +376,8 @@ patience = 15
 val_perc = 0.15
 decay = 1e-5
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     print('Training NN-ARF(learn)')
@@ -424,7 +424,7 @@ NN_hidden_size = [50, 50, 50]
 # config['save'] = False
 
 ###### ARR-LR(fixed)
-config['train'] = False
+config['train'] = True
 config['save'] = False
 
 if config['train']:    
@@ -492,8 +492,8 @@ except:
 
 Max_number_splits = [10]
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
@@ -533,8 +533,8 @@ except:
 
 Max_number_splits = [10]
 
-config['train'] = True
-config['save'] = True
+config['train'] = False
+config['save'] = False
 
 if config['train']:    
     for number_splits in Max_number_splits:
