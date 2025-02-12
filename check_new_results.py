@@ -158,7 +158,7 @@ NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', '
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'LR'
+base_model = 'NN'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
@@ -174,7 +174,7 @@ props = dict(boxstyle='round', facecolor='white', alpha=0.3)
 # axis ratio
 gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1, 1])
 
-fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.05*3), 
+fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.025*3), 
                              gridspec_kw = gs_kw, sharex = True, sharey = True)
 
 # RMSE without missing data per horizon
@@ -195,7 +195,7 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
     plt.sca(current_axis)
 
     # Suptitle or Text to indicate forecasting model for each subplot
-    text_title = rf'$P_{{0,1}}={p_0_1}$'+'\n'+rf'$P_{{1,1}}={1-p_1_0}$'  
+    text_title = rf'$\mathbb{{P}}_{{0,1}}={p_0_1}$'+'\n'+rf'$\mathbb{{P}}_{{1,1}}={1-p_1_0}$'  
     # current_axis.title.set_text(text_title)
     # current_axis.text(0.025, 0.97, text_title, transform = current_axis.transAxes, 
     #                   fontsize=fontsize, verticalalignment='top', bbox=props)
@@ -601,6 +601,18 @@ if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_barplot_{target_node}.pdf')
 plt.show()
 
+#%%
+plt.plot(w_adv)
+plt.plot(fixed_model.Robust_models[-1].model[0].weight.detach().numpy().T)
+plt.plot(fixed_model.Robust_models[0].model[0].weight.detach().numpy().T, '--')
+plt.show()
+#%%
+plt.plot(D_wc_row)
+plt.plot(fixed_model.Robust_models[1].model[0].W.detach().numpy()[:,3].T)
+# plt.plot(fixed_model.Robust_models[0].model[0].weight.detach().numpy().T, '--')
+plt.show()
+
+
 #%% Feature weight grid plots
 
 target_model = FA_LEARN_LDR_LR_models_dict[10]
@@ -612,7 +624,7 @@ time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
 ### Plot w_opt for two subsets
 
 fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex = False, 
-                         sharey = True, figsize = (3.5, 2.5))
+                         sharey = True, figsize = (3.5, 2.25))
 
 height_ = 0.61
 delta_step = 0.3
@@ -654,8 +666,8 @@ for col, target_node in enumerate([0,2]):
         plt.barh( t_i[1], w_opt[t_i[1]], height =height_, color = 'black')
         plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
     
-    plt.barh(24, w_opt[-1], height = height_, color = 'black')
-    plt.barh(26, bias_opt, height = height_, color = 'black')
+    plt.barh(25, w_opt[-1], height = height_, color = 'black')
+    plt.barh(28, bias_opt, height = height_, color = 'black')
     
     # plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
     plt.title(fr'$\mathcal{{U}}_{target_node}: \mathbf{{w}}^{{\text{{opt}}}}$')
@@ -681,18 +693,18 @@ for col, target_node in enumerate([0,2]):
     # plt.xlabel('Magnitude')
     
     if target_node == 0:
-        axes[0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 21),
+        axes[0].annotate('$\mathtt{t}$', xy=(0.0, 21.25), xytext=(0.75, 20),
                     arrowprops=arrow_props, bbox=text_props, fontsize = 5)
         
         axes[0].annotate('$\mathtt{t-1}$', xy=(0.1, 22), xytext=(0.75, 21.75),
                     arrowprops=arrow_props, bbox=text_props, fontsize = 5)
         
-        axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
+        axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 24),
                     arrowprops=arrow_props, bbox=text_props, fontsize = 5)
     
     plt.xlim([-1.1,1.5])
     
-plt.yticks(list(range(1,25,3))+[24, 26], plant_list + ['Weather', 'Bias'])
+plt.yticks(list(range(1,25,3))+[25, 28], plant_list + ['Weather', 'Bias'])
 
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.pdf')
@@ -707,7 +719,7 @@ target_RF_model = FA_LEARN_LR_models_dict[10]
 
 
 fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex = False, 
-                         sharey = True, figsize = (3.5, 2.5))
+                         sharey = True, figsize = (3.5, 2.25))
 
 height_ = 0.61
 delta_step = 0.3
@@ -737,8 +749,8 @@ for i in range(0, 24, 3):
     plt.barh( t_i[0] + delta_step, RF_w_adv[t_i[0]], height = height_, color = 'black')
     plt.barh( t_i[1], RF_w_adv[t_i[1]], height =height_, color = 'black')
     plt.barh( t_i[2] - delta_step, RF_w_adv[t_i[2]], height = height_, color = 'black')
-plt.barh(24, RF_w_adv[-1], height = height_, color = 'black')
-plt.barh(26, RF_bias_adv, height = height_, color = 'black')
+plt.barh(25, RF_w_adv[-1], height = height_, color = 'black')
+plt.barh(28, RF_bias_adv, height = height_, color = 'black')
 
 plt.title(fr'$\mathtt{{RF}}: \mathbf{{w}}^{{\text{{adv}}}}$')
 plt.xlabel('Magnitude')
@@ -764,8 +776,8 @@ for i in range(0, 24, 3):
     plt.barh( t_i[1], w_adv_corrected[t_i[1]], height =height_, color = 'black')
     plt.barh( t_i[2] - delta_step, w_adv_corrected[t_i[2]], height = height_, color = 'black')
     
-plt.barh(24, w_adv_corrected[-1], height = height_, color = 'black')
-plt.barh(26, ARF_bias_adv, height = height_, color = 'black')
+plt.barh(25, w_adv_corrected[-1], height = height_, color = 'black')
+plt.barh(28, ARF_bias_adv, height = height_, color = 'black')
 
 plt.title(fr'$\mathtt{{ARF}}: \mathbf{{w}}^{{\text{{adv}}}} + \mathbf{{\alpha}}^{{\text{{adv}}^{{\top}} }} \mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
 plt.xlabel('Magnitude')
@@ -781,7 +793,7 @@ plt.xlim([-1.1,1.5])
 #     axes[0].annotate('$\mathtt{t-2}$', xy=(0.0, 22.75), xytext=(0.75, 22.75),
 #                 arrowprops=arrow_props, bbox=text_props, fontsize = 5)
         
-plt.yticks(list(range(1,25,3))+[24, 26], plant_list + ['Weather', 'Bias'])
+plt.yticks(list(range(1,25,3))+[25, 28], plant_list + ['Weather', 'Bias'])
 
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.pdf')
