@@ -249,6 +249,8 @@ lgd = fig.legend(lines[:6], label_list, fontsize=fontsize, ncol = 3, loc = (1, .
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}.pdf',  
                 bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}.png',  
+                bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
 plt.show()
 
 #%% RMSE vs probabilities, single farm missing 
@@ -696,6 +698,7 @@ plt.yticks(list(range(1,25,3))+[24, 26], plant_list + ['Weather', 'Bias'])
 
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.pdf')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.png')
 plt.show()
 
 #%%
@@ -753,7 +756,7 @@ D_wc_row = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().nump
 # Fix alpha adversarial with 0 everywhere and 1 at split feature
 alpha_adv = np.zeros(ARF_w_adv.shape)
 alpha_adv[split_feat] = 1
-w_adv_corrected = ARF_w_adv + alpha_adv*D_wc_row
+w_adv_corrected = (1-alpha_adv)*ARF_w_adv + alpha_adv*D_wc_row
 
 current_ax = axes[1]
 plt.sca(current_ax)
@@ -785,6 +788,7 @@ plt.yticks(list(range(1,25,3))+[24, 26], plant_list + ['Weather', 'Bias'])
 
 if config['save']:
     plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.pdf')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.png')
 plt.show()
 
 #%%
