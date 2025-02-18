@@ -200,8 +200,8 @@ all_models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
         + [f'FA-LEARN-NN-{n_splits}' for n_splits in FA_LEARN_NN_models_dict.keys()] \
 
 try:
-    mae_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_full.csv', index_col=0)
-    rmse_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_full.csv', index_col=0)
+    mae_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_updated.csv', index_col=0)
+    rmse_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_updated.csv', index_col=0)
     run_counter = len(rmse_df)
 
 except:
@@ -229,21 +229,24 @@ check_length['Length'] = block_length[block_length.diff()!=0]
 check_length['Missing'] = miss_ind[block_length.diff()!=0]
 check_length.groupby('Missing').mean()
 
-models_to_add = ['FA-LEARN-LDR-LR-50','FA-LEARN-LDR-LR-100']
+models_to_add = ['FA-LEARN-LR-10','FA-LEARN-NN-10','FA-LEARN-LDR-NN-10']
 
 models_to_add_dict = {}
 
-with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_model_100_weather.pickle', 'rb') as handle:
-    models_to_add_dict['FA-LEARN-LDR-LR-100'] = pickle.load(handle)
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LR_model_10_weather.pickle', 'rb') as handle:
+    models_to_add_dict['FA-LEARN-LR-10'] = pickle.load(handle)
 
-with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_LR_model_50_weather.pickle', 'rb') as handle:
-    models_to_add_dict['FA-LEARN-LDR-LR-50'] = pickle.load(handle)
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_NN_model_10_weather.pickle', 'rb') as handle:
+    models_to_add_dict['FA-LEARN-NN-10'] = pickle.load(handle)
+
+with open(f'{trained_models_path}\\{target_park}_FA_LEARN_LDR_NN_model_10_weather.pickle', 'rb') as handle:
+    models_to_add_dict['FA-LEARN-LDR-NN-10'] = pickle.load(handle)
 
 for m in models_to_add:
     if m not in rmse_df.columns:
         rmse_df[m] = np.nan
         mae_df[m] = np.nan
-        
+
 #%%
 # Parameters
 # iterations = range(10)
