@@ -226,7 +226,7 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
                  linestyle = '', **marker_dict[m], markersize = markersize)
         
     for l, s in enumerate(step_list):
-        nom_line = current_axis.plot( np.arange(l, 5*delta_step + l, delta_step), 5*[nominal_rmse_horizon.loc[s][base_model]], 
+        nom_line = current_axis.plot( np.arange(l, len(models_to_plot)*delta_step + l, delta_step), len(models_to_plot)*[nominal_rmse_horizon.loc[s][base_model]], 
                  '--', color = 'black', markersize = markersize, 
                  label = rf'$\mathtt{{{base_model}}}$')
         nom_line[0].set_dashes([3,1])
@@ -241,9 +241,9 @@ ysuplabel = fig.supylabel('RMSE (%)')
 fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
 plt.ylim([1.5, 20.5])
 
-label_list = [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:5]] + [rf'$\mathtt{{{base_model}}}$ (no missing data)']
+label_list = [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:len(models_to_plot)]] + [rf'$\mathtt{{{base_model}}}$ (no missing data)']
 
-lgd = fig.legend(lines[:6], label_list, fontsize=fontsize, ncol = 3, loc = (1, .8), 
+lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 3, loc = (1, .8), 
                  bbox_to_anchor=(0.25, -0.1))
 
 if config['save']:
@@ -253,6 +253,84 @@ if config['save']:
                 bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
 plt.show()
 
+#%% Gridplot, ESIG webinar
+# Select parameters for subplots
+p_0_1_list = [0.05, 0.1, 0.2]
+p_1_0_list = [1, 0.2, 0.1]
+step_list = [1, 4, 8, 16]
+base_model = 'LR'
+delta_step = 0.3
+markersize = 4.5
+fontsize = 7
+
+full_experiment_list = list(itertools.product(p_1_0_list, p_0_1_list))
+(100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
+
+# dictionary for subplots
+ax_lbl = np.arange(9).reshape(3,3)
+props = dict(boxstyle='round', facecolor='white', alpha=0.3)
+# axis ratio
+gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1, 1])
+
+fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.025*3), 
+                             gridspec_kw = gs_kw, sharex = True, sharey = True)
+
+# RMSE without missing data per horizon
+nominal_rmse_horizon = (100*all_rmse.query('P_0_1==0').groupby(['steps'])[['LR', 'NN']].mean()).round(2)
+
+if base_model == 'LR': models_to_plot = ['LR', 'FA-LEARN-LR-10', 'FA-LEARN-LDR-LR-10']
+elif base_model =='NN': models_to_plot = ['LR', 'FA-LEARN-NN-10', 'FA-LEARN-LDR-NN-10']
+
+for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
+    
+    temp_df = all_rmse.query(f'P_0_1=={p_0_1} and P_1_0=={p_1_0} and num_series==8 and steps in {step_list}')
+
+    std_bar = 100*(temp_df.groupby(['steps'])[LR_models_to_plot + NN_models_to_plot].std())
+    x_val = temp_df['steps'].unique().astype(int)
+    y_val_horizon = 100*(temp_df.groupby(['steps'])[LR_models_to_plot + NN_models_to_plot].mean())
+    
+    current_axis = ax[cnt]
+    plt.sca(current_axis)
+
+    # Suptitle or Text to indicate forecasting model for each subplot
+    text_title = rf'$\mathbb{{P}}_{{0,1}}={p_0_1}$'+'\n'+rf'$\mathbb{{P}}_{{1,1}}={1-p_1_0}$'  
+    current_axis.text(0.65, 0.35, text_title, transform = current_axis.transAxes, 
+                      fontsize=fontsize, verticalalignment='top', bbox=props)
+        
+    for k,m in enumerate(models_to_plot):
+        # Line plots
+        y_val = 100*temp_df.groupby(['steps'])[m].mean()
+        x_val = np.arange(len(step_list))+k*delta_step
+        plt.plot(x_val, y_val_horizon[m].values, 
+                 linestyle = '', **marker_dict[m], markersize = markersize)
+        
+    for l, s in enumerate(step_list):
+        nom_line = current_axis.plot( np.arange(l, len(models_to_plot)*delta_step + l, delta_step), len(models_to_plot)*[nominal_rmse_horizon.loc[s][base_model]], 
+                 '--', color = 'black', markersize = markersize, 
+                 label = rf'$\mathtt{{{base_model}}}$')
+        nom_line[0].set_dashes([3,1])
+
+    plt.xticks(np.arange(len(step_list))+0.25, step_list)
+
+lines_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
+lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+
+# fig.set_xticks(x_val, np.arange(5))
+ysuplabel = fig.supylabel('RMSE (%)')
+fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
+plt.ylim([1.5, 20.5])
+
+label_list = [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:len(models_to_plot)]] + [rf'$\mathtt{{{base_model}}}$ (no missing data)']
+
+lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 2, loc = (1, .8), 
+                 bbox_to_anchor=(0.25, -0.1))
+
+if config['save']:
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}_ESIG.pdf',  
+                bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}_ESIG.png',  
+                bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
+plt.show()
 #%% RMSE vs probabilities, single farm missing 
 
 import itertools
