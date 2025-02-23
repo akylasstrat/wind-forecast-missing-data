@@ -72,45 +72,45 @@ def params():
 models_to_labels = {'LR':'$\mathtt{LR-Imp}$', 
                     'FA-FIXED-LR':'$\mathtt{LR-RF(fixed)}$',
                     'FA-FIXED-LDR-LR':'$\mathtt{LR-ARF(fixed)}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF(learn)^{10}}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF(learn)^{1}}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF(learn)^{5}}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF(learn)^{2}}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF(learn)^{20}}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{LR-RF(learn)^{10}}$', 
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF(learn^{10})}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF(learn^{1})}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF(learn^{5})}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF(learn^{2})}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF(learn^{20})}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{LR-RF(learn^{10})}$', 
                     'FA-FIXED-NN':'$\mathtt{NN-RF(fixed)}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{NN-RF(learn)^{10}}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{NN-RF(learn^{10})}$', 
                     'FA-FIXED-LDR-NN':'$\mathtt{NN-ARF(fixed)}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF(learn)^{10}}$',
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF(learn^{10})}$',
                     'NN':'$\mathtt{NN-Imp}$'}
 
 
 models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
                     'FA-FIXED-LR':'$\mathtt{RF(fixed)}$',
                     'FA-FIXED-LDR-LR':'$\mathtt{ARF(fixed)}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARF(learn)^{10}}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARF(learn)^{1}}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARF(learn)^{5}}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARF(learn)^{2}}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARF(learn)^{20}}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{RF(learn)^{10}}$', 
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARF(learn^{10})}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARF(learn^{1})}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARF(learn^{5})}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARF(learn^{2})}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARF(learn^{20})}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{RF(learn^{10})}$', 
                     'FA-FIXED-NN':'$\mathtt{RF(fixed)}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{RF(learn)^{10}}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{RF(learn^{10})}$', 
                     'FA-FIXED-LDR-NN':'$\mathtt{ARF(fixed)}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn)^{10}}$',
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn^{10})}$',
                     'NN':'$\mathtt{Imp}$'}
 
 marker_dict = {
     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
     "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
     "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-    "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
-    "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'},
+    "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
+    "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'},
     "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
     "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
     "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-    "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn)^{10}}$'},
-    "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn)^{10}}$'}}
+    "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
+    "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'}}
 
 #%% Load data at turbine level, aggregate to park level
 config = params()
@@ -165,7 +165,7 @@ fontsize = 7
 
 full_experiment_list = list(itertools.product(p_1_0_list, p_0_1_list))
 
-
+marker_dict
 (100*all_rmse.query('P_0_1>0.001 and num_series>=4').groupby(['steps', 'P_0_1', 'P_1_0', 'num_series'])[LR_models_to_plot+NN_models_to_plot].mean()).round(2).to_clipboard()
 
 # dictionary for subplots
@@ -174,7 +174,7 @@ props = dict(boxstyle='round', facecolor='white', alpha=0.3)
 # axis ratio
 gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1, 1])
 
-fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (5.5, 1.025*3), 
+fig, ax = plt.subplot_mosaic(ax_lbl, constrained_layout = True, figsize = (7, 1.025*3), 
                              gridspec_kw = gs_kw, sharex = True, sharey = True)
 
 # RMSE without missing data per horizon
@@ -226,7 +226,8 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
                  linestyle = '', **marker_dict[m], markersize = markersize)
         
     for l, s in enumerate(step_list):
-        nom_line = current_axis.plot( np.arange(l, len(models_to_plot)*delta_step + l, delta_step), len(models_to_plot)*[nominal_rmse_horizon.loc[s][base_model]], 
+        nom_line = current_axis.plot( np.arange(l, len(models_to_plot)*delta_step + l, delta_step), 
+                                     len(models_to_plot)*[nominal_rmse_horizon.loc[s][base_model]], 
                  '--', color = 'black', markersize = markersize, 
                  label = rf'$\mathtt{{{base_model}}}$')
         nom_line[0].set_dashes([3,1])
@@ -238,19 +239,22 @@ lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
 
 # fig.set_xticks(x_val, np.arange(5))
 ysuplabel = fig.supylabel('RMSE (%)')
-fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
+xsuplabel = fig.supxlabel(r'Forecast Horizon $h$ (15 minutes)')
 plt.ylim([1.5, 20.5])
 
 label_list = [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:len(models_to_plot)]] + [rf'$\mathtt{{{base_model}}}$ (no missing data)']
 
-lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 3, loc = (1, .8), 
-                 bbox_to_anchor=(0.25, -0.1))
+# lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 3, loc = (1, .8), 
+#                  bbox_to_anchor=(0.25, -0.1))
+
+lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 1, loc = (1, .8), 
+                 bbox_to_anchor=(1, 0.58), labelspacing = 1.1)
 
 if config['save']:
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}.pdf',  
-                bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
-    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}.png',  
-                bbox_extra_artists=(lgd,ysuplabel), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}_wide.pdf',  
+                bbox_extra_artists=(lgd,ysuplabel,xsuplabel), bbox_inches='tight')
+    plt.savefig(f'{cd}//new_plots//{freq}_{target_park}_{base_model}_RMSE_MCAR_mat_{dataset}_wide.png',  
+                bbox_extra_artists=(lgd,ysuplabel,xsuplabel), bbox_inches='tight')
 plt.show()
 
 #%% Gridplot, ESIG webinar
