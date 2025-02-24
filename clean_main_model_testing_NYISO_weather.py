@@ -16,9 +16,6 @@ cd = os.path.dirname(__file__)  #Current directory
 sys.path.append(cd)
 
 from sklearn.preprocessing import MinMaxScaler
-# from sklearn.linear_model import LinearRegression, Ridge, Lasso
-# from sklearn.model_selection import GridSearchCV
-
 
 from utility_functions import * 
 from clean_torch_custom_layers import *
@@ -62,10 +59,11 @@ metadata_df = pd.read_csv(f'{cd}\\data\\wind_meta.csv', index_col = 0)
 freq = '15min'
 target_park = 'Noble Clinton'
 horizon = 1
-test_MCAR = True
-test_MNAR = False
-test_Censoring = False
-config['save'] = True
+
+test_MCAR = True # Performs the experiments presented in the paper
+test_MNAR = False # Performs additional experiments (not shown in the paper)
+test_Censoring = False # Performs additional experiments (not shown in the paper)
+config['save'] = False
 # min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
 # max_lag: number of historical observations to include
 min_lag = horizon
@@ -199,13 +197,6 @@ models = ['Pers', 'LR', 'Lasso', 'Ridge', 'LAD', 'NN'] \
         + [f'FA-LEARN-LR-{n_splits}' for n_splits in FA_LEARN_LR_models_dict.keys()] \
         + [f'FA-LEARN-NN-{n_splits}' for n_splits in FA_LEARN_NN_models_dict.keys()] \
             
-# try:
-#     mae_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv', index_col = 0)
-#     rmse_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv', index_col = 0)
-# except:
-#     mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
-#     rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
-
 # Parameters
 iterations = range(10)
 Probability_0_1 = [.05, .1, .2]
@@ -215,11 +206,11 @@ num_series = [1]
 full_experiment_list = list(itertools.product(iterations, Probability_0_1, Probability_1_0, num_series))
 
 #%%
+# Check if there are saved results
 try:
-    mae_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_full.csv', index_col=0)
-    rmse_df = pd.read_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_full.csv', index_col=0)
+    mae_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_full.csv', index_col=0)
+    rmse_df = pd.read_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_full.csv', index_col=0)
     run_counter = len(rmse_df)
-
 except:
     mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
     rmse_df = pd.DataFrame(data = [], columns = models+['iteration', 'P_0_1', 'P_1_0', 'num_series'])
@@ -227,9 +218,6 @@ except:
 
 # supress warning
 pd.options.mode.chained_assignment = None
-
-#series_missing = [c + str('_1') for c in plant_ids]
-#series_missing_col = [pred_col.index(series) for series in series_missing]
 
 # Park IDs for series that could go missing
 series_missing = plant_ids
@@ -441,21 +429,10 @@ if test_MCAR:
         
     
         if config['save']:
-            # mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_weather.csv')
-            # rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_weather.csv')
-            # rmse_per_missing_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_vs_missing_features_weather.csv')
 
-            mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_full.csv')
-            rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_full.csv')
-            # rmse_per_missing_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_vs_missing_features_weather.csv')
-    
-        ls_models = ['LR', 'FA-LEARN-LDR-LR-10', 'FA-FIXED-LDR-LR', 'FA-FIXED-LR', 'FA-LEARN-LR-10']
-        # rmse_df.groupby(['P_0_1', 'P_1_0']).mean()[ls_models].plot()
-            
-        nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-FIXED-LDR-NN', 'FA-FIXED-NN', 'FA-LEARN-NN-10']
-        # rmse_df.groupby(['P_0_1', 'P_1_0']).mean()[nn_models].plot()
-        
-      
+            mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_MAE_results_full.csv')
+            rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MCAR_{min_lag}_steps_RMSE_results_full.csv')
+          
 #%% Test for MNAR missing data
 
 mae_df = pd.DataFrame(data = [], columns = models+['iteration', 'percentage'])
@@ -638,8 +615,8 @@ if test_MNAR:
         rmse_df.groupby(['percentage']).mean()[nn_models].plot(kind='bar')
     
     if config['save']:
-        mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
-        rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
+        mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_MAE_results_weather.csv')
+        rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_MNAR_{min_lag}_steps_RMSE_results_weather.csv')
     
 #%%%%%%%%%% CENSORING: Censor data above a specific threshold
 #### Note: This falls under MNAR, may replace the current MNAR results (TBD)
@@ -814,13 +791,13 @@ if test_Censoring:
             rmse_df = pd.concat([rmse_df, temp_df])
      
         if config['save']:        
-            mae_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_MAE_results_full.csv')
-            rmse_df.to_csv(f'{cd}\\new_results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_RMSE_results_full.csv')
+            mae_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_MAE_results_full.csv')
+            rmse_df.to_csv(f'{cd}\\results\\{freq}_{target_park}_CENSOR_{min_lag}_steps_RMSE_results_full.csv')
     
-        ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-LEARN-LR-10', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR']
-        rmse_df.mean()[ls_models].plot(kind='bar')
-        plt.show()
+        # ls_models = ['LR', 'FA-LEARN-LDR-LR-5', 'FA-LEARN-LR-10', 'FA-FIXED-LR', 'FA-FIXED-LDR-LR']
+        # rmse_df.mean()[ls_models].plot(kind='bar')
+        # plt.show()
     
-        nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-LEARN-NN-10', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN']
-        rmse_df.mean()[nn_models].plot(kind='bar')
-        plt.show()
+        # nn_models = ['NN', 'FA-LEARN-LDR-NN-10', 'FA-LEARN-NN-10', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN']
+        # rmse_df.mean()[nn_models].plot(kind='bar')
+        # plt.show()

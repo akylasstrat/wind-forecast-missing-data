@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Testing additional models
+Adding some additional models to the testing pool, auxliary script (ignore)
 
-@author: a.stratigakos
+@author: a.stratigakos@imperial.ac.uk
 """
 
 import pickle
