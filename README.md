@@ -1,26 +1,31 @@
-# Adaptive Robust Optimization for Energy Forecasting with Missing Data
+# Learning Data-Driven Uncertainty Set Partitions for Robust and Adaptive Energy Forecasting with Missing Data
 
 This repository contains the code to recreate the experiments of
 
 ```
 @unpublished{xxxx,
-TITLE = {{Adaptive Robust Optimization for Energy Forecasting with Missing Data}},
-AUTHOR = {Stratigakos, Akylas and Andrianesis, Panagiotis and Kariniotakis, Georges}}
+TITLE = {{Learning Data-Driven Uncertainty Set Partitions for Robust and Adaptive Energy Forecasting with Missing Data}},
+AUTHOR = {Stratigakos, Akylas and Andrianesis, Panagiotis}}
 ```
 
 which is available [here]().
 
 ### Abstract
 
-Short-term energy forecasting is critical for the near real-time operation of low-carbon power systems.
-Equipment failures, network latency, cyberattacks, 
-may lead to missing feature data operationally, threatening forecast accuracy, 
-resulting in suboptimal operational decisions, and driving system costs and risk.
-In this work, we leverage adaptive robust optimization and adversarial machine learning to develop forecasting models whose parameters adapt to the \hl{available features, trained by minimizing the worst-case loss due to missing data}. Considering both linear and neural network-based forecasting models, 
-we combine linear decision rules with a novel algorithm for learning data-driven uncertainty set partitions, enabling model parameters to be a linear, a piecewise constant, or a piecewise linear function of available features. 
-Notably, our adaptation methods do not make assumptions about the missing data, do not require access to training data with incomplete observations, and are suitable for real-time operations under stringent time constraints. 
-We examine the efficacy of our proposed adaptation methods in a comprehensive application of short-term wind power forecasting, using spatiotemporal data from adjacent wind power plants and considering forecast horizons from 15 minutes to 6 hours ahead.
-The results show that our proposed adaptation methods significantly outperform the industry gold standard impute-then-regress benchmark, with an average improvement of over 20\% across all forecast horizons.
+Short-term forecasting models typically assume the availability of input data (features) when they are deployed and
+in use. However, equipment failures, disruptions, cyberattacks, may lead to missing features when such models are used operationally, 
+compromising forecast accuracy, and resulting in suboptimal operational decisions. 
+In this work, we use adaptive robust optimization and adversarial machine learning to develop forecasting models that seamlessly handle missing
+data operationally. 
+We propose linear- and neural network-based forecasting models with parameters that adapt to available features, combining linear adaptation with a novel algorithm for learning data-driven uncertainty set partitions. The proposed
+adaptive models do not rely on identifying historical missing data patterns and are suitable for real-time operations under
+stringent time constraints. 
+Extensive numerical experiments on short-term wind power forecasting considering horizons from 15
+minutes to 4 hours ahead illustrate that our proposed adaptive models are on par with imputation when data are missing for
+very short periods (e.g., when only the latest measurement is missing) whereas they significantly outperform imputation when
+data are missing for longer periods. 
+We further provide insights by showcasing how linear adaptation and data-driven partitions
+(even with a few subsets) approach the performance of the optimal, yet impractical, method of retraining for every possible realization of missing data.
 
 ---
 
@@ -57,7 +62,7 @@ Run the script once by setting ```params['horizon']``` to each value in ``` = [1
 By setting ```params['save'] = True``` (default value), new models will be stored in the respective subfolder in ```\trained-models```.
 - **Missing data experiments**: Given trained models, run the ```clean_main_model_test_NYISO_weather.py``` to implement the missing data experiments. 
 As before, use ```params['horizon']``` to control the forecast horizon and run the script once for each value in ``` = [1, 4, 8, 16, 24]```.
-- **Generate plots**: Use ```clean_plot_results_NYISO.py``` to generate Figures 4-7.
+- **Generate plots**: Use ```create_plots.py``` to generate Figures 4-7.
 
 For MacOS/Linux you need to update the project directory.
 The results in .csv format provided in this repository are the ones appearing in the paper. Re-running all the experiments using the default parameters should save new .csv files with the same values as the ones provided here.
