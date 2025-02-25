@@ -33,7 +33,7 @@ def params():
     ''' Set up the experiment parameters'''
     params = {}
     params['scale'] = False
-    params['impute'] = True # If True, apply mean imputation for missing features
+    params['impute'] = True # If True, apply mean imputation for missing features\
  
     # Parameters for numerical experiment
     #!!!!!!! To be changed with dates, not percentage

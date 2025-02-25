@@ -365,7 +365,7 @@ plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
 target_model = FA_LEARN_LDR_LR_models_dict[10]
 fixed_model = FA_FIXED_LDR_LR_model
 
-target_node = 0
+target_node = 2
 leaf_ind = np.where(np.array(target_model.feature)==-1)
 
 print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
@@ -543,7 +543,7 @@ fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex
 
 height_ = 0.61
 delta_step = 0.3
-target_node = 0
+target_node = 1
 text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
                   alpha=0.25)
 arrow_props = dict(arrowstyle="->", linewidth=0.7)
@@ -562,7 +562,7 @@ n_feat = len(target_ARF_model.target_features[0]) + len(target_ARF_model.fixed_f
 RF_w_adv = target_RF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 RF_bias_adv = target_RF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
 
-current_ax = axes[0]
+current_ax = axes[1]
 plt.sca(current_ax)
 for i in range(0, 24, 3):
     t_i = np.arange(i, i+3)
@@ -587,7 +587,7 @@ alpha_adv = np.zeros(ARF_w_adv.shape)
 alpha_adv[split_feat] = 1
 w_adv_corrected = (1-alpha_adv)*ARF_w_adv + alpha_adv*D_wc_row
 
-current_ax = axes[1]
+current_ax = axes[0]
 plt.sca(current_ax)
 
 for i in range(0, 24, 3):
