@@ -3,12 +3,17 @@
 This repository contains the code to recreate the experiments of
 
 ```
-@unpublished{xxxx,
-TITLE = {{Learning Data-Driven Uncertainty Set Partitions for Robust and Adaptive Energy Forecasting with Missing Data}},
-AUTHOR = {Stratigakos, Akylas and Andrianesis, Panagiotis}}
+@misc{stratigakos2025learningdatadrivenuncertaintyset,
+      title={Learning Data-Driven Uncertainty Set Partitions for Robust and Adaptive Energy Forecasting with Missing Data}, 
+      author={Akylas Stratigakos and Panagiotis Andrianesis},
+      year={2025},
+      eprint={2503.20410},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML},
+      url={https://arxiv.org/abs/2503.20410}, }
 ```
 
-which is available [here]().
+which is available [here](https://arxiv.org/abs/2503.20410).
 
 ### Abstract
 
@@ -42,7 +47,7 @@ Other scripts:
 - ```utility_functions.py```: Includes auxiliary functions.
 
 Input/ output data and required packages:
-- ```\data```: Wind power data from the NYISO system, provided by NREL [here](https://research-hub.nrel.gov/en/publications/solar-wind-and-load-forecasting-dataset-for-miso-nyiso-and-spp-ba).
+- ```\data```: Wind power data from the NYISO system, provided by NREL [here](https://research-hub.nrel.gov/en/publications/solar-wind-and-load-forecasting-dataset-for-miso-nyiso-and-spp-ba) (used under CC BY 3.0 US).
 ```@incollection{nrel2024dataset,
   title={Solar PV, Wind Generation, and Load Forecasting Dataset for 2018 across MISO, NYISO, and SPP Balancing Areas}, author={Bryce, Richard and Feng, Cong and Sergi, Brian and Ring-Jarvi, Ross and Zhang, Wenqi and Hodge, Bri-Mathias}, year={2023}, publisher={Report, National Renewable Energy Laboratory}, doi = {NREL/TP-5D00-83828}, url={https://www.nrel.gov/docs/fy24osti/83828.pdf}}
 ```
