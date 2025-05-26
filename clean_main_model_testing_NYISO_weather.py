@@ -46,7 +46,7 @@ def params():
     params['max_lag'] = 2 + params['min_lag']
     # last known measure value, defined lookahed horizon (min_lag == 2, 1-hour ahead predictions with 30min data)
 
-    params['save'] = True # If True, then saves models and results
+    params['save'] = False # If True, then saves models and results
     
     return params
 

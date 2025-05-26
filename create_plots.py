@@ -169,7 +169,13 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
     for k,m in enumerate(models_to_plot):
         # Line plots
         y_val = 100*temp_df.groupby(['steps'])[m].mean()
+        # y_err = 100*temp_df.groupby(['steps'])[m].std()
         x_val = np.arange(len(step_list))+k*delta_step
+        
+        # plt.errorbar(x_val, y_val_horizon[m].values, 
+        #              yerr=y_err, 
+        #              linestyle = '', **marker_dict[m], markersize = markersize)
+        
         plt.plot(x_val, y_val_horizon[m].values, 
                  linestyle = '', **marker_dict[m], markersize = markersize)
         
