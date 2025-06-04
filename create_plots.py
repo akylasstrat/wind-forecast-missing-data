@@ -446,7 +446,7 @@ plt.show()
 
 all_rmse = []
 steps_ = [1]
-min_lag = 1
+min_lag = 16
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
@@ -463,7 +463,7 @@ plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
 target_model = FA_LEARN_LDR_LR_models_dict[10]
 fixed_model = FA_FIXED_LDR_LR_model
 
-target_node = 2
+target_node = 0
 leaf_ind = np.where(np.array(target_model.feature)==-1)
 
 print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
@@ -546,6 +546,47 @@ axes[0].annotate('$t-2$', xy=(0.0, 22.75), xytext=(0.75, 23.75),
 
 plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
 plt.show()
+
+
+#%% Checking partitions across horizons
+
+all_rmse = []
+steps_ = [1]
+min_lag = 1
+target_node = 1
+
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_FIXED_LDR_LR_model_weather.pickle', 'rb') as handle:
+    FA_FIXED_LDR_LR_model = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
+
+plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
+             'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
+
+target_model = FA_LEARN_LDR_LR_models_dict[10]
+fixed_model = FA_FIXED_LDR_LR_model
+
+leaf_ind = np.where(np.array(target_model.feature)==-1)
+parent_node = target_model.parent_node[target_node]
+
+print(f'Forecast horizon: {min_lag}')
+print(f'Target node: {target_node}')
+print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+print(f'Parent node: {parent_node}')
+print(f'Feature selected for split: {target_model.feature[target_node]}')
+
+largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+
+print(f'Feature with highest absolute weight: {largest_magn_ind}')
+print(f'Feature with highest positive weight: {largest_pos_ind}')
+
+n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+
 
 #%% Feature weight grid plots
 
