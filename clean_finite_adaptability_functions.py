@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 from clean_torch_custom_layers import *
 
 class Learn_FiniteAdapt_Robust_Reg(object):
-  '''Finite Adaptability - **LEARN** Partitions: Tree-based method to learn uncertainty set partitions (Algorithm 2).
+  '''Finite Adaptability - **LEARN** Partitions: Tree-based method to learn uncertainty set partitions (Algorithm 4).
     Each leaf stores a nominal model and a robust/ adaptive robust with linear decision rules (LDR).
     All the underlying models are based on the class Adaptive_LDR_Regression     
   

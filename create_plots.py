@@ -446,7 +446,7 @@ plt.show()
 
 all_rmse = []
 steps_ = [1]
-min_lag = 16
+min_lag = 1
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
@@ -555,6 +555,8 @@ steps_ = [1]
 min_lag = 1
 target_node = 1
 
+# with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
@@ -567,12 +569,15 @@ with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_par
 plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
              'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
 
-target_model = FA_LEARN_LDR_LR_models_dict[10]
+target_ldr_lr_model = FA_LEARN_LDR_LR_models_dict[10]
+target_lr_model = FA_LEARN_LR_models_dict[10]
+
 fixed_model = FA_FIXED_LDR_LR_model
 
-leaf_ind = np.where(np.array(target_model.feature)==-1)
+leaf_ind = np.where(np.array(target_ldr_lr_model.feature)==-1)
 parent_node = target_model.parent_node[target_node]
-
+        
+#%%
 print(f'Forecast horizon: {min_lag}')
 print(f'Target node: {target_node}')
 print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
@@ -587,6 +592,32 @@ print(f'Feature with highest positive weight: {largest_pos_ind}')
 
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
 
+### Plotting adversarial losses
+plt.plot(np.array(target_lr_model.Loss_gap_perc), '-o', label = 'RF')
+plt.plot(np.array(target_ldr_lr_model.Loss_gap_perc), '-o', label = 'ARF')
+plt.legend()
+plt.title('Loss_gap_percentage')
+plt.show()
+
+### Plotting adversarial losses
+plt.plot(np.array(target_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'RF')
+plt.plot(np.array(target_ldr_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'ARF')
+plt.legend()
+plt.title('UB, leaf indices')
+plt.show()
+
+#%%
+plt.plot(np.sort(FA_LEARN_LR_models_dict[10].UB_Loss), label = 'RF')
+plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].UB_Loss), label = 'ARF')
+plt.legend()
+plt.title('Upper Bound')
+plt.show()
+
+plt.plot(np.sort(FA_LEARN_LR_models_dict[10].LB_Loss), label = 'RF')
+plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].LB_Loss), label = 'ARF')
+plt.legend()
+plt.title('Lower Bound')
+plt.show()
 
 #%% Feature weight grid plots
 
@@ -668,6 +699,81 @@ if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.pdf')
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.png')
 plt.show()
+
+#%% Heatmap with optimistic weights across final partition 
+
+all_rmse = []
+steps_ = [1]
+min_lag = 16
+target_node = 1
+
+# with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LR_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LR_models_dict = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_FIXED_LDR_LR_model_weather.pickle', 'rb') as handle:
+    FA_FIXED_LDR_LR_model = pickle.load(handle)           
+with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_NN_models_dict_weather.pickle', 'rb') as handle:
+    FA_LEARN_LDR_NN_models_dict = pickle.load(handle)           
+
+plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
+             'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
+
+# target_ldr_lr_model = FA_LEARN_LDR_LR_models_dict[10]
+target_model = FA_LEARN_LR_models_dict[10]
+fixed_model = FA_FIXED_LDR_LR_model
+
+leaf_ind = np.where(np.array(target_ldr_lr_model.feature)==-1)
+parent_node = target_model.parent_node[target_node]
+
+n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+
+weight_matrix = np.zeros((len(leaf_ind[0]), 26))
+
+for i, leaf in enumerate(leaf_ind[0]):
+    
+    ### Coefficients
+    w_opt = target_model.node_model_[leaf].model[0].weight.detach().numpy().reshape(-1)
+    bias_opt = target_model.node_model_[leaf].model[0].bias.detach().numpy().reshape(-1)
+
+    weight_matrix[i,:-1] = w_opt
+    weight_matrix[i,-1] = bias_opt
+
+### Plot w_opt for two subsets (Fig. 4)
+fig, ax = plt.subplots(constrained_layout = True, ncols = 1, nrows = 1, figsize = (3.5, 2.25))
+
+im = ax.imshow(weight_matrix.T[::-1])
+feat_names = plant_list + ['Weather', 'Bias']
+cbar = ax.figure.colorbar(im, ax=ax)
+
+# Annotate split feature
+for i, leaf in enumerate(leaf_ind[0]):
+    # missing pattern
+    
+    missing_pattern = target_model.missing_pattern[leaf]
+    miss_ind = np.where(missing_pattern==1)[0]
+    
+    if (missing_pattern==1).sum() == 0: 
+        continue
+    else: 
+        plt.plot( len(miss_ind)*[i], 25-miss_ind, 'x', color = 'black')
+
+
+# for i in range(len(vegetables)):
+#     for j in range(len(farmers)):
+#         text = ax.text(j, i, harvest[i, j],
+#                        ha="center", va="center", color="w")
+
+y_tick_ind = list(range(1,25,3))+[25, 26]
+y_tick_ind = [1, 4, 7, 10, 13, 16, 19, 22, 25, 26]
+y_tick_ind = [24, 21, 18, 15, 12, 9, 6, 3, 1, 0]
+plt.yticks(y_tick_ind, feat_names)
+# plt.yticks(range(26), feat_names[::-1])
+plt.show()
+
+
 
 #%% Fig. 5
 ### For a given subset, plot w_adv for ARF RF model
