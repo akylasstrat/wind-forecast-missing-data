@@ -547,6 +547,40 @@ axes[0].annotate('$t-2$', xy=(0.0, 22.75), xytext=(0.75, 23.75),
 plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
 plt.show()
 
+# Heatmap of linear correction terms
+feat_names = plant_list + ['Weather']
+
+### Plot w_opt for two subsets (Fig. 4)
+fig, ax = plt.subplots(constrained_layout = True, ncols = 1, nrows = 1, figsize = (3.5, 2.25))
+
+# Create Heatmap
+
+cax = ax.imshow(D.T[::-1], aspect='auto', cmap='cividis', interpolation='nearest')
+
+# Colorbar
+cbar = fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
+cbar.ax.tick_params(labelsize=7)
+cbar.set_label("Magnitude", fontsize=7)
+
+plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
+plant_list.insert(1, '*')
+
+# Heatmap of linear correction terms
+feat_names = plant_list + ['Weather']
+
+# y_tick_ind = list(range(1,25,3))+[25, 26]
+# y_tick_ind = [1, 4, 7, 10, 13, 16, 19, 22, 25, 26]
+y_tick_ind = [23, 21,20, 17, 14, 11, 8, 5, 2, 0]
+x_tick_ind = [1, 3, 4, 7, 10, 13, 16, 19, 22, 24]
+
+plt.yticks(y_tick_ind, feat_names)
+plt.xticks(x_tick_ind, feat_names, rotation = 45)
+
+if config['save']:
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_linear_corrections.pdf', 
+            bbox_inches='tight')
+plt.show()
+
 
 #%% Checking partitions across horizons
 
@@ -704,7 +738,7 @@ plt.show()
 
 all_rmse = []
 steps_ = [1]
-min_lag = 16
+min_lag = 1
 target_node = 1
 
 # with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
@@ -721,13 +755,10 @@ with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_par
 plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
              'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
 
-# target_ldr_lr_model = FA_LEARN_LDR_LR_models_dict[10]
 target_model = FA_LEARN_LR_models_dict[10]
-fixed_model = FA_FIXED_LDR_LR_model
 
-leaf_ind = np.where(np.array(target_ldr_lr_model.feature)==-1)
+leaf_ind = np.where(np.array(target_model.feature)==-1)
 parent_node = target_model.parent_node[target_node]
-
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
 
 weight_matrix = np.zeros((len(leaf_ind[0]), 26))
@@ -741,38 +772,171 @@ for i, leaf in enumerate(leaf_ind[0]):
     weight_matrix[i,:-1] = w_opt
     weight_matrix[i,-1] = bias_opt
 
+feat_names = plant_list + ['Weather', 'Bias']
+
 ### Plot w_opt for two subsets (Fig. 4)
 fig, ax = plt.subplots(constrained_layout = True, ncols = 1, nrows = 1, figsize = (3.5, 2.25))
 
-im = ax.imshow(weight_matrix.T[::-1])
-feat_names = plant_list + ['Weather', 'Bias']
-cbar = ax.figure.colorbar(im, ax=ax)
+# Create Heatmap
+cax = ax.imshow(weight_matrix.T[::-1], aspect='auto', cmap='gray', interpolation='nearest')
+
+# Colorbar
+cbar = fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
+cbar.ax.tick_params(labelsize=7)
+cbar.set_label("Magnitude", fontsize=7)
 
 # Annotate split feature
 for i, leaf in enumerate(leaf_ind[0]):
-    # missing pattern
-    
+    # missing pattern    
     missing_pattern = target_model.missing_pattern[leaf]
     miss_ind = np.where(missing_pattern==1)[0]
+
+    # plot fixed patterns 
+    fixed_ind = target_model.fixed_features[leaf]
+    fixed_ind = np.array([s for s in fixed_ind if s not in list(miss_ind)] + [25])
     
+    plt.plot( len(fixed_ind)*[i], 25-fixed_ind, '+', color = 'black', markersize = 5)
+        
     if (missing_pattern==1).sum() == 0: 
         continue
     else: 
-        plt.plot( len(miss_ind)*[i], 25-miss_ind, 'x', color = 'black')
+        plt.plot( len(miss_ind)*[i], 25-miss_ind, '_', color = 'black', markersize = 5)
 
 
-# for i in range(len(vegetables)):
-#     for j in range(len(farmers)):
-#         text = ax.text(j, i, harvest[i, j],
-#                        ha="center", va="center", color="w")
 
 y_tick_ind = list(range(1,25,3))+[25, 26]
 y_tick_ind = [1, 4, 7, 10, 13, 16, 19, 22, 25, 26]
 y_tick_ind = [24, 21, 18, 15, 12, 9, 6, 3, 1, 0]
+
 plt.yticks(y_tick_ind, feat_names)
-# plt.yticks(range(26), feat_names[::-1])
+
+xtick_labels = [r'$\mathcal{U}_{%d}$' % node_id for node_id in leaf_ind[0]]
+ax.set_xticks(np.arange(len(leaf_ind[0])))
+ax.set_xticklabels(xtick_labels)
+
+if config['save']:
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_single.pdf', 
+            bbox_inches='tight')
 plt.show()
 
+#%% Heatmap with all the horizons
+
+plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
+             'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
+feat_names = plant_list + ['Weather', 'Bias']
+
+min_lag = [1, 4, 8, 16]
+horizon_model_dict = {}
+weight_mat_dict = {}
+
+n_rows, n_cols = 4, 1
+fig_width = 3.5
+fig_height = 2.1*(n_rows / n_cols)  # Preserve aspect ratio
+# fig_height = 3.5
+
+# Titles
+h_values = [1, 4, 8, 16]
+
+# Find weight matrices per horizon
+for m in min_lag:
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{m}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+    
+    horizon_model_dict[m] = FA_LEARN_LDR_LR_models_dict[10]
+    
+    target_model = horizon_model_dict[m]
+    
+    leaf_ind = np.where(np.array(target_model.feature)==-1)
+    n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+    
+    weight_mat_dict[m] = np.zeros((len(leaf_ind[0]), 26))
+    
+
+    for i, leaf in enumerate(leaf_ind[0]):
+        
+        ### Coefficients
+        w_opt = target_model.node_model_[leaf].model[0].weight.detach().numpy().reshape(-1)
+        bias_opt = target_model.node_model_[leaf].model[0].bias.detach().numpy().reshape(-1)
+    
+        weight_mat_dict[m][i,:-1] = w_opt
+        weight_mat_dict[m][i,-1] = bias_opt
+
+
+
+# Create figure and axes
+fig, axes = plt.subplots(n_rows, n_cols, constrained_layout = True, 
+                         figsize=(fig_width, fig_height), sharex=False, sharey=True)
+
+# Flatten axes for easy iteration
+axes = axes.flatten()
+
+# Display heatmaps
+vmin = min(h.min() for h in weight_mat_dict.values())
+vmax = max(h.max() for h in weight_mat_dict.values())
+
+for i, ax in enumerate(axes):
+    
+    print(f'Horizon:{h_values[i]}')
+    
+    plt.sca(axes[i])
+    
+    im = ax.imshow(weight_mat_dict[h_values[i]].T[::-1], aspect='auto', cmap='cividis', 
+                   interpolation='nearest', vmin=vmin, vmax=vmax)
+    ax.set_title(rf"$h={h_values[i]}$", fontsize = 8)
+    ax.tick_params(axis='both')
+    
+    # Find model in specific horizon
+    temp_target_model = horizon_model_dict[h_values[i]]
+    
+    # Leaf indices for model
+    leaf_ind = np.where(np.array(temp_target_model.feature)==-1)[0]
+
+    # Annotate split feature
+    for j, leaf in enumerate(leaf_ind):
+        
+        # missing pattern    
+        missing_pattern = temp_target_model.missing_pattern[leaf]
+        miss_ind = np.where(missing_pattern==1)[0]
+
+        # plot fixed patterns 
+        fixed_ind = temp_target_model.fixed_features[leaf]
+        fixed_ind = np.array([s for s in fixed_ind if s not in list(miss_ind)] + [25])
+
+        plt.plot( len(fixed_ind)*[j], 25-fixed_ind, '+', markersize = 5, 
+                 color='black')
+            
+        if (missing_pattern==1).sum() == 0: 
+            continue
+        else: 
+            plt.plot( len(miss_ind)*[j], 25-miss_ind, '_', markersize = 5, 
+                     color='black')
+        
+        # plt.plot( len(fixed_ind)*[j], 25-fixed_ind, 's', markersize = 5, 
+        #          color='black', markerfacecolor='white', markeredgewidth = 1, 
+        #          markeredgecolor = 'black')
+        
+
+    y_tick_ind = list(range(1,25,3))+[25, 26]
+    y_tick_ind = [1, 4, 7, 10, 13, 16, 19, 22, 25, 26]
+    y_tick_ind = [24, 21, 18, 15, 12, 9, 6, 3, 1, 0]
+
+    plt.yticks(y_tick_ind, feat_names, fontsize = 7)
+
+    xtick_labels = [r'$\mathcal{U}_{%d}$' % node_id for node_id in leaf_ind]
+    ax.set_xticks(np.arange(10))
+    ax.set_xticklabels(xtick_labels, fontsize = 7)    
+
+
+# Common colorbar
+cbar = fig.colorbar(im, ax=axes, orientation='horizontal', fraction=0.025, pad=0.02)
+cbar.ax.tick_params(labelsize=7)
+cbar.set_label("Magnitude", fontsize=7)
+
+
+if config['save']:
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_heatmap_all_horizons.pdf', 
+            bbox_inches='tight')
+plt.show()
 
 
 #%% Fig. 5
