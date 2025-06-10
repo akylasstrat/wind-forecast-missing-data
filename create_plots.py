@@ -563,7 +563,7 @@ cbar.ax.tick_params(labelsize=7)
 cbar.set_label("Magnitude", fontsize=7)
 
 plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
-plant_list.insert(1, '*')
+plant_list.insert(1, r"$\bigstar$")
 
 # Heatmap of linear correction terms
 feat_names = plant_list + ['Weather']
@@ -580,7 +580,6 @@ if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_linear_corrections.pdf', 
             bbox_inches='tight')
 plt.show()
-
 
 #%% Checking partitions across horizons
 
