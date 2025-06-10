@@ -836,6 +836,7 @@ fig_height = 2.1*(n_rows / n_cols)  # Preserve aspect ratio
 # Titles
 h_values = [1, 4, 8, 16]
 
+weights_flattened = []
 # Find weight matrices per horizon
 for m in min_lag:
     with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{m}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
@@ -859,9 +860,13 @@ for m in min_lag:
     
         weight_mat_dict[m][i,:-1] = w_opt
         weight_mat_dict[m][i,-1] = bias_opt
+    
+    weights_flattened.append(weight_mat_dict[m].flatten())
+    
+    
+weights_flattened = np.array(weights_flattened)
 
-
-
+#%%
 # Create figure and axes
 fig, axes = plt.subplots(n_rows, n_cols, constrained_layout = True, 
                          figsize=(fig_width, fig_height), sharex=False, sharey=True)
