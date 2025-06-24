@@ -38,48 +38,91 @@ def params():
     
     return params
 
+# models_to_labels = {'LR':'$\mathtt{LR-Imp}$', 
+#                     'FA-FIXED-LR':'$\mathtt{LR-RF(fixed)}$',
+#                     'FA-FIXED-LDR-LR':'$\mathtt{LR-ARF(fixed)}$',
+#                     'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF(learn^{10})}$', 
+#                     'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF(learn^{1})}$', 
+#                     'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF(learn^{5})}$', 
+#                     'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF(learn^{2})}$', 
+#                     'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF(learn^{20})}$', 
+#                     'FA-LEARN-LR-10':'$\mathtt{LR-RF(learn^{10})}$', 
+#                     'FA-FIXED-NN':'$\mathtt{NN-RF(fixed)}$', 
+#                     'FA-LEARN-NN-10':'$\mathtt{NN-RF(learn^{10})}$', 
+#                     'FA-FIXED-LDR-NN':'$\mathtt{NN-ARF(fixed)}$', 
+#                     'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF(learn^{10})}$',
+#                     'NN':'$\mathtt{NN-Imp}$'}
+
+
+# models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
+#                     'FA-FIXED-LR':'$\mathtt{RF(fixed)}$',
+#                     'FA-FIXED-LDR-LR':'$\mathtt{ARF(fixed)}$',
+#                     'FA-LEARN-LDR-LR-10':'$\mathtt{ARF(learn^{10})}$', 
+#                     'FA-LEARN-LDR-LR-1':'$\mathtt{ARF(learn^{1})}$', 
+#                     'FA-LEARN-LDR-LR-5':'$\mathtt{ARF(learn^{5})}$', 
+#                     'FA-LEARN-LDR-LR-2':'$\mathtt{ARF(learn^{2})}$', 
+#                     'FA-LEARN-LDR-LR-20':'$\mathtt{ARF(learn^{20})}$', 
+#                     'FA-LEARN-LR-10':'$\mathtt{RF(learn^{10})}$', 
+#                     'FA-FIXED-NN':'$\mathtt{RF(fixed)}$', 
+#                     'FA-LEARN-NN-10':'$\mathtt{RF(learn^{10})}$', 
+#                     'FA-FIXED-LDR-NN':'$\mathtt{ARF(fixed)}$', 
+#                     'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn^{10})}$',
+#                     'NN':'$\mathtt{Imp}$'}
+
+# marker_dict = {
+#     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
+#     "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
+#     "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
+#     "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
+#     "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'},
+#     "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
+#     "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
+#     "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
+#     "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
+#     "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'}}
+
+marker_dict = {
+    "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
+    "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF-fixed}$'},
+    "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF-fixed}$'},
+    "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF-learn^{10}}$'},
+    "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF-learn^{10}}$'},
+    "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
+    "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF-fixed}$'},
+    "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF-fixed}$'},
+    "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF-learn^{10}}$'},
+    "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF-learn^{10}}$'}}
+
 models_to_labels = {'LR':'$\mathtt{LR-Imp}$', 
-                    'FA-FIXED-LR':'$\mathtt{LR-RF(fixed)}$',
-                    'FA-FIXED-LDR-LR':'$\mathtt{LR-ARF(fixed)}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF(learn^{10})}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF(learn^{1})}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF(learn^{5})}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF(learn^{2})}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF(learn^{20})}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{LR-RF(learn^{10})}$', 
-                    'FA-FIXED-NN':'$\mathtt{NN-RF(fixed)}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{NN-RF(learn^{10})}$', 
-                    'FA-FIXED-LDR-NN':'$\mathtt{NN-ARF(fixed)}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF(learn^{10})}$',
+                    'FA-FIXED-LR':'$\mathtt{LR-RF-fixed}$',
+                    'FA-FIXED-LDR-LR':'$\mathtt{LR-ARF-fixed}$',
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF-learn^{10}}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF-learn^{1}}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF-learn^{5}}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF-learn^{2}}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF-learn^{20}}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{LR-RF-learn^{10}}$', 
+                    'FA-FIXED-NN':'$\mathtt{NN-RF-fixed}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{NN-RF-learn^{10}}$', 
+                    'FA-FIXED-LDR-NN':'$\mathtt{NN-ARF-fixed}$', 
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF-learn^{10}}$',
                     'NN':'$\mathtt{NN-Imp}$'}
 
 
 models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
-                    'FA-FIXED-LR':'$\mathtt{RF(fixed)}$',
-                    'FA-FIXED-LDR-LR':'$\mathtt{ARF(fixed)}$',
-                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARF(learn^{10})}$', 
-                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARF(learn^{1})}$', 
-                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARF(learn^{5})}$', 
-                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARF(learn^{2})}$', 
-                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARF(learn^{20})}$', 
-                    'FA-LEARN-LR-10':'$\mathtt{RF(learn^{10})}$', 
-                    'FA-FIXED-NN':'$\mathtt{RF(fixed)}$', 
-                    'FA-LEARN-NN-10':'$\mathtt{RF(learn^{10})}$', 
-                    'FA-FIXED-LDR-NN':'$\mathtt{ARF(fixed)}$', 
-                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn^{10})}$',
+                    'FA-FIXED-LR':'$\mathtt{RF-fixed}$',
+                    'FA-FIXED-LDR-LR':'$\mathtt{ARF-fixed}$',
+                    'FA-LEARN-LDR-LR-10':'$\mathtt{ARF-learn^{10}}$', 
+                    'FA-LEARN-LDR-LR-1':'$\mathtt{ARF-learn^{1}}$', 
+                    'FA-LEARN-LDR-LR-5':'$\mathtt{ARF-learn^{5}}$', 
+                    'FA-LEARN-LDR-LR-2':'$\mathtt{ARF-learn^{2}}$', 
+                    'FA-LEARN-LDR-LR-20':'$\mathtt{ARF-learn^{20}}$', 
+                    'FA-LEARN-LR-10':'$\mathtt{RF-learn^{10}}$', 
+                    'FA-FIXED-NN':'$\mathtt{RF-fixed}$', 
+                    'FA-LEARN-NN-10':'$\mathtt{RF-learn^{10}}$', 
+                    'FA-FIXED-LDR-NN':'$\mathtt{ARF-fixed}$', 
+                    'FA-LEARN-LDR-NN-10':'$\mathtt{ARF-learn^{10}}$',
                     'NN':'$\mathtt{Imp}$'}
-
-marker_dict = {
-    "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
-    "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
-    "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-    "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
-    "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'},
-    "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
-    "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
-    "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-    "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
-    "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'}}
 
 #%% Load data at turbine level, aggregate to park level
 config = params()
@@ -93,7 +136,7 @@ config = params()
 freq = '15min'
 nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
-config['save'] = False
+config['save'] = True
 
 #%% Missing Data Completely at Random (MCAR)
 
@@ -125,7 +168,7 @@ print((all_rmse.groupby(['P_0_1', 'P_1_0', 'num_series', 'steps']).mean())[LR_mo
 p_0_1_list = [0.05, 0.1, 0.2]
 p_1_0_list = [1, 0.2, 0.1]
 step_list = [1, 4, 8, 16]
-base_model = 'LR'
+base_model = 'NN'
 delta_step = 0.2
 markersize = 4.5
 fontsize = 7
@@ -401,8 +444,10 @@ xval = -WC_gap
 
 text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'black', alpha=0.5)
 
-plt.plot(xval, yval, marker = 'o', 
-         color = 'black', markerfacecolor = 'white', markeredgewidth = 1, label = '$\mathtt{ARF(learn)^{10}}$', 
+# plt.plot(xval, yval, marker = 'o', color = 'black', markerfacecolor = 'white', markeredgewidth = 1, label = '$\mathtt{ARF(learn)^{10}}$', 
+#          linestyle='-')
+
+plt.plot(xval, yval, marker = 'o', color = 'black', markerfacecolor = 'white', markeredgewidth = 1, label = '$\mathtt{ARF-learn^{10}}$', 
          linestyle='-')
 
 # Text to indicate forecasting model for each subplot
@@ -421,7 +466,8 @@ fig.tight_layout()  # otherwise the right y-label is slightly clipped
 if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
-ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF(learn)}^{Q}$', linewidth = 1)
+# ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF(learn)}^{Q}$', linewidth = 1)
+ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF-learn}^{Q}$', linewidth = 1)
 
 ax1.tick_params(axis='y')
 ax1.set_xticks(range(5), [1, 2, 5, 10, 20])
