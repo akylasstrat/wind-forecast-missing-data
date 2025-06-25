@@ -254,12 +254,11 @@ if config['save']:
                 bbox_extra_artists=(lgd,ysuplabel,xsuplabel), bbox_inches='tight')
 plt.show()
 
-#%% Show a subset of methods for presentations// ESIG
+#%% Show a subset of methods for presentations// ESIG webinar
 
 temp_marker_dict = {
     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1.25, 'label':'$\mathtt{Imp}$'},
     "FA-LEARN-LDR-LR-10": {"marker": "o","color": "tab:blue","markerfacecolor": "none",'markeredgewidth':1.25, 'label':'$\mathtt{ARF(learn^{10})}$'},}
-
 
 # Select parameters for subplots
 p_0_1_list = [0.05, 0.1, 0.2]
@@ -347,7 +346,6 @@ if config['save']:
 plt.show()
 
 #%% Sensitivity to number of subsets Q// connected scatterplot (does not appear in the paper)
-# load results
 
 all_rmse = []
 steps_ = [1, 4, 8, 16]
@@ -523,85 +521,81 @@ print(f'Feature with highest positive weight: {largest_pos_ind}')
 
 n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
 
-### Coefficients
-fig, axes = plt.subplots(constrained_layout = True, nrows = 1, sharex = True, 
-                         sharey = False, figsize = (3.5, 1.75))
-
-
+### w_opt vs D (not included in the paper)
 w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
 D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,target_model.feature[target_node]]
 
+#!!!!! Note, D_[i,:] represents the linear correction terms when the i-th feature is missing// the formulation has the transpose
+
 plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
 time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
 
-fig, axes = plt.subplots(constrained_layout = True, ncols = 2, sharex = False, 
-                         sharey = True, figsize = (3.5, 3))
+# fig, axes = plt.subplots(constrained_layout = True, ncols = 2, sharex = False, 
+#                          sharey = True, figsize = (3.5, 3))
 
-current_ax = axes[0]
-plt.sca(current_ax)
+# current_ax = axes[0]
+# plt.sca(current_ax)
 
-height_ = 0.61
-delta_step = 0.3
-for i in range(0, 24, 3):
-    t_i = np.arange(i, i+3)
-    plt.barh( t_i[0] + delta_step, w_opt[t_i[0]], height = height_, color = 'black')
-    plt.barh( t_i[1], w_opt[t_i[1]], height =height_, color = 'black')
-    plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
+# height_ = 0.61
+# delta_step = 0.3
+# for i in range(0, 24, 3):
+#     t_i = np.arange(i, i+3)
+#     plt.barh( t_i[0] + delta_step, w_opt[t_i[0]], height = height_, color = 'black')
+#     plt.barh( t_i[1], w_opt[t_i[1]], height =height_, color = 'black')
+#     plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
 
-plt.barh(24, w_opt[-1], height = height_, color = 'black')
+# plt.barh(24, w_opt[-1], height = height_, color = 'black')
 
-# Marker to show selected feature
-plt.scatter(1.1*w_opt[target_model.feature[target_node]], target_model.feature[target_node] + delta_step, color = 'black', 
-            marker = '*')
+# # Marker to show selected feature
+# plt.scatter(1.1*w_opt[target_model.feature[target_node]], target_model.feature[target_node] + delta_step, color = 'black', 
+#             marker = '*')
 
-# plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
-plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}$')
-plt.xlabel('Magnitude')
+# # plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
+# plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}$')
+# plt.xlabel('Magnitude')
 
-current_ax = axes[1]
-plt.sca(current_ax)
+# current_ax = axes[1]
+# plt.sca(current_ax)
 
-for i in range(0, 24, 3):
-    t_i = np.arange(i, i+3)
+# for i in range(0, 24, 3):
+#     t_i = np.arange(i, i+3)
 
-    plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
-    plt.barh( t_i[1],  D_wc_row[t_i[1]], height = height_, color = 'black')
-    plt.barh( t_i[2] - delta_step,  D_wc_row[t_i[2]], height = height_, color = 'black')
+#     plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
+#     plt.barh( t_i[1],  D_wc_row[t_i[1]], height = height_, color = 'black')
+#     plt.barh( t_i[2] - delta_step,  D_wc_row[t_i[2]], height = height_, color = 'black')
 
-plt.barh(24, D[-1,target_model.feature[target_node]], height = height_, color = 'black')
+# plt.barh(24, D[-1,target_model.feature[target_node]], height = height_, color = 'black')
 
-index = target_model.feature[target_node]
-plt.title(fr'\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+# index = target_model.feature[target_node]
+# plt.title(fr'\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+# plt.xlabel('Magnitude')
 
-plt.xlabel('Magnitude')
+# text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
+#                   alpha=0.25)
+# arrow_props = dict(arrowstyle="->", linewidth=0.7)
 
-text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
-                  alpha=0.25)
-arrow_props = dict(arrowstyle="->", linewidth=0.7)
+# axes[0].annotate('$t$', xy=(0.0, 21.25), xytext=(0.75, 20),
+#             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
 
-axes[0].annotate('$t$', xy=(0.0, 21.25), xytext=(0.75, 20),
-            arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+# axes[0].annotate('$t-1$', xy=(0.1, 22), xytext=(0.75, 21.75),
+#             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
 
-axes[0].annotate('$t-1$', xy=(0.1, 22), xytext=(0.75, 21.75),
-            arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+# axes[0].annotate('$t-2$', xy=(0.0, 22.75), xytext=(0.75, 23.75),
+#             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
 
-axes[0].annotate('$t-2$', xy=(0.0, 22.75), xytext=(0.75, 23.75),
-            arrowprops=arrow_props, bbox=text_props, fontsize = 5)
+# plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
+# plt.show()
 
-plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
-plt.show()
-
-# Heatmap of linear correction terms
+#%% Figure 6: Heatmap of linear correction terms
 feat_names = plant_list + ['Weather']
 
 ### Plot w_opt for two subsets (Fig. 4)
 fig, ax = plt.subplots(constrained_layout = True, ncols = 1, nrows = 1, figsize = (3.5, 2.25))
 
 # Create Heatmap
-
-cax = ax.imshow(D.T[::-1], aspect='auto', cmap='cividis', interpolation='nearest')
+cax = ax.imshow(D[::-1], aspect='auto', cmap='cividis', interpolation='nearest')
 
 # Colorbar
 cbar = fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
@@ -627,12 +621,12 @@ if config['save']:
             bbox_inches='tight')
 plt.show()
 
-#%% Checking partitions across horizons
+#%% Figure 4: Optimistic weights for first two splits, checking partitions across horizons
 
 all_rmse = []
 steps_ = [1]
 min_lag = 1
-target_node = 1
+target_node = 0
 
 # with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
 
@@ -653,52 +647,50 @@ target_lr_model = FA_LEARN_LR_models_dict[10]
 
 fixed_model = FA_FIXED_LDR_LR_model
 
-leaf_ind = np.where(np.array(target_ldr_lr_model.feature)==-1)
-parent_node = target_model.parent_node[target_node]
+# leaf_ind = np.where(np.array(target_ldr_lr_model.feature)==-1)
+# parent_node = target_model.parent_node[target_node]
         
-#%%
-print(f'Forecast horizon: {min_lag}')
-print(f'Target node: {target_node}')
-print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
-print(f'Parent node: {parent_node}')
-print(f'Feature selected for split: {target_model.feature[target_node]}')
+# print(f'Forecast horizon: {min_lag}')
+# print(f'Target node: {target_node}')
+# print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+# print(f'Parent node: {parent_node}')
+# print(f'Feature selected for split: {target_model.feature[target_node]}')
 
-largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
-largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+# largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
+# largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
 
-print(f'Feature with highest absolute weight: {largest_magn_ind}')
-print(f'Feature with highest positive weight: {largest_pos_ind}')
+# print(f'Feature with highest absolute weight: {largest_magn_ind}')
+# print(f'Feature with highest positive weight: {largest_pos_ind}')
 
-n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
+# n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
 
-### Plotting adversarial losses
-plt.plot(np.array(target_lr_model.Loss_gap_perc), '-o', label = 'RF')
-plt.plot(np.array(target_ldr_lr_model.Loss_gap_perc), '-o', label = 'ARF')
-plt.legend()
-plt.title('Loss_gap_percentage')
-plt.show()
+# ### Plotting adversarial losses
+# plt.plot(np.array(target_lr_model.Loss_gap_perc), '-o', label = 'RF')
+# plt.plot(np.array(target_ldr_lr_model.Loss_gap_perc), '-o', label = 'ARF')
+# plt.legend()
+# plt.title('Loss_gap_percentage')
+# plt.show()
 
-### Plotting adversarial losses
-plt.plot(np.array(target_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'RF')
-plt.plot(np.array(target_ldr_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'ARF')
-plt.legend()
-plt.title('UB, leaf indices')
-plt.show()
+# ### Plotting adversarial losses
+# plt.plot(np.array(target_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'RF')
+# plt.plot(np.array(target_ldr_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'ARF')
+# plt.legend()
+# plt.title('UB, leaf indices')
+# plt.show()
 
-#%%
-plt.plot(np.sort(FA_LEARN_LR_models_dict[10].UB_Loss), label = 'RF')
-plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].UB_Loss), label = 'ARF')
-plt.legend()
-plt.title('Upper Bound')
-plt.show()
+# plt.plot(np.sort(FA_LEARN_LR_models_dict[10].UB_Loss), label = 'RF')
+# plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].UB_Loss), label = 'ARF')
+# plt.legend()
+# plt.title('Upper Bound')
+# plt.show()
 
-plt.plot(np.sort(FA_LEARN_LR_models_dict[10].LB_Loss), label = 'RF')
-plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].LB_Loss), label = 'ARF')
-plt.legend()
-plt.title('Lower Bound')
-plt.show()
+# plt.plot(np.sort(FA_LEARN_LR_models_dict[10].LB_Loss), label = 'RF')
+# plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].LB_Loss), label = 'ARF')
+# plt.legend()
+# plt.title('Lower Bound')
+# plt.show()
 
-#%% Feature weight grid plots
+####### Figure 4: Optimistic weights for first two splits
 
 target_model = FA_LEARN_LDR_LR_models_dict[10]
 
@@ -779,14 +771,117 @@ if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_opt_barplot_nodes.png')
 plt.show()
 
-#%% Heatmap with optimistic weights across final partition 
+#%%
+######### Fig. 7
+### For a given subset, plot w_adv for ARF RF model
+### Plot w_opt for two subsets
+
+plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
+             'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
+feat_names = plant_list + ['Weather', 'Bias']
+
+min_lag = [1]
+horizon_model_dict = {}
+weight_mat_dict = {}
+
+n_rows, n_cols = 4, 1
+fig_width = 3.5
+fig_height = 2.1*(n_rows / n_cols)  # Preserve aspect ratio
+# fig_height = 3.5
+
+# Titles
+h_values = [1, 4, 8, 16]
+
+weights_flattened = []
+# Find weight matrices per horizon
+for m in min_lag:
+    with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{m}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
+        FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
+
+target_ARF_model = FA_LEARN_LDR_LR_models_dict[10]
+target_RF_model = FA_LEARN_LR_models_dict[10]
+
+target_node = 0
+
+fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex = False, 
+                         sharey = True, figsize = (3.5, 2.25))
+
+height_ = 0.61
+delta_step = 0.3
+
+text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
+                  alpha=0.25)
+arrow_props = dict(arrowstyle="->", linewidth=0.7)
+
+# Tree parameters
+index = target_ARF_model.feature[target_node]
+
+leaf_ind = np.where(np.array(target_ARF_model.feature)==-1)
+split_feat = target_ARF_model.feature[target_node]
+print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
+print(f'Feature selected for split: {target_model.feature[target_node]}')
+
+n_feat = len(target_ARF_model.target_features[0]) + len(target_ARF_model.fixed_features[0])
+
+## RF model
+RF_w_adv = target_RF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+RF_bias_adv = target_RF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
+
+current_ax = axes[0]
+plt.sca(current_ax)
+for i in range(0, 24, 3):
+    t_i = np.arange(i, i+3)
+    plt.barh( t_i[0] + delta_step, RF_w_adv[t_i[0]], height = height_, color = 'black')
+    plt.barh( t_i[1], RF_w_adv[t_i[1]], height =height_, color = 'black')
+    plt.barh( t_i[2] - delta_step, RF_w_adv[t_i[2]], height = height_, color = 'black')
+plt.barh(25, RF_w_adv[-1], height = height_, color = 'black')
+plt.barh(28, RF_bias_adv, height = height_, color = 'black')
+
+plt.title(fr'$\mathtt{{RF}}: \mathbf{{w}}^{{\text{{adv}}}}$')
+plt.xlabel('Magnitude')
+plt.xlim([-1.1,1.5])
+
+## RF model
+ARF_w_adv = target_ARF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
+ARF_bias_adv = target_ARF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
+D = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().numpy()
+D_wc_row = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,index]
+
+# Fix alpha adversarial with 0 everywhere and 1 at split feature
+alpha_adv = np.zeros(ARF_w_adv.shape)
+alpha_adv[split_feat] = 1
+w_adv_corrected = (1-alpha_adv)*ARF_w_adv + alpha_adv*D_wc_row
+
+current_ax = axes[1]
+plt.sca(current_ax)
+
+for i in range(0, 24, 3):
+    t_i = np.arange(i, i+3)
+    plt.barh( t_i[0] + delta_step, w_adv_corrected[t_i[0]], height = height_, color = 'black')
+    plt.barh( t_i[1], w_adv_corrected[t_i[1]], height =height_, color = 'black')
+    plt.barh( t_i[2] - delta_step, w_adv_corrected[t_i[2]], height = height_, color = 'black')
+    
+plt.barh(25, w_adv_corrected[-1], height = height_, color = 'black')
+plt.barh(28, ARF_bias_adv, height = height_, color = 'black')
+
+# plt.title(fr'$\mathtt{{ARF}}: \mathbf{{w}}^{{\text{{adv}}}} + \mathbf{{\alpha}}^{{\text{{adv}}^{{\top}} }} \mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
+plt.title(fr'$\mathtt{{ARF}}: \mathbf{{w}}^{{\text{{adv}}}} + \mathbf{{D}}^{{\text{{adv}}}}_{{[:,{index}]}}$')
+plt.xlabel('Magnitude')
+plt.xlim([-1.1,1.5])
+        
+plt.yticks(list(range(1,25,3))+[25, 28], plant_list + ['Weather', 'Bias'])
+
+if config['save']:
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.pdf')
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.png')
+plt.show()
+
+#%%%%% Heatmaps with optimistic weights across final partition 
 
 all_rmse = []
 steps_ = [1]
 min_lag = 1
 target_node = 1
-
-# with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
@@ -864,7 +959,7 @@ if config['save']:
             bbox_inches='tight')
 plt.show()
 
-#%% Heatmap with all the horizons
+
 
 plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
              'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
@@ -912,7 +1007,6 @@ for m in min_lag:
     
 weights_flattened = np.array(weights_flattened)
 
-#%%
 # Create figure and axes
 fig, axes = plt.subplots(n_rows, n_cols, constrained_layout = True, 
                          figsize=(fig_width, fig_height), sharex=False, sharey=True)
@@ -986,85 +1080,4 @@ cbar.set_label("Magnitude", fontsize=7)
 if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_heatmap_all_horizons.pdf', 
             bbox_inches='tight')
-plt.show()
-
-
-#%% Fig. 5
-### For a given subset, plot w_adv for ARF RF model
-### Plot w_opt for two subsets
-
-target_ARF_model = FA_LEARN_LDR_LR_models_dict[10]
-target_RF_model = FA_LEARN_LR_models_dict[10]
-
-
-fig, axes = plt.subplots(constrained_layout = True, ncols = 2, nrows = 1, sharex = False, 
-                         sharey = True, figsize = (3.5, 2.25))
-
-height_ = 0.61
-delta_step = 0.3
-target_node = 1
-text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
-                  alpha=0.25)
-arrow_props = dict(arrowstyle="->", linewidth=0.7)
-
-# Tree parameters
-index = target_ARF_model.feature[target_node]
-
-leaf_ind = np.where(np.array(target_ARF_model.feature)==-1)
-split_feat = target_ARF_model.feature[target_node]
-print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
-print(f'Feature selected for split: {target_model.feature[target_node]}')
-
-n_feat = len(target_ARF_model.target_features[0]) + len(target_ARF_model.fixed_features[0])
-
-## RF model
-RF_w_adv = target_RF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
-RF_bias_adv = target_RF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
-
-current_ax = axes[1]
-plt.sca(current_ax)
-for i in range(0, 24, 3):
-    t_i = np.arange(i, i+3)
-    plt.barh( t_i[0] + delta_step, RF_w_adv[t_i[0]], height = height_, color = 'black')
-    plt.barh( t_i[1], RF_w_adv[t_i[1]], height =height_, color = 'black')
-    plt.barh( t_i[2] - delta_step, RF_w_adv[t_i[2]], height = height_, color = 'black')
-plt.barh(25, RF_w_adv[-1], height = height_, color = 'black')
-plt.barh(28, RF_bias_adv, height = height_, color = 'black')
-
-plt.title(fr'$\mathtt{{RF}}: \mathbf{{w}}^{{\text{{adv}}}}$')
-plt.xlabel('Magnitude')
-plt.xlim([-1.1,1.5])
-
-## RF model
-ARF_w_adv = target_ARF_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
-ARF_bias_adv = target_ARF_model.wc_node_model_[target_node].model[0].bias.detach().numpy().reshape(-1)
-D = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().numpy()
-D_wc_row = target_ARF_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,index]
-
-# Fix alpha adversarial with 0 everywhere and 1 at split feature
-alpha_adv = np.zeros(ARF_w_adv.shape)
-alpha_adv[split_feat] = 1
-w_adv_corrected = (1-alpha_adv)*ARF_w_adv + alpha_adv*D_wc_row
-
-current_ax = axes[0]
-plt.sca(current_ax)
-
-for i in range(0, 24, 3):
-    t_i = np.arange(i, i+3)
-    plt.barh( t_i[0] + delta_step, w_adv_corrected[t_i[0]], height = height_, color = 'black')
-    plt.barh( t_i[1], w_adv_corrected[t_i[1]], height =height_, color = 'black')
-    plt.barh( t_i[2] - delta_step, w_adv_corrected[t_i[2]], height = height_, color = 'black')
-    
-plt.barh(25, w_adv_corrected[-1], height = height_, color = 'black')
-plt.barh(28, ARF_bias_adv, height = height_, color = 'black')
-
-plt.title(fr'$\mathtt{{ARF}}: \mathbf{{w}}^{{\text{{adv}}}} + \mathbf{{\alpha}}^{{\text{{adv}}^{{\top}} }} \mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
-plt.xlabel('Magnitude')
-plt.xlim([-1.1,1.5])
-        
-plt.yticks(list(range(1,25,3))+[25, 28], plant_list + ['Weather', 'Bias'])
-
-if config['save']:
-    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.pdf')
-    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_weight_adv_barplot.png')
 plt.show()
