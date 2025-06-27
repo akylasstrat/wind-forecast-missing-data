@@ -38,49 +38,6 @@ def params():
     
     return params
 
-# models_to_labels = {'LR':'$\mathtt{LR-Imp}$', 
-#                     'FA-FIXED-LR':'$\mathtt{LR-RF(fixed)}$',
-#                     'FA-FIXED-LDR-LR':'$\mathtt{LR-ARF(fixed)}$',
-#                     'FA-LEARN-LDR-LR-10':'$\mathtt{LR-ARF(learn^{10})}$', 
-#                     'FA-LEARN-LDR-LR-1':'$\mathtt{LR-ARF(learn^{1})}$', 
-#                     'FA-LEARN-LDR-LR-5':'$\mathtt{LR-ARF(learn^{5})}$', 
-#                     'FA-LEARN-LDR-LR-2':'$\mathtt{LR-ARF(learn^{2})}$', 
-#                     'FA-LEARN-LDR-LR-20':'$\mathtt{LR-ARF(learn^{20})}$', 
-#                     'FA-LEARN-LR-10':'$\mathtt{LR-RF(learn^{10})}$', 
-#                     'FA-FIXED-NN':'$\mathtt{NN-RF(fixed)}$', 
-#                     'FA-LEARN-NN-10':'$\mathtt{NN-RF(learn^{10})}$', 
-#                     'FA-FIXED-LDR-NN':'$\mathtt{NN-ARF(fixed)}$', 
-#                     'FA-LEARN-LDR-NN-10':'$\mathtt{NN-ARF(learn^{10})}$',
-#                     'NN':'$\mathtt{NN-Imp}$'}
-
-
-# models_to_common_labels = {'LR':'$\mathtt{Imp}$', 
-#                     'FA-FIXED-LR':'$\mathtt{RF(fixed)}$',
-#                     'FA-FIXED-LDR-LR':'$\mathtt{ARF(fixed)}$',
-#                     'FA-LEARN-LDR-LR-10':'$\mathtt{ARF(learn^{10})}$', 
-#                     'FA-LEARN-LDR-LR-1':'$\mathtt{ARF(learn^{1})}$', 
-#                     'FA-LEARN-LDR-LR-5':'$\mathtt{ARF(learn^{5})}$', 
-#                     'FA-LEARN-LDR-LR-2':'$\mathtt{ARF(learn^{2})}$', 
-#                     'FA-LEARN-LDR-LR-20':'$\mathtt{ARF(learn^{20})}$', 
-#                     'FA-LEARN-LR-10':'$\mathtt{RF(learn^{10})}$', 
-#                     'FA-FIXED-NN':'$\mathtt{RF(fixed)}$', 
-#                     'FA-LEARN-NN-10':'$\mathtt{RF(learn^{10})}$', 
-#                     'FA-FIXED-LDR-NN':'$\mathtt{ARF(fixed)}$', 
-#                     'FA-LEARN-LDR-NN-10':'$\mathtt{ARF(learn^{10})}$',
-#                     'NN':'$\mathtt{Imp}$'}
-
-# marker_dict = {
-#     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
-#     "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
-#     "FA-FIXED-LDR-LR": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-#     "FA-LEARN-LR-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
-#     "FA-LEARN-LDR-LR-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'},
-#     "NN": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
-#     "FA-FIXED-NN": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF(fixed)}$'},
-#     "FA-FIXED-LDR-NN": {"marker": "o","color": "black","markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{ARF(fixed)}$'},
-#     "FA-LEARN-NN-10": {"marker": "s", "color": "black", "markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{RF(learn^{10})}$'},
-#     "FA-LEARN-LDR-NN-10": {"marker": "o","color": "black","markerfacecolor": "none",'markeredgewidth':1, 'label':'$\mathtt{ARF(learn^{10})}$'}}
-
 marker_dict = {
     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1, 'label':'$\mathtt{Imp}$'},
     "FA-FIXED-LR": {"marker": "s", "color": "black", "markerfacecolor": "black",'markeredgewidth':1, 'label':'$\mathtt{RF-fixed}$'},
@@ -124,23 +81,13 @@ models_to_common_labels = {'LR':'$\mathtt{Imp}$',
                     'FA-LEARN-LDR-NN-10':'$\mathtt{ARF-learn^{10}}$',
                     'NN':'$\mathtt{Imp}$'}
 
-#%% Load data at turbine level, aggregate to park level
+#%% Load data results for all forecast horizons// Missing Data Completely at Random (MCAR)
 config = params()
 
-# min_lag: last known value, which defines the lookahead horizon (min_lag == 2, 1-hour ahead predictions)
-# max_lag: number of historical observations to include
-# weather_all_steps = True
-# horizon = 1
-# min_lag = horizon
-
 freq = '15min'
-nyiso_plants = ['Dutch Hill - Cohocton', 'Marsh Hill', 'Howard', 'Noble Clinton']
 target_park = 'Noble Clinton'
 config['save'] = True
 
-#%% Missing Data Completely at Random (MCAR)
-
-### Load data for all forecast horizons
 all_rmse = []
 steps_ = [1, 4, 8, 16]  # Forecast horizon
 dataset = 'updated' # Do not change
@@ -162,7 +109,7 @@ NN_models_to_plot = ['NN', 'FA-FIXED-NN', 'FA-FIXED-LDR-NN', 'FA-LEARN-NN-10', '
 (all_rmse.groupby(['P_0_1', 'P_1_0', 'num_series', 'steps']).mean())[LR_models_to_plot + NN_models_to_plot].to_clipboard()
 print((all_rmse.groupby(['P_0_1', 'P_1_0', 'num_series', 'steps']).mean())[LR_models_to_plot + NN_models_to_plot])
 
-#%% RMSE vs probabilities, grid with subplots (Figure 3)
+#%% Figure 3: RMSE vs probabilities, grid with subplots
 
 # Select parameters for subplots
 p_0_1_list = [0.05, 0.1, 0.2]
@@ -214,11 +161,7 @@ for cnt, (p_1_0, p_0_1) in enumerate(full_experiment_list):
         y_val = 100*temp_df.groupby(['steps'])[m].mean()
         # y_err = 100*temp_df.groupby(['steps'])[m].std()
         x_val = np.arange(len(step_list))+k*delta_step
-        
-        # plt.errorbar(x_val, y_val_horizon[m].values, 
-        #              yerr=y_err, 
-        #              linestyle = '', **marker_dict[m], markersize = markersize)
-        
+                
         plt.plot(x_val, y_val_horizon[m].values, 
                  linestyle = '', **marker_dict[m], markersize = markersize)
         
@@ -241,9 +184,6 @@ plt.ylim([1.5, 20.5])
 
 label_list = [rf'$\mathtt{{{base_model}}}-$' + l for l in labels[:len(models_to_plot)]] + [rf'$\mathtt{{{base_model}}}$ (no missing data)']
 
-# lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 3, loc = (1, .8), 
-#                  bbox_to_anchor=(0.25, -0.1))
-
 lgd = fig.legend(lines[:len(models_to_plot)+1], label_list, fontsize=fontsize, ncol = 1, loc = (1, .8), 
                  bbox_to_anchor=(1, 0.58), labelspacing = 1.1)
 
@@ -254,7 +194,7 @@ if config['save']:
                 bbox_extra_artists=(lgd,ysuplabel,xsuplabel), bbox_inches='tight')
 plt.show()
 
-#%% Show a subset of methods for presentations// ESIG webinar
+#%% Same plot, subset of methods, Figure used for presentations
 
 temp_marker_dict = {
     "LR": {"marker": "x", "color": "black", 'markeredgewidth':1.25, 'label':'$\mathtt{Imp}$'},
@@ -442,9 +382,6 @@ xval = -WC_gap
 
 text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'black', alpha=0.5)
 
-# plt.plot(xval, yval, marker = 'o', color = 'black', markerfacecolor = 'white', markeredgewidth = 1, label = '$\mathtt{ARF(learn)^{10}}$', 
-#          linestyle='-')
-
 plt.plot(xval, yval, marker = 'o', color = 'black', markerfacecolor = 'white', markeredgewidth = 1, label = '$\mathtt{ARF-learn^{10}}$', 
          linestyle='-')
 
@@ -464,7 +401,6 @@ fig.tight_layout()  # otherwise the right y-label is slightly clipped
 if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
-# ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF(learn)}^{Q}$', linewidth = 1)
 ax1.plot(100*temp_df.mean()[models_to_plot[2:]].values, color='tab:green', marker = '8', label = '$\mathtt{LR-ARF-learn}^{Q}$', linewidth = 1)
 
 ax1.tick_params(axis='y')
@@ -486,7 +422,7 @@ if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_steps_LS_sensitivity_weather.pdf',  bbox_extra_artists=(lgd,), bbox_inches='tight')
 plt.show()
 
-#%% Illustrating Partions/ Figures. 4 & 5
+#%%%%%% Figures showing weights and partitions
 
 all_rmse = []
 steps_ = [1]
@@ -526,76 +462,25 @@ w_opt = target_model.node_model_[target_node].model[0].weight.detach().numpy().r
 w_adv = target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().reshape(-1)
 D = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()
 D_wc_row = target_model.wc_node_model_[target_node].model[0].W.detach().numpy()[:,target_model.feature[target_node]]
-
 #!!!!! Note, D_[i,:] represents the linear correction terms when the i-th feature is missing// the formulation has the transpose
 
 plant_list = [f'Plant {i+1}' for i in range(8)]  # X-axis (Farms)
 time_lags = ['t', 't-1', 't-2']  # Y-axis (Lags)
 
-# fig, axes = plt.subplots(constrained_layout = True, ncols = 2, sharex = False, 
-#                          sharey = True, figsize = (3.5, 3))
-
-# current_ax = axes[0]
-# plt.sca(current_ax)
-
-# height_ = 0.61
-# delta_step = 0.3
-# for i in range(0, 24, 3):
-#     t_i = np.arange(i, i+3)
-#     plt.barh( t_i[0] + delta_step, w_opt[t_i[0]], height = height_, color = 'black')
-#     plt.barh( t_i[1], w_opt[t_i[1]], height =height_, color = 'black')
-#     plt.barh( t_i[2] - delta_step, w_opt[t_i[2]], height = height_, color = 'black')
-
-# plt.barh(24, w_opt[-1], height = height_, color = 'black')
-
-# # Marker to show selected feature
-# plt.scatter(1.1*w_opt[target_model.feature[target_node]], target_model.feature[target_node] + delta_step, color = 'black', 
-#             marker = '*')
-
-# # plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}_{{{target_node}}}$')
-# plt.title(fr'$\mathbf{{w}}^{{\text{{opt}}}}$')
-# plt.xlabel('Magnitude')
-
-# current_ax = axes[1]
-# plt.sca(current_ax)
-
-# for i in range(0, 24, 3):
-#     t_i = np.arange(i, i+3)
-
-#     plt.barh( t_i[0] + delta_step, D_wc_row[t_i[0]], height = height_, color = 'black')
-#     plt.barh( t_i[1],  D_wc_row[t_i[1]], height = height_, color = 'black')
-#     plt.barh( t_i[2] - delta_step,  D_wc_row[t_i[2]], height = height_, color = 'black')
-
-# plt.barh(24, D[-1,target_model.feature[target_node]], height = height_, color = 'black')
-
-# index = target_model.feature[target_node]
-# plt.title(fr'\mathbf{{D}}^{{\text{{adv}}}}_{{[{index},:]}}$')
-# plt.xlabel('Magnitude')
-
-# text_props = dict(boxstyle='square', facecolor='white', edgecolor = 'white', 
-#                   alpha=0.25)
-# arrow_props = dict(arrowstyle="->", linewidth=0.7)
-
-# axes[0].annotate('$t$', xy=(0.0, 21.25), xytext=(0.75, 20),
-#             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
-
-# axes[0].annotate('$t-1$', xy=(0.1, 22), xytext=(0.75, 21.75),
-#             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
-
-# axes[0].annotate('$t-2$', xy=(0.0, 22.75), xytext=(0.75, 23.75),
-#             arrowprops=arrow_props, bbox=text_props, fontsize = 5)
-
-# plt.yticks(list(range(1,25,3))+[24], plant_list + ['Weather'])
-# plt.show()
-
-#%% Figure 6: Heatmap of linear correction terms
+##### Figure 6: Linear correction terms, Heatmap
 feat_names = plant_list + ['Weather']
 
 ### Plot w_opt for two subsets (Fig. 4)
 fig, ax = plt.subplots(constrained_layout = True, ncols = 1, nrows = 1, figsize = (3.5, 2.25))
 
 # Create Heatmap
-cax = ax.imshow(D[::-1], aspect='auto', cmap='cividis', interpolation='nearest')
+
+vmin = D.min()
+vmax = D.max()
+v_abs_max = np.maximum(np.abs(vmin), np.abs(vmax))
+
+cax = ax.imshow(D[::-1], aspect='auto', cmap='PiYG', interpolation='nearest', 
+                vmin = -v_abs_max, vmax = v_abs_max)
 
 # Colorbar
 cbar = fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
@@ -608,8 +493,6 @@ plant_list.insert(1, r"$\bigstar$")
 # Heatmap of linear correction terms
 feat_names = plant_list + ['Weather']
 
-# y_tick_ind = list(range(1,25,3))+[25, 26]
-# y_tick_ind = [1, 4, 7, 10, 13, 16, 19, 22, 25, 26]
 y_tick_ind = [23, 21,20, 17, 14, 11, 8, 5, 2, 0]
 x_tick_ind = [1, 3, 4, 7, 10, 13, 16, 19, 22, 24]
 
@@ -619,6 +502,9 @@ plt.xticks(x_tick_ind, feat_names, rotation = 45)
 if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_linear_corrections.pdf', 
             bbox_inches='tight')
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_linear_corrections.png', 
+            bbox_inches='tight')
+
 plt.show()
 
 #%% Figure 4: Optimistic weights for first two splits, checking partitions across horizons
@@ -627,8 +513,6 @@ all_rmse = []
 steps_ = [1]
 min_lag = 1
 target_node = 0
-
-# with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
 
 with open(f'{cd}\\trained-models\\NYISO\\new_{freq}_{min_lag}_steps\\{target_park}_FA_LEARN_LDR_LR_models_dict_weather.pickle', 'rb') as handle:
     FA_LEARN_LDR_LR_models_dict = pickle.load(handle)           
@@ -646,49 +530,6 @@ target_ldr_lr_model = FA_LEARN_LDR_LR_models_dict[10]
 target_lr_model = FA_LEARN_LR_models_dict[10]
 
 fixed_model = FA_FIXED_LDR_LR_model
-
-# leaf_ind = np.where(np.array(target_ldr_lr_model.feature)==-1)
-# parent_node = target_model.parent_node[target_node]
-        
-# print(f'Forecast horizon: {min_lag}')
-# print(f'Target node: {target_node}')
-# print(f'Is the current node a leaf: {target_node in leaf_ind[0]}')
-# print(f'Parent node: {parent_node}')
-# print(f'Feature selected for split: {target_model.feature[target_node]}')
-
-# largest_magn_ind = np.argmax(np.abs(target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
-# largest_pos_ind = np.argmax((target_model.wc_node_model_[target_node].model[0].weight.detach().numpy().T.reshape(-1)))
-
-# print(f'Feature with highest absolute weight: {largest_magn_ind}')
-# print(f'Feature with highest positive weight: {largest_pos_ind}')
-
-# n_feat = len(target_model.target_features[0]) + len(target_model.fixed_features[0])
-
-# ### Plotting adversarial losses
-# plt.plot(np.array(target_lr_model.Loss_gap_perc), '-o', label = 'RF')
-# plt.plot(np.array(target_ldr_lr_model.Loss_gap_perc), '-o', label = 'ARF')
-# plt.legend()
-# plt.title('Loss_gap_percentage')
-# plt.show()
-
-# ### Plotting adversarial losses
-# plt.plot(np.array(target_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'RF')
-# plt.plot(np.array(target_ldr_lr_model.UB_Loss)[list(leaf_ind[0])], '-o', label = 'ARF')
-# plt.legend()
-# plt.title('UB, leaf indices')
-# plt.show()
-
-# plt.plot(np.sort(FA_LEARN_LR_models_dict[10].UB_Loss), label = 'RF')
-# plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].UB_Loss), label = 'ARF')
-# plt.legend()
-# plt.title('Upper Bound')
-# plt.show()
-
-# plt.plot(np.sort(FA_LEARN_LR_models_dict[10].LB_Loss), label = 'RF')
-# plt.plot(np.sort(FA_LEARN_LDR_LR_models_dict[10].LB_Loss), label = 'ARF')
-# plt.legend()
-# plt.title('Lower Bound')
-# plt.show()
 
 ####### Figure 4: Optimistic weights for first two splits
 
@@ -915,10 +756,16 @@ for i, leaf in enumerate(leaf_ind[0]):
 feat_names = plant_list + ['Weather', 'Bias']
 
 ### Plot w_opt for two subsets (Fig. 4)
+# Display heatmaps
+vmin = weight_matrix.min()
+vmax = weight_matrix.max()
+v_abs_max = np.maximum(np.abs(vmin), np.abs(vmax))
+
 fig, ax = plt.subplots(constrained_layout = True, ncols = 1, nrows = 1, figsize = (3.5, 2.25))
 
 # Create Heatmap
-cax = ax.imshow(weight_matrix.T[::-1], aspect='auto', cmap='gray', interpolation='nearest')
+cax = ax.imshow(weight_matrix.T[::-1], aspect='auto', cmap='PiYG', 
+                interpolation='nearest', vmin=-v_abs_max, vmax=v_abs_max)
 
 # Colorbar
 cbar = fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
@@ -957,9 +804,9 @@ ax.set_xticklabels(xtick_labels)
 if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_single.pdf', 
             bbox_inches='tight')
+    plt.savefig(f'{cd}//plots//{freq}_{target_park}_{min_lag}_heatmap_single.png', 
+            bbox_inches='tight')
 plt.show()
-
-
 
 plant_ids = ['Marble River', 'Noble Clinton', 'Noble Ellenburg',
              'Noble Altona', 'Noble Chateaugay', 'Jericho Rise', 'Bull Run II Wind', 'Bull Run Wind']
@@ -1017,6 +864,7 @@ axes = axes.flatten()
 # Display heatmaps
 vmin = min(h.min() for h in weight_mat_dict.values())
 vmax = max(h.max() for h in weight_mat_dict.values())
+v_abs_max = np.maximum(np.abs(vmin), np.abs(vmax))
 
 for i, ax in enumerate(axes):
     
@@ -1024,8 +872,8 @@ for i, ax in enumerate(axes):
     
     plt.sca(axes[i])
     
-    im = ax.imshow(weight_mat_dict[h_values[i]].T[::-1], aspect='auto', cmap='cividis', 
-                   interpolation='nearest', vmin=vmin, vmax=vmax)
+    im = ax.imshow(weight_mat_dict[h_values[i]].T[::-1], aspect='auto', cmap='PiYG', 
+                   interpolation='nearest', vmin=-v_abs_max, vmax=v_abs_max)
     ax.set_title(rf"$h={h_values[i]}$", fontsize = 8)
     ax.tick_params(axis='both')
     
@@ -1054,11 +902,6 @@ for i, ax in enumerate(axes):
         else: 
             plt.plot( len(miss_ind)*[j], 25-miss_ind, '_', markersize = 5, 
                      color='black')
-        
-        # plt.plot( len(fixed_ind)*[j], 25-fixed_ind, 's', markersize = 5, 
-        #          color='black', markerfacecolor='white', markeredgewidth = 1, 
-        #          markeredgecolor = 'black')
-        
 
     y_tick_ind = list(range(1,25,3))+[25, 26]
     y_tick_ind = [1, 4, 7, 10, 13, 16, 19, 22, 25, 26]
@@ -1080,4 +923,6 @@ cbar.set_label("Magnitude", fontsize=7)
 if config['save']:
     plt.savefig(f'{cd}//plots//{freq}_{target_park}_heatmap_all_horizons.pdf', 
             bbox_inches='tight')
+    
 plt.show()
+

@@ -51,7 +51,7 @@ Input/ output data and required packages:
 ```@incollection{nrel2024dataset,
   title={Solar PV, Wind Generation, and Load Forecasting Dataset for 2018 across MISO, NYISO, and SPP Balancing Areas}, author={Bryce, Richard and Feng, Cong and Sergi, Brian and Ring-Jarvi, Ross and Zhang, Wenqi and Hodge, Bri-Mathias}, year={2023}, publisher={Report, National Renewable Energy Laboratory}, doi = {NREL/TP-5D00-83828}, url={https://www.nrel.gov/docs/fy24osti/83828.pdf}}
 ```
-- ```\trained-models```: Stores trained robust models for different forecast horizons.
+- ```\trained-models```: Stores trained robust models for different forecast horizons. The trained models of the paper are provided. 
 - ```\results```: Stores experimental results for different forecast horizons.
 - ```\plots```: Stores plotted figures (includes additional figures that do not appear in the published paper).
 - ```requirements.txt```: Required packages and libraries.
